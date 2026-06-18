@@ -5,8 +5,8 @@
 //! that dynamic supervisor with either permanent or temporary restart behavior
 //! based on `UnitConfig::auto_restart`.
 
-use ractor::{ActorCell, SpawnErr};
 use ractor::concurrency::Duration;
+use ractor::{ActorCell, SpawnErr};
 use ractor_supervisor::{
     ChildSpec, DynamicSupervisor, DynamicSupervisorOptions, Restart, SpawnFn, Supervisor,
     SupervisorArguments, SupervisorOptions, SupervisorStrategy,
@@ -32,7 +32,7 @@ fn unit_supervisor_child() -> ChildSpec {
     ChildSpec {
         id: names::SYSTEM1_UNIT_SUPERVISOR.to_string(),
         restart: Restart::Permanent,
-        spawn_fn: SpawnFn::new(|supervisor_cell, child_id| spawn_unit_supervisor(supervisor_cell, child_id)),
+        spawn_fn: SpawnFn::new(spawn_unit_supervisor),
         backoff_fn: None,
         reset_after: Some(Duration::from_secs(60)),
     }
@@ -49,13 +49,8 @@ async fn spawn_unit_supervisor(
         reset_after: Some(Duration::from_secs(30)),
     };
 
-    let (sup_ref, _join) = DynamicSupervisor::spawn_linked(
-        child_id,
-        DynamicSupervisor,
-        args,
-        supervisor_cell,
-    )
-    .await?;
+    let (sup_ref, _join) =
+        DynamicSupervisor::spawn_linked(child_id, DynamicSupervisor, args, supervisor_cell).await?;
 
     Ok(sup_ref.get_cell())
 }
@@ -64,7 +59,7 @@ fn operations_child() -> ChildSpec {
     ChildSpec {
         id: names::SYSTEM1_OPERATIONS.to_string(),
         restart: Restart::Permanent,
-        spawn_fn: SpawnFn::new(|supervisor_cell, child_id| spawn_operations(supervisor_cell, child_id)),
+        spawn_fn: SpawnFn::new(spawn_operations),
         backoff_fn: None,
         reset_after: Some(Duration::from_secs(60)),
     }
@@ -81,13 +76,8 @@ async fn spawn_operations(
         }),
     };
 
-    let (ops_ref, _join) = Supervisor::spawn_linked(
-        child_id,
-        Operations,
-        args,
-        supervisor_cell,
-    )
-    .await?;
+    let (ops_ref, _join) =
+        Supervisor::spawn_linked(child_id, Operations, args, supervisor_cell).await?;
 
     Ok(ops_ref.get_cell())
 }

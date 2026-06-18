@@ -13,7 +13,16 @@ use crate::names;
 
 pub fn supervisor_args() -> SupervisorArguments {
     SupervisorArguments {
-        child_specs: vec![service_child(names::SYSTEM2_COORDINATION, ServiceKind::System2Coordination, json!({"subsystem":"system2", "role":"coordination"}))],
-        options: SupervisorOptions { strategy: SupervisorStrategy::OneForOne, max_restarts: 5, max_window: Duration::from_secs(10), reset_after: Some(Duration::from_secs(30)) },
+        child_specs: vec![service_child(
+            names::SYSTEM2_COORDINATION,
+            ServiceKind::System2Coordination,
+            json!({"subsystem":"system2", "role":"coordination"}),
+        )],
+        options: SupervisorOptions {
+            strategy: SupervisorStrategy::OneForOne,
+            max_restarts: 5,
+            max_window: Duration::from_secs(10),
+            reset_after: Some(Duration::from_secs(30)),
+        },
     }
 }

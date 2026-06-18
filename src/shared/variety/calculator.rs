@@ -24,7 +24,10 @@ pub fn calculate_variety(data: &Value, method: &str) -> f64 {
         "count" => nums.len() as f64,
         "entropy" => entropy(&nums),
         "variance" => std_dev(&nums),
-        "range" => nums.iter().cloned().fold(f64::NEG_INFINITY, f64::max) - nums.iter().cloned().fold(f64::INFINITY, f64::min),
+        "range" => {
+            nums.iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+                - nums.iter().cloned().fold(f64::INFINITY, f64::min)
+        }
         _ => std_dev(&nums) + nums.len() as f64,
     }
 }
@@ -33,7 +36,20 @@ pub fn analyze_variety(input: &Value, output: &Value) -> VarietyAnalysis {
     let i = calculate_variety(input, "default").max(1.0);
     let o = calculate_variety(output, "default");
     let ratio = o / i;
-    VarietyAnalysis { input_variety: i, output_variety: o, ratio, gap: i - o, recommendation: if ratio < 1.0 { "amplify" } else if ratio > 2.0 { "attenuate" } else { "balanced" }.into() }
+    VarietyAnalysis {
+        input_variety: i,
+        output_variety: o,
+        ratio,
+        gap: i - o,
+        recommendation: if ratio < 1.0 {
+            "amplify"
+        } else if ratio > 2.0 {
+            "attenuate"
+        } else {
+            "balanced"
+        }
+        .into(),
+    }
 }
 
 pub fn compare_variety(a: &Value, b: &Value) -> Value {
@@ -42,11 +58,22 @@ pub fn compare_variety(a: &Value, b: &Value) -> Value {
     json!({"a": va, "b": vb, "difference": va - vb, "ratio": va / vb.max(1.0)})
 }
 
-pub fn calculate_entropy(data: &Value) -> f64 { entropy(&numeric_values(data)) }
+pub fn calculate_entropy(data: &Value) -> f64 {
+    entropy(&numeric_values(data))
+}
 
 fn entropy(nums: &[f64]) -> f64 {
     let sum = nums.iter().map(|v| v.abs()).sum::<f64>().max(1.0);
-    nums.iter().filter(|v| **v != 0.0).map(|v| { let p = v.abs() / sum; -p * p.log2() }).sum()
+    nums.iter()
+        .filter(|v| **v != 0.0)
+        .map(|v| {
+            let p = v.abs() / sum;
+            -p * p.log2()
+        })
+        .sum()
 }
 
-pub fn summarize(data: &Value) -> Value { let vals=numeric_values(data); json!({"count": vals.len(), "mean": mean(&vals), "std_dev": std_dev(&vals), "entropy": entropy(&vals)}) }
+pub fn summarize(data: &Value) -> Value {
+    let vals = numeric_values(data);
+    json!({"count": vals.len(), "mean": mean(&vals), "std_dev": std_dev(&vals), "entropy": entropy(&vals)})
+}

@@ -7,7 +7,7 @@ use vsm_rs::system1::{Transaction, TransactionResult, UnitConfig};
 #[tokio::test]
 #[serial]
 async fn full_vsm_flow_exercises_all_systems() {
-    vsm_rs::start().await.expect("app should start");
+    let app = vsm_rs::start().await.expect("app should start");
     sleep(Duration::from_millis(100)).await;
 
     vsm_rs::system1::register_unit(UnitConfig::new("unit-a", ["alpha", "beta"]))
@@ -42,5 +42,6 @@ async fn full_vsm_flow_exercises_all_systems() {
     let health = vsm_rs::health().await.expect("health should return");
     assert!(health.get("status").is_some());
 
-    vsm_rs::stop().await.expect("stop should succeed");
+    app.supervisor.stop(Some("test complete".to_string()));
+    let _ = app.join_handle.await;
 }

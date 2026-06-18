@@ -12,7 +12,6 @@ use ractor::{Actor, ActorProcessingErr, ActorRef, DerivedActorRef, RpcReplyPort}
 use serde::{Deserialize, Serialize};
 
 use crate::error::{VsmError, VsmResult};
-use crate::prelude::now_json;
 use crate::shared::message::{ChannelKind, VsmMessage};
 
 #[derive(Clone)]
@@ -31,7 +30,12 @@ pub struct ChannelStats {
 }
 
 pub enum ChannelBrokerMsg {
-    Subscribe(ChannelKind, String, DerivedActorRef<VsmActorMsg>, RpcReplyPort<()>),
+    Subscribe(
+        ChannelKind,
+        String,
+        DerivedActorRef<VsmActorMsg>,
+        RpcReplyPort<()>,
+    ),
     Unsubscribe(ChannelKind, String, RpcReplyPort<()>),
     Publish(VsmMessage),
     Broadcast(ChannelKind, VsmMessage),
@@ -56,7 +60,10 @@ impl ChannelBrokerState {
             subscribers.insert(channel, HashMap::new());
             messages.insert(channel, Vec::new());
         }
-        Self { subscribers, messages }
+        Self {
+            subscribers,
+            messages,
+        }
     }
 
     fn retain(&mut self, message: VsmMessage) {
@@ -88,12 +95,24 @@ impl Actor for ChannelBroker {
     ) -> Result<(), ActorProcessingErr> {
         match msg {
             ChannelBrokerMsg::Subscribe(channel, subscriber_id, actor, reply) => {
-                state.subscribers.entry(channel).or_default().insert(subscriber_id, actor);
-                if !reply.is_closed() { let _ = reply.send(()); }
+                state
+                    .subscribers
+                    .entry(channel)
+                    .or_default()
+                    .insert(subscriber_id, actor);
+                if !reply.is_closed() {
+                    let _ = reply.send(());
+                }
             }
             ChannelBrokerMsg::Unsubscribe(channel, subscriber_id, reply) => {
-                state.subscribers.entry(channel).or_default().remove(&subscriber_id);
-                if !reply.is_closed() { let _ = reply.send(()); }
+                state
+                    .subscribers
+                    .entry(channel)
+                    .or_default()
+                    .remove(&subscriber_id);
+                if !reply.is_closed() {
+                    let _ = reply.send(());
+                }
             }
             ChannelBrokerMsg::Publish(message) => {
                 if let Err(err) = validate_for_broker(&message) {
@@ -128,14 +147,20 @@ impl Actor for ChannelBroker {
                     subscribers,
                     active: true,
                 };
-                if !reply.is_closed() { let _ = reply.send(stats); }
+                if !reply.is_closed() {
+                    let _ = reply.send(stats);
+                }
             }
             ChannelBrokerMsg::ListChannels(reply) => {
-                if !reply.is_closed() { let _ = reply.send(ChannelKind::ALL.to_vec()); }
+                if !reply.is_closed() {
+                    let _ = reply.send(ChannelKind::ALL.to_vec());
+                }
             }
             ChannelBrokerMsg::History(channel, reply) => {
                 let history = state.messages.get(&channel).cloned().unwrap_or_default();
-                if !reply.is_closed() { let _ = reply.send(history); }
+                if !reply.is_closed() {
+                    let _ = reply.send(history);
+                }
             }
         }
         Ok(())
@@ -145,20 +170,33 @@ impl Actor for ChannelBroker {
 fn validate_for_broker(message: &VsmMessage) -> VsmResult<()> {
     match message.validate() {
         Ok(()) => Ok(()),
-        Err(err)
+        Err(_)
             if message.from == crate::shared::message::SystemId::External
-                || message.to == crate::shared::message::SystemId::External => Ok(()),
+                || message.to == crate::shared::message::SystemId::External =>
+        {
+            Ok(())
+        }
         Err(err) => Err(VsmError::Validation(err)),
     }
 }
 
 fn route_message(state: &mut ChannelBrokerState, message: VsmMessage) {
     if message.channel == ChannelKind::Algedonic {
-        deliver_to(state, message.channel, "system5", VsmActorMsg::AlgedonicSignal(message));
+        deliver_to(
+            state,
+            message.channel,
+            "system5",
+            VsmActorMsg::AlgedonicSignal(message),
+        );
         return;
     }
     let target = message.to.subscriber_id().to_string();
-    if !deliver_to(state, message.channel, &target, VsmActorMsg::ChannelMessage(message.clone())) {
+    if !deliver_to(
+        state,
+        message.channel,
+        &target,
+        VsmActorMsg::ChannelMessage(message.clone()),
+    ) {
         // Fall back to broadcast for channels where Elixir used Registry.dispatch.
         broadcast_to(state, message.channel, VsmActorMsg::ChannelMessage(message));
     }
@@ -170,8 +208,12 @@ fn deliver_to(
     target: &str,
     msg: VsmActorMsg,
 ) -> bool {
-    let Some(subscribers) = state.subscribers.get_mut(&channel) else { return false; };
-    let Some(actor) = subscribers.get(target) else { return false; };
+    let Some(subscribers) = state.subscribers.get_mut(&channel) else {
+        return false;
+    };
+    let Some(actor) = subscribers.get(target) else {
+        return false;
+    };
     if actor.send_message(msg).is_err() {
         subscribers.remove(target);
         return false;
@@ -180,7 +222,9 @@ fn deliver_to(
 }
 
 fn broadcast_to(state: &mut ChannelBrokerState, channel: ChannelKind, msg: VsmActorMsg) {
-    let Some(subscribers) = state.subscribers.get_mut(&channel) else { return; };
+    let Some(subscribers) = state.subscribers.get_mut(&channel) else {
+        return;
+    };
     let mut dead = Vec::new();
     for (id, actor) in subscribers.iter() {
         if actor.send_message(msg.clone()).is_err() {

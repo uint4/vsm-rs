@@ -50,18 +50,28 @@ pub fn numeric_values(value: &Value) -> Vec<f64> {
 }
 
 pub fn mean(values: &[f64]) -> f64 {
-    if values.is_empty() { 0.0 } else { values.iter().sum::<f64>() / values.len() as f64 }
+    if values.is_empty() {
+        0.0
+    } else {
+        values.iter().sum::<f64>() / values.len() as f64
+    }
 }
 
 pub fn variance(values: &[f64]) -> f64 {
-    if values.len() < 2 { return 0.0; }
+    if values.len() < 2 {
+        return 0.0;
+    }
     let m = mean(values);
     values.iter().map(|v| (v - m).powi(2)).sum::<f64>() / values.len() as f64
 }
 
-pub fn std_dev(values: &[f64]) -> f64 { variance(values).sqrt() }
+pub fn std_dev(values: &[f64]) -> f64 {
+    variance(values).sqrt()
+}
 
-pub fn clamp01(v: f64) -> f64 { v.max(0.0).min(1.0) }
+pub fn clamp01(v: f64) -> f64 {
+    v.clamp(0.0, 1.0)
+}
 
 pub fn deep_merge(a: &mut Value, b: &Value) {
     match (a, b) {
@@ -69,7 +79,9 @@ pub fn deep_merge(a: &mut Value, b: &Value) {
             for (k, b_val) in b_obj {
                 match a_obj.get_mut(k) {
                     Some(a_val) => deep_merge(a_val, b_val),
-                    None => { a_obj.insert(k.clone(), b_val.clone()); }
+                    None => {
+                        a_obj.insert(k.clone(), b_val.clone());
+                    }
                 }
             }
         }

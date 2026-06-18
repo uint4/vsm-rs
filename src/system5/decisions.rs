@@ -12,8 +12,16 @@ use crate::error::VsmResult;
 use crate::prelude::now_json;
 
 pub fn make_decision(state: &mut ServiceState, request: Value) -> Value {
-    let options = request.get("options").and_then(Value::as_array).cloned().unwrap_or_default();
-    let criteria = request.get("criteria").and_then(Value::as_array).cloned().unwrap_or_default();
+    let options = request
+        .get("options")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let criteria = request
+        .get("criteria")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     let chosen = choose_option(&options, &criteria);
     let decision = json!({
         "id": format!("decision_{}", Uuid::new_v4()),
@@ -24,7 +32,12 @@ pub fn make_decision(state: &mut ServiceState, request: Value) -> Value {
         "made_at": now_json(),
         "status": "active"
     });
-    if !state.data.get("decisions").and_then(Value::as_array).is_some() {
+    if !state
+        .data
+        .get("decisions")
+        .and_then(Value::as_array)
+        .is_some()
+    {
         state.data["decisions"] = json!([]);
     }
     if let Some(arr) = state.data["decisions"].as_array_mut() {
@@ -34,8 +47,19 @@ pub fn make_decision(state: &mut ServiceState, request: Value) -> Value {
 }
 
 pub fn decision_history(state: &ServiceState, filters: &Value) -> Value {
-    let mut decisions = state.data.get("decisions").and_then(Value::as_array).cloned().unwrap_or_default();
-    if let Some(subject)=filters.get("subject").and_then(Value::as_str) { decisions.retain(|d| d.get("subject").map(|v| v.to_string().contains(subject)).unwrap_or(false)); }
+    let mut decisions = state
+        .data
+        .get("decisions")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    if let Some(subject) = filters.get("subject").and_then(Value::as_str) {
+        decisions.retain(|d| {
+            d.get("subject")
+                .map(|v| v.to_string().contains(subject))
+                .unwrap_or(false)
+        });
+    }
     let count = decisions.len();
     json!({"decisions": decisions, "count": count})
 }
@@ -50,12 +74,49 @@ pub async fn actor_call(op: &str, payload: Value, state: &mut ServiceState) -> V
     match op {
         "make_decision" | "decide" => Ok(make_decision(state, payload)),
         "history" | "decision_history" => Ok(decision_history(state, &payload)),
-        "review" | "review_decision" => Ok(review_decision(state, payload.get("decision_id").and_then(Value::as_str).unwrap_or("unknown"), payload.get("outcome_data").cloned().unwrap_or(Value::Null))),
-        "patterns" => Ok(json!({"history_len": state.data.get("decisions").and_then(Value::as_array).map(Vec::len).unwrap_or(0), "learning_entries": state.history.len()})),
-        _ => Ok(json!({"status":"unknown_operation", "op":op}))
+        "review" | "review_decision" => Ok(review_decision(
+            state,
+            payload
+                .get("decision_id")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown"),
+            payload.get("outcome_data").cloned().unwrap_or(Value::Null),
+        )),
+        "patterns" => Ok(
+            json!({"history_len": state.data.get("decisions").and_then(Value::as_array).map(Vec::len).unwrap_or(0), "learning_entries": state.history.len()}),
+        ),
+        _ => Ok(json!({"status":"unknown_operation", "op":op})),
     }
 }
 
-fn choose_option(options:&[Value], criteria:&[Value])->Value{ options.iter().max_by(|a,b| score(a,criteria).partial_cmp(&score(b,criteria)).unwrap_or(std::cmp::Ordering::Equal)).cloned().unwrap_or(Value::Null) }
-fn score(option:&Value, criteria:&[Value])->f64{ if criteria.is_empty(){ return option.get("score").and_then(Value::as_f64).unwrap_or(0.5); } criteria.iter().map(|c| { let name=c.get("name").and_then(Value::as_str).unwrap_or(""); let w=c.get("weight").and_then(Value::as_f64).unwrap_or(1.0); option.get(name).and_then(Value::as_f64).unwrap_or(0.0)*w }).sum() }
-fn confidence(options:&[Value])->f64{ if options.len() <= 1 {0.5}else{0.75} }
+fn choose_option(options: &[Value], criteria: &[Value]) -> Value {
+    options
+        .iter()
+        .max_by(|a, b| {
+            score(a, criteria)
+                .partial_cmp(&score(b, criteria))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+fn score(option: &Value, criteria: &[Value]) -> f64 {
+    if criteria.is_empty() {
+        return option.get("score").and_then(Value::as_f64).unwrap_or(0.5);
+    }
+    criteria
+        .iter()
+        .map(|c| {
+            let name = c.get("name").and_then(Value::as_str).unwrap_or("");
+            let w = c.get("weight").and_then(Value::as_f64).unwrap_or(1.0);
+            option.get(name).and_then(Value::as_f64).unwrap_or(0.0) * w
+        })
+        .sum()
+}
+fn confidence(options: &[Value]) -> f64 {
+    if options.len() <= 1 {
+        0.5
+    } else {
+        0.75
+    }
+}

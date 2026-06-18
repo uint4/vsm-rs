@@ -117,16 +117,14 @@ impl Actor for Unit {
                 state.local_state = new_state;
             }
 
-            UnitMsg::MigrateWork(direction, amount) => {
-                match direction {
-                    WorkMigrationDirection::In => {
-                        state.current_load += amount.max(0.0);
-                    }
-                    WorkMigrationDirection::Out => {
-                        state.current_load = (state.current_load - amount.max(0.0)).max(0.0);
-                    }
+            UnitMsg::MigrateWork(direction, amount) => match direction {
+                WorkMigrationDirection::In => {
+                    state.current_load += amount.max(0.0);
                 }
-            }
+                WorkMigrationDirection::Out => {
+                    state.current_load = (state.current_load - amount.max(0.0)).max(0.0);
+                }
+            },
         }
 
         Ok(())

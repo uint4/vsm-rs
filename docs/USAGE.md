@@ -4,7 +4,7 @@ This guide explains how to embed, start, call, observe, extend, and shut down th
 
 The package name is `vsm-rs`; Rust imports use the crate name `vsm_rs`.
 
-> **Build status:** the original generation environment did not contain `cargo` or `rustc`, so run `cargo check` and `cargo test` locally before treating this port as production-ready.
+> **Build status:** see [`../CODEX.md`](../CODEX.md) for the latest validation evidence. Run the full validation suite locally before treating this port as production-ready.
 
 ## 1. Add the crate to a project
 
@@ -12,7 +12,7 @@ For a local path dependency:
 
 ```toml
 [dependencies]
-vsm-rs = { path = "../vsm_core_ractor_full_port" }
+vsm-rs = { path = "../vsm-rs" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
 serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }
@@ -30,11 +30,10 @@ ractor-supervisor = "0.1.9"
 Build and test:
 
 ```bash
-cargo fmt
-cargo check
-cargo test
-cargo run
-cargo run --example basic_usage
+cargo fmt --all -- --check
+cargo check --all-targets --all-features --locked
+cargo test --all-targets --all-features --locked
+cargo run --example basic_usage --locked
 ```
 
 ## 2. Start and stop the application
@@ -1363,7 +1362,7 @@ The included tests demonstrate startup, unit registration, transaction processin
 Run:
 
 ```bash
-cargo test -- --nocapture
+cargo test --all-targets --all-features --locked -- --nocapture
 ```
 
 When writing more integration tests:

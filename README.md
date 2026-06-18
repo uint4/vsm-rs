@@ -1,14 +1,12 @@
 # vsm-rs
 
-[![Crates.io](https://img.shields.io/crates/v/vsm-rs.svg)](https://crates.io/crates/vsm-rs)
-[![Documentation](https://docs.rs/vsm-rs/badge.svg)](https://docs.rs/vsm-rs)
 [![License](https://img.shields.io/crates/l/vsm-rs.svg)](LICENSE)
 
 An actor-based implementation of Stafford Beer's **Viable System Model (VSM)** for Rust, built with [`ractor`](https://crates.io/crates/ractor) and OTP-style supervision from [`ractor-supervisor`](https://crates.io/crates/ractor-supervisor).
 
 `vsm-rs` provides a supervised runtime for the five VSM subsystems, typed inter-system messages, operational units, pub/sub channels, algedonic escalation, temporal-variety analysis, and reusable variety-engineering utilities.
 
-> **Project status:** the crate is currently in the `0.x` series. It is suitable for experimentation, simulation, research, and application integration, but its public API may evolve before `1.0`. Runtime state and channel history are currently in memory.
+> **Project status:** the crate is currently in the `0.x` series and is not published (`publish = false`). It is suitable for experimentation, simulation, research, and application integration, but its public API may evolve before `1.0`. Runtime state and channel history are currently in memory.
 
 ## What the crate models
 
@@ -39,19 +37,12 @@ The systems communicate through command, coordination, audit, resource-bargain, 
 
 ## Installation
 
-Add the crate and the runtime dependencies used by your application:
-
-```bash
-cargo add vsm-rs
-cargo add tokio --features macros,rt-multi-thread,time
-cargo add serde_json
-```
-
-Or add them manually:
+Until publication hardening is complete, use a local path dependency and add the
+runtime dependencies used by your application:
 
 ```toml
 [dependencies]
-vsm-rs = "0.1"
+vsm-rs = { path = "/path/to/vsm-rs" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 serde_json = "1"
 ```
@@ -243,15 +234,16 @@ Important operational constraints in the current release:
 - Startup completion does not yet expose a dedicated readiness barrier; examples wait briefly before their first actor call.
 - Applications should validate and bound untrusted JSON payloads before introducing them into the actor system.
 
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the supervision tree, message routing, state ownership, and recovery model.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the supervision tree, message routing, state ownership, and recovery model.
 
 ## Documentation
 
-- [API documentation](https://docs.rs/vsm-rs)
-- [Usage guide](USAGE.md)
-- [Architecture guide](ARCHITECTURE.md)
-- [Developer guide](DEVELOPERS.md)
-- [Elixir-to-Rust porting map](PORTING_MAP.md)
+- API documentation: run `cargo doc --all-features --no-deps --open`
+- [Usage guide](docs/USAGE.md)
+- [Architecture guide](docs/ARCHITECTURE.md)
+- [Developer guide](docs/DEVELOPERS.md)
+- [Architecture decision records](docs/adr/README.md)
+- Elixir-to-Rust porting map: not currently present in this repository
 
 ## Versioning
 
@@ -263,7 +255,7 @@ This crate is a Rust actor-model port of the Elixir/OTP project [`viable-systems
 
 ## Contributing
 
-Read [`DEVELOPERS.md`](DEVELOPERS.md) before making architectural changes. It describes the repository layout, actor conventions, supervision rules, testing strategy, documentation expectations, and release checklist.
+Read [`docs/DEVELOPERS.md`](docs/DEVELOPERS.md) before making architectural changes. It describes the repository layout, actor conventions, supervision rules, testing strategy, documentation expectations, and release checklist.
 
 ## License
 

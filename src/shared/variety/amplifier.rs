@@ -7,7 +7,13 @@
 use serde_json::{json, Value};
 
 pub fn suggest_methods(variety_ratio: f64) -> Vec<&'static str> {
-    if variety_ratio >= 1.0 { vec!["monitor"] } else if variety_ratio > 0.5 { vec!["delegate", "empower"] } else { vec!["delegate", "multiply", "parallelize", "distribute"] }
+    if variety_ratio >= 1.0 {
+        vec!["monitor"]
+    } else if variety_ratio > 0.5 {
+        vec!["delegate", "empower"]
+    } else {
+        vec!["delegate", "multiply", "parallelize", "distribute"]
+    }
 }
 
 pub fn delegate(variety_load: Value, strategy: &str, options: &Value) -> Value {

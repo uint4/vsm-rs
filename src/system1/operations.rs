@@ -10,9 +10,9 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
+use ractor::concurrency::Duration;
 use ractor::{call_t, Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 use ractor_supervisor::{ChildSpec, DynamicSupervisor, DynamicSupervisorMsg, Restart, SpawnFn};
-use ractor::concurrency::Duration;
 use serde_json::{json, Value};
 
 use crate::channels;
@@ -96,10 +96,13 @@ impl Actor for Operations {
         myself: ActorRef<Self::Msg>,
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
-        let unit_supervisor = ActorRef::<DynamicSupervisorMsg>::where_is(
-            names::SYSTEM1_UNIT_SUPERVISOR.to_string(),
-        )
-        .ok_or_else(|| boxed_err(VsmError::ActorNotFound(names::SYSTEM1_UNIT_SUPERVISOR.to_string())))?;
+        let unit_supervisor =
+            ActorRef::<DynamicSupervisorMsg>::where_is(names::SYSTEM1_UNIT_SUPERVISOR.to_string())
+                .ok_or_else(|| {
+                    boxed_err(VsmError::ActorNotFound(
+                        names::SYSTEM1_UNIT_SUPERVISOR.to_string(),
+                    ))
+                })?;
 
         let channel_ref = myself.get_derived::<VsmActorMsg>();
 
@@ -158,7 +161,9 @@ impl Actor for Operations {
             }
 
             OperationsMsg::Channel(VsmActorMsg::ChannelMessage(message)) => {
-                handle_channel_message(message, state).await.map_err(boxed_err)?;
+                handle_channel_message(message, state)
+                    .await
+                    .map_err(boxed_err)?;
             }
 
             OperationsMsg::Channel(VsmActorMsg::AlgedonicSignal(message)) => {
@@ -211,13 +216,9 @@ async fn register_unit_impl(
         spawn_fn: SpawnFn::new(move |supervisor_cell, child_id| {
             let config = config_for_spawn.clone();
             async move {
-                let (unit_ref, _join) = DynamicSupervisor::spawn_linked(
-                    child_id,
-                    Unit,
-                    config,
-                    supervisor_cell,
-                )
-                .await?;
+                let (unit_ref, _join) =
+                    DynamicSupervisor::spawn_linked(child_id, Unit, config, supervisor_cell)
+                        .await?;
 
                 Ok(unit_ref.get_cell())
             }
@@ -275,17 +276,14 @@ async fn process_transaction_impl(
     let selected = select_unit(&transaction, state).await;
 
     let result = match selected {
-        Some((unit_id, unit_ref)) => match call_t!(
-            unit_ref,
-            UnitMsg::Process,
-            5_000,
-            transaction.clone()
-        ) {
-            Ok(result) => result,
-            Err(err) => TransactionResult::UnitError(format!(
-                "unit {unit_id} failed while processing transaction: {err}"
-            )),
-        },
+        Some((unit_id, unit_ref)) => {
+            match call_t!(unit_ref, UnitMsg::Process, 5_000, transaction.clone()) {
+                Ok(result) => result,
+                Err(err) => TransactionResult::UnitError(format!(
+                    "unit {unit_id} failed while processing transaction: {err}"
+                )),
+            }
+        }
 
         None => {
             let _ = channels::publish(VsmMessage::new(
@@ -490,8 +488,8 @@ async fn handle_command(command: Value, state: &OperationsState) {
 }
 
 async fn handle_coordination(payload: Value, state: &OperationsState) -> Result<(), VsmError> {
-    let request: CoordinationRequest = serde_json::from_value(payload)
-        .map_err(|err| VsmError::InvalidPayload(err.to_string()))?;
+    let request: CoordinationRequest =
+        serde_json::from_value(payload).map_err(|err| VsmError::InvalidPayload(err.to_string()))?;
 
     match request {
         CoordinationRequest::SyncState { unit_ids } => sync_unit_states(unit_ids, state).await,
@@ -608,7 +606,10 @@ async fn balance_unit_loads(unit_ids: Vec<UnitId>, state: &OperationsState) {
         return;
     }
 
-    let total_load = loads.iter().map(|(_unit_id, _unit_ref, load)| *load).sum::<f64>();
+    let total_load = loads
+        .iter()
+        .map(|(_unit_id, _unit_ref, load)| *load)
+        .sum::<f64>();
     let avg_load = total_load / loads.len() as f64;
 
     for (_unit_id, unit_ref, load) in loads {
@@ -634,13 +635,8 @@ pub fn operations_ref() -> Result<ActorRef<OperationsMsg>, VsmError> {
 pub async fn register_unit(unit_config: UnitConfig) -> Result<UnitId, VsmError> {
     let operations = operations_ref()?;
 
-    call_t!(
-        operations,
-        OperationsMsg::RegisterUnit,
-        5_000,
-        unit_config
-    )
-    .map_err(|err| VsmError::Ractor(err.to_string()))?
+    call_t!(operations, OperationsMsg::RegisterUnit, 5_000, unit_config)
+        .map_err(|err| VsmError::Ractor(err.to_string()))?
 }
 
 pub async fn process_transaction(transaction: Transaction) -> Result<TransactionResult, VsmError> {
@@ -681,5 +677,7 @@ pub fn send_algedonic_signal(signal: Value) -> Result<(), VsmError> {
 
     operations
         .send_message(OperationsMsg::SendAlgedonicSignal(signal))
-        .map_err(|_err| VsmError::Ractor("failed to send algedonic request to System 1 Operations".to_string()))
+        .map_err(|_err| {
+            VsmError::Ractor("failed to send algedonic request to System 1 Operations".to_string())
+        })
 }

@@ -36,15 +36,28 @@ pub async fn subscribe(
     actor: DerivedActorRef<VsmActorMsg>,
 ) -> VsmResult<()> {
     let broker = broker_ref()?;
-    call_t!(broker, ChannelBrokerMsg::Subscribe, 2_000, channel, subscriber_id.into(), actor)
-        .map_err(|err| VsmError::Channel(err.to_string()))?;
+    call_t!(
+        broker,
+        ChannelBrokerMsg::Subscribe,
+        2_000,
+        channel,
+        subscriber_id.into(),
+        actor
+    )
+    .map_err(|err| VsmError::Channel(err.to_string()))?;
     Ok(())
 }
 
 pub async fn unsubscribe(channel: ChannelKind, subscriber_id: impl Into<String>) -> VsmResult<()> {
     let broker = broker_ref()?;
-    call_t!(broker, ChannelBrokerMsg::Unsubscribe, 2_000, channel, subscriber_id.into())
-        .map_err(|err| VsmError::Channel(err.to_string()))?;
+    call_t!(
+        broker,
+        ChannelBrokerMsg::Unsubscribe,
+        2_000,
+        channel,
+        subscriber_id.into()
+    )
+    .map_err(|err| VsmError::Channel(err.to_string()))?;
     Ok(())
 }
 
@@ -84,5 +97,11 @@ pub async fn history(channel: ChannelKind) -> VsmResult<Vec<VsmMessage>> {
 
 pub fn json_message(channel: ChannelKind, payload: Value) -> VsmMessage {
     use crate::shared::message::{MessageKind, SystemId};
-    VsmMessage::new(SystemId::External, SystemId::External, channel, MessageKind::Other("json".into()), payload)
+    VsmMessage::new(
+        SystemId::External,
+        SystemId::External,
+        channel,
+        MessageKind::Other("json".into()),
+        payload,
+    )
 }

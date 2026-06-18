@@ -32,10 +32,10 @@ Clone the repository and run the baseline checks:
 
 ```bash
 cargo fmt --all -- --check
-cargo check --all-targets
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-features
-cargo doc --no-deps
+cargo check --all-targets --all-features --locked
+cargo clippy --all-targets --all-features --locked -- -D warnings
+cargo test --all-targets --all-features --locked
+cargo doc --all-features --no-deps --locked
 ```
 
 The runtime is Tokio-based. Integration tests use `serial_test` because actor names are process-global.
@@ -63,9 +63,11 @@ src/
 
 tests/                        End-to-end actor tests
 examples/                     Consumer-facing examples
-ARCHITECTURE.md                Runtime and design documentation
-USAGE.md                       Detailed user guide
-PORTING_MAP.md                 Original Elixir to Rust mapping
+docs/ARCHITECTURE.md           Runtime and design documentation
+docs/USAGE.md                  Detailed user guide
+docs/DEVELOPERS.md             Contributor guide
+docs/adr/                      Architecture decision records
+PORTING_MAP.md                 Not currently present
 ```
 
 ## 4. Supervision and actor names
@@ -418,7 +420,8 @@ Keep the guides aligned:
 - `USAGE.md`: comprehensive consumer workflows and payload schemas.
 - `ARCHITECTURE.md`: runtime topology, ownership, routing, supervision, recovery.
 - `DEVELOPERS.md`: contribution rules, extension patterns, testing, releases.
-- `PORTING_MAP.md`: correspondence with the original Elixir project.
+- `PORTING_MAP.md`: correspondence with the original Elixir project when this
+  file is recreated.
 
 A behavior change is incomplete until its public documentation is updated.
 
@@ -522,4 +525,4 @@ Changes in these areas should begin with an architecture proposal because they a
 
 ## 16. Attribution
 
-The project is derived from the MIT-licensed Elixir/OTP implementation at `viable-systems/vsm-core`. Preserve the original license notice and keep `PORTING_MAP.md` accurate when behavior is moved, replaced, or redesigned.
+The project is derived from the MIT-licensed Elixir/OTP implementation at `viable-systems/vsm-core`. Preserve the original license notice. If `PORTING_MAP.md` is recreated, keep it accurate when behavior is moved, replaced, or redesigned.

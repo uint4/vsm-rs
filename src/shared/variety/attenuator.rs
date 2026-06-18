@@ -4,11 +4,17 @@
 //! Strategies are intentionally simple and deterministic so they can serve as
 //! starter implementations and examples.
 
-use serde_json::{json, Value};
 use crate::util::{as_f64, mean};
+use serde_json::{json, Value};
 
 pub fn suggest_methods(variety_ratio: f64) -> Vec<&'static str> {
-    if variety_ratio <= 1.0 { vec!["monitor"] } else if variety_ratio < 2.0 { vec!["filter", "summarize"] } else { vec!["aggregate", "filter", "sample", "prioritize"] }
+    if variety_ratio <= 1.0 {
+        vec!["monitor"]
+    } else if variety_ratio < 2.0 {
+        vec!["filter", "summarize"]
+    } else {
+        vec!["aggregate", "filter", "sample", "prioritize"]
+    }
 }
 
 pub fn filter(items: &[Value], strategy: &str, options: &Value) -> Vec<Value> {
@@ -22,11 +28,40 @@ pub fn filter(items: &[Value], strategy: &str, options: &Value) -> Vec<Value> {
     }
 }
 
-fn filter_threshold(items: &[Value], options: &Value) -> Vec<Value> { let min = options.get("min").and_then(as_f64).unwrap_or(0.0); items.iter().filter(|v| value_score(v) >= min).cloned().collect() }
-fn filter_priority(items: &[Value], options: &Value) -> Vec<Value> { let min = options.get("min_priority").and_then(as_f64).unwrap_or(0.5); items.iter().filter(|v| v.get("priority").and_then(as_f64).unwrap_or(0.0) >= min).cloned().collect() }
-fn filter_frequency(items: &[Value], options: &Value) -> Vec<Value> { let limit = options.get("limit").and_then(|v| v.as_u64()).unwrap_or(items.len() as u64) as usize; items.iter().take(limit).cloned().collect() }
-fn filter_recency(items: &[Value], options: &Value) -> Vec<Value> { filter_frequency(items, options) }
-fn filter_relevance(items: &[Value], options: &Value) -> Vec<Value> { let min = options.get("min_relevance").and_then(as_f64).unwrap_or(0.0); items.iter().filter(|v| v.get("relevance").and_then(as_f64).unwrap_or(1.0) >= min).cloned().collect() }
+fn filter_threshold(items: &[Value], options: &Value) -> Vec<Value> {
+    let min = options.get("min").and_then(as_f64).unwrap_or(0.0);
+    items
+        .iter()
+        .filter(|v| value_score(v) >= min)
+        .cloned()
+        .collect()
+}
+fn filter_priority(items: &[Value], options: &Value) -> Vec<Value> {
+    let min = options.get("min_priority").and_then(as_f64).unwrap_or(0.5);
+    items
+        .iter()
+        .filter(|v| v.get("priority").and_then(as_f64).unwrap_or(0.0) >= min)
+        .cloned()
+        .collect()
+}
+fn filter_frequency(items: &[Value], options: &Value) -> Vec<Value> {
+    let limit = options
+        .get("limit")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(items.len() as u64) as usize;
+    items.iter().take(limit).cloned().collect()
+}
+fn filter_recency(items: &[Value], options: &Value) -> Vec<Value> {
+    filter_frequency(items, options)
+}
+fn filter_relevance(items: &[Value], options: &Value) -> Vec<Value> {
+    let min = options.get("min_relevance").and_then(as_f64).unwrap_or(0.0);
+    items
+        .iter()
+        .filter(|v| v.get("relevance").and_then(as_f64).unwrap_or(1.0) >= min)
+        .cloned()
+        .collect()
+}
 
 pub fn aggregate(items: &[Value], strategy: &str, _options: &Value) -> Value {
     let values: Vec<f64> = items.iter().filter_map(as_f64).collect();
@@ -43,7 +78,10 @@ pub fn aggregate(items: &[Value], strategy: &str, _options: &Value) -> Value {
 
 pub fn summarize(items: &[Value], format: &str, options: &Value) -> Value {
     match format {
-        "statistics" => { let vals: Vec<f64> = items.iter().filter_map(as_f64).collect(); json!({"count": items.len(), "mean": mean(&vals), "sum": vals.iter().sum::<f64>()}) }
+        "statistics" => {
+            let vals: Vec<f64> = items.iter().filter_map(as_f64).collect();
+            json!({"count": items.len(), "mean": mean(&vals), "sum": vals.iter().sum::<f64>()})
+        }
         "categories" => json!({"categories": group_count(items, "category")}),
         "time_series" => json!({"points": items, "window": options.get("window")}),
         _ => json!({"count": items.len()}),
@@ -59,4 +97,8 @@ fn group_count(items: &[Value], key: &str) -> Value {
     }
     Value::Object(obj)
 }
-fn value_score(v: &Value) -> f64 { as_f64(v).or_else(|| v.get("value").and_then(as_f64)).unwrap_or(0.0) }
+fn value_score(v: &Value) -> f64 {
+    as_f64(v)
+        .or_else(|| v.get("value").and_then(as_f64))
+        .unwrap_or(0.0)
+}

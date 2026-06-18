@@ -29,8 +29,15 @@ pub fn send_alert(signal: AlgedonicSignal, route_info: RouteInfo) -> AlertRecord
     record(signal, route_info, "alert")
 }
 
-pub fn send_batch_alert(signals: Vec<AlgedonicSignal>, pattern: Value, route_info: RouteInfo) -> Value {
-    let records: Vec<_> = signals.into_iter().map(|s| send_alert(s, route_info.clone())).collect();
+pub fn send_batch_alert(
+    signals: Vec<AlgedonicSignal>,
+    pattern: Value,
+    route_info: RouteInfo,
+) -> Value {
+    let records: Vec<_> = signals
+        .into_iter()
+        .map(|s| send_alert(s, route_info.clone()))
+        .collect();
     json!({"pattern": pattern, "alert_count": records.len(), "route": route_info, "records": records})
 }
 
@@ -41,9 +48,15 @@ pub fn get_alert_history(options: &Value) -> Vec<AlertRecord> {
 }
 
 fn record(signal: AlgedonicSignal, route_info: RouteInfo, level: &str) -> AlertRecord {
-    let record = AlertRecord { signal, route: route_info, level: level.into() };
+    let record = AlertRecord {
+        signal,
+        route: route_info,
+        level: level.into(),
+    };
     let mut history = ALERT_HISTORY.lock().unwrap();
     history.push(record.clone());
-    if history.len() > 10_000 { history.drain(0..1000); }
+    if history.len() > 10_000 {
+        history.drain(0..1000);
+    }
     record
 }

@@ -25,7 +25,11 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    pub fn new(kind: impl Into<String>, required_capabilities: Vec<String>, payload: Value) -> Self {
+    pub fn new(
+        kind: impl Into<String>,
+        required_capabilities: Vec<String>,
+        payload: Value,
+    ) -> Self {
         Self {
             id: format!("tx_{}", Uuid::new_v4()),
             kind: kind.into(),

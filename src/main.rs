@@ -23,14 +23,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (root, root_handle) = app::start_vsm_core().await?;
     sleep(Duration::from_millis(100)).await;
 
-    let unit_id = system1::register_unit(UnitConfig::new("payments", ["payment", "card", "settlement"])).await?;
+    let unit_id = system1::register_unit(UnitConfig::new(
+        "payments",
+        ["payment", "card", "settlement"],
+    ))
+    .await?;
     println!("registered unit: {unit_id}");
 
     let result = system1::process_transaction(Transaction::new(
         "payment_authorization",
         vec!["payment".to_string(), "card".to_string()],
         json!({"amount":42.50,"currency":"USD","card_token":"tok_demo"}),
-    )).await?;
+    ))
+    .await?;
     println!("transaction result: {result:#?}");
     println!("status: {:#?}", vsm_core::status().await?);
 

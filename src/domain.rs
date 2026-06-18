@@ -119,7 +119,14 @@ pub enum MessageKind {
 
 impl MessageKind {
     pub fn is_high_priority(&self) -> bool {
-        matches!(self, Self::Alert | Self::Emergency | Self::Critical | Self::EmergencySignal | Self::PainSignal)
+        matches!(
+            self,
+            Self::Alert
+                | Self::Emergency
+                | Self::Critical
+                | Self::EmergencySignal
+                | Self::PainSignal
+        )
     }
 }
 
@@ -141,7 +148,13 @@ pub struct VsmMessage {
 }
 
 impl VsmMessage {
-    pub fn new(from: SystemId, to: SystemId, channel: ChannelKind, kind: MessageKind, payload: Value) -> Self {
+    pub fn new(
+        from: SystemId,
+        to: SystemId,
+        channel: ChannelKind,
+        kind: MessageKind,
+        payload: Value,
+    ) -> Self {
         Self {
             id: format!("msg_{}", Uuid::new_v4()),
             from,
@@ -168,17 +181,32 @@ impl VsmMessage {
         Self::new(from, to, ChannelKind::Audit, kind, payload)
     }
 
-    pub fn resource_bargain(from: SystemId, to: SystemId, kind: MessageKind, payload: Value) -> Self {
+    pub fn resource_bargain(
+        from: SystemId,
+        to: SystemId,
+        kind: MessageKind,
+        payload: Value,
+    ) -> Self {
         Self::new(from, to, ChannelKind::ResourceBargain, kind, payload)
     }
 
     pub fn algedonic(from: SystemId, payload: Value) -> Self {
-        Self::new(from, SystemId::System5, ChannelKind::Algedonic, MessageKind::EmergencySignal, payload)
+        Self::new(
+            from,
+            SystemId::System5,
+            ChannelKind::Algedonic,
+            MessageKind::EmergencySignal,
+            payload,
+        )
     }
 
     pub fn reply(&self, kind: MessageKind, payload: Value) -> Self {
         let mut reply = Self::new(self.to, self.from, self.channel, kind, payload);
-        reply.correlation_id = Some(self.correlation_id.clone().unwrap_or_else(|| self.id.clone()));
+        reply.correlation_id = Some(
+            self.correlation_id
+                .clone()
+                .unwrap_or_else(|| self.id.clone()),
+        );
         reply.reply_to = Some(self.id.clone());
         reply
     }
@@ -188,42 +216,78 @@ impl VsmMessage {
     }
 
     pub fn validate_basic_flow(&self) -> Result<(), String> {
-        if self.from == SystemId::External || self.to == SystemId::External || self.to == SystemId::All {
+        if self.from == SystemId::External
+            || self.to == SystemId::External
+            || self.to == SystemId::All
+        {
             return Ok(());
         }
         match self.channel {
             ChannelKind::Command => {
-                if matches!((self.from, self.to),
+                if matches!(
+                    (self.from, self.to),
                     (SystemId::System5, SystemId::System4)
-                    | (SystemId::System5, SystemId::System3)
-                    | (SystemId::System4, SystemId::System3)
-                    | (SystemId::System3, SystemId::System1)
-                    | (SystemId::System5, SystemId::System1)
-                    | (SystemId::System4, SystemId::System1)
-                ) { Ok(()) } else { Err(format!("invalid command flow: {:?} -> {:?}", self.from, self.to)) }
-            }
-            ChannelKind::Coordination => {
-                if matches!((self.from, self.to), (SystemId::System1, SystemId::System2) | (SystemId::System2, SystemId::System1)) {
+                        | (SystemId::System5, SystemId::System3)
+                        | (SystemId::System4, SystemId::System3)
+                        | (SystemId::System3, SystemId::System1)
+                        | (SystemId::System5, SystemId::System1)
+                        | (SystemId::System4, SystemId::System1)
+                ) {
                     Ok(())
                 } else {
-                    Err(format!("invalid coordination flow: {:?} -> {:?}", self.from, self.to))
+                    Err(format!(
+                        "invalid command flow: {:?} -> {:?}",
+                        self.from, self.to
+                    ))
+                }
+            }
+            ChannelKind::Coordination => {
+                if matches!(
+                    (self.from, self.to),
+                    (SystemId::System1, SystemId::System2) | (SystemId::System2, SystemId::System1)
+                ) {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "invalid coordination flow: {:?} -> {:?}",
+                        self.from, self.to
+                    ))
                 }
             }
             ChannelKind::Audit => {
-                if matches!((self.from, self.to), (SystemId::System3Star, SystemId::System1) | (SystemId::System1, SystemId::System3Star) | (SystemId::System3, SystemId::System1) | (SystemId::System1, SystemId::System3)) {
+                if matches!(
+                    (self.from, self.to),
+                    (SystemId::System3Star, SystemId::System1)
+                        | (SystemId::System1, SystemId::System3Star)
+                        | (SystemId::System3, SystemId::System1)
+                        | (SystemId::System1, SystemId::System3)
+                ) {
                     Ok(())
                 } else {
-                    Err(format!("invalid audit flow: {:?} -> {:?}", self.from, self.to))
+                    Err(format!(
+                        "invalid audit flow: {:?} -> {:?}",
+                        self.from, self.to
+                    ))
                 }
             }
             ChannelKind::Algedonic => {
-                if self.to == SystemId::System5 || self.to == SystemId::Algedonic { Ok(()) } else { Err(format!("invalid algedonic destination: {:?}", self.to)) }
-            }
-            ChannelKind::ResourceBargain => {
-                if matches!((self.from, self.to), (SystemId::System1, SystemId::System3) | (SystemId::System3, SystemId::System1)) {
+                if self.to == SystemId::System5 || self.to == SystemId::Algedonic {
                     Ok(())
                 } else {
-                    Err(format!("invalid resource bargain flow: {:?} -> {:?}", self.from, self.to))
+                    Err(format!("invalid algedonic destination: {:?}", self.to))
+                }
+            }
+            ChannelKind::ResourceBargain => {
+                if matches!(
+                    (self.from, self.to),
+                    (SystemId::System1, SystemId::System3) | (SystemId::System3, SystemId::System1)
+                ) {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "invalid resource bargain flow: {:?} -> {:?}",
+                        self.from, self.to
+                    ))
                 }
             }
             ChannelKind::TemporalVariety => Ok(()),
@@ -233,5 +297,4 @@ impl VsmMessage {
     pub fn validate(&self) -> Result<(), String> {
         self.validate_basic_flow()
     }
-
 }

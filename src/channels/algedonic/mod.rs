@@ -41,7 +41,12 @@ pub struct AlgedonicArgs {
 }
 
 impl Default for AlgedonicArgs {
-    fn default() -> Self { Self { filters: default_filters(), routing_rules: default_rules() } }
+    fn default() -> Self {
+        Self {
+            filters: default_filters(),
+            routing_rules: default_rules(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -62,17 +67,37 @@ impl Actor for Algedonic {
     type State = AlgedonicState;
     type Arguments = AlgedonicArgs;
 
-    async fn pre_start(&self, _myself: ActorRef<Self::Msg>, args: Self::Arguments) -> Result<Self::State, ActorProcessingErr> {
+    async fn pre_start(
+        &self,
+        _myself: ActorRef<Self::Msg>,
+        args: Self::Arguments,
+    ) -> Result<Self::State, ActorProcessingErr> {
         tracing::info!("algedonic channel started");
-        Ok(AlgedonicState { active_signals: Vec::new(), filters: args.filters, routing_rules: args.routing_rules, routes: Vec::new(), accepted: 0, rejected: 0 })
+        Ok(AlgedonicState {
+            active_signals: Vec::new(),
+            filters: args.filters,
+            routing_rules: args.routing_rules,
+            routes: Vec::new(),
+            accepted: 0,
+            rejected: 0,
+        })
     }
 
-    async fn handle(&self, _myself: ActorRef<Self::Msg>, msg: Self::Msg, state: &mut Self::State) -> Result<(), ActorProcessingErr> {
+    async fn handle(
+        &self,
+        _myself: ActorRef<Self::Msg>,
+        msg: Self::Msg,
+        state: &mut Self::State,
+    ) -> Result<(), ActorProcessingErr> {
         match msg {
             AlgedonicMsg::Signal(signal) => {
                 if apply_filters(&signal, &state.filters) {
                     let route = route_signal(&signal, &state.routing_rules);
-                    if signal.priority >= 0.9 { send_critical_alert(signal.clone(), route.clone()); } else { send_alert(signal.clone(), route.clone()); }
+                    if signal.priority >= 0.9 {
+                        send_critical_alert(signal.clone(), route.clone());
+                    } else {
+                        send_alert(signal.clone(), route.clone());
+                    }
                     state.routes.push(route);
                     state.active_signals.push(signal);
                     state.active_signals.truncate(1000);
@@ -81,10 +106,14 @@ impl Actor for Algedonic {
                     state.rejected += 1;
                 }
             }
-            AlgedonicMsg::GetActiveSignals(reply) => { let _ = reply.send(state.active_signals.clone()); }
+            AlgedonicMsg::GetActiveSignals(reply) => {
+                let _ = reply.send(state.active_signals.clone());
+            }
             AlgedonicMsg::ConfigureFilters(filters, reply) => {
                 let result = validate_filters(&filters).map_err(VsmError::Validation);
-                if result.is_ok() { state.filters = filters; }
+                if result.is_ok() {
+                    state.filters = filters;
+                }
                 let _ = reply.send(result);
             }
             AlgedonicMsg::GetMetrics(reply) => {
@@ -96,57 +125,102 @@ impl Actor for Algedonic {
                     "correlations": correlation::analyze_patterns(&state.active_signals, &json!({}))
                 }));
             }
-            AlgedonicMsg::ProcessSignals | AlgedonicMsg::AnalyzeCorrelations | AlgedonicMsg::CollectMetrics => {}
+            AlgedonicMsg::ProcessSignals
+            | AlgedonicMsg::AnalyzeCorrelations
+            | AlgedonicMsg::CollectMetrics => {}
         }
         Ok(())
     }
 }
 
 pub fn actor_ref() -> Result<ActorRef<AlgedonicMsg>, VsmError> {
-    ActorRef::<AlgedonicMsg>::where_is(names::ALGEDONIC.to_string()).ok_or_else(|| VsmError::ActorNotFound(names::ALGEDONIC.to_string()))
+    ActorRef::<AlgedonicMsg>::where_is(names::ALGEDONIC.to_string())
+        .ok_or_else(|| VsmError::ActorNotFound(names::ALGEDONIC.to_string()))
 }
 
-pub fn send_pain_signal(source: impl Into<String>, data: Value, severity: Severity) -> Result<(), VsmError> {
+pub fn send_pain_signal(
+    source: impl Into<String>,
+    data: Value,
+    severity: Severity,
+) -> Result<(), VsmError> {
     let signal = create_signal(SignalKind::Pain, source, data, severity);
-    actor_ref()?.send_message(AlgedonicMsg::Signal(signal)).map_err(|_| VsmError::Ractor("failed to send pain signal".into()))
+    actor_ref()?
+        .send_message(AlgedonicMsg::Signal(signal))
+        .map_err(|_| VsmError::Ractor("failed to send pain signal".into()))
 }
 
-pub fn send_pleasure_signal(source: impl Into<String>, data: Value, severity: Severity) -> Result<(), VsmError> {
+pub fn send_pleasure_signal(
+    source: impl Into<String>,
+    data: Value,
+    severity: Severity,
+) -> Result<(), VsmError> {
     let signal = create_signal(SignalKind::Pleasure, source, data, severity);
-    actor_ref()?.send_message(AlgedonicMsg::Signal(signal)).map_err(|_| VsmError::Ractor("failed to send pleasure signal".into()))
+    actor_ref()?
+        .send_message(AlgedonicMsg::Signal(signal))
+        .map_err(|_| VsmError::Ractor("failed to send pleasure signal".into()))
 }
 
 pub async fn get_active_signals() -> Result<Vec<AlgedonicSignal>, VsmError> {
-    call_t!(actor_ref()?, AlgedonicMsg::GetActiveSignals, 1_000).map_err(|err| VsmError::Ractor(err.to_string()))
+    call_t!(actor_ref()?, AlgedonicMsg::GetActiveSignals, 1_000)
+        .map_err(|err| VsmError::Ractor(err.to_string()))
 }
 
 pub async fn configure_filters(filters: Vec<Filter>) -> Result<(), VsmError> {
-    call_t!(actor_ref()?, AlgedonicMsg::ConfigureFilters, 1_000, filters).map_err(|err| VsmError::Ractor(err.to_string()))?
+    call_t!(actor_ref()?, AlgedonicMsg::ConfigureFilters, 1_000, filters)
+        .map_err(|err| VsmError::Ractor(err.to_string()))?
 }
 
 pub async fn get_metrics() -> Result<Value, VsmError> {
-    call_t!(actor_ref()?, AlgedonicMsg::GetMetrics, 1_000).map_err(|err| VsmError::Ractor(err.to_string()))
+    call_t!(actor_ref()?, AlgedonicMsg::GetMetrics, 1_000)
+        .map_err(|err| VsmError::Ractor(err.to_string()))
 }
 
-
-pub async fn actor_call(op: &str, payload: Value, _state: &mut crate::actor_support::ServiceState) -> crate::error::VsmResult<Value> {
+pub async fn actor_call(
+    op: &str,
+    payload: Value,
+    _state: &mut crate::actor_support::ServiceState,
+) -> crate::error::VsmResult<Value> {
     match op {
         "pain" | "send_pain_signal" => {
-            let severity = signals::parse_severity(payload.get("severity").and_then(Value::as_str).unwrap_or("medium"));
-            let source = payload.get("source").and_then(Value::as_str).unwrap_or("external").to_string();
-            let data = payload.get("data").cloned().unwrap_or_else(|| payload.clone());
+            let severity = signals::parse_severity(
+                payload
+                    .get("severity")
+                    .and_then(Value::as_str)
+                    .unwrap_or("medium"),
+            );
+            let source = payload
+                .get("source")
+                .and_then(Value::as_str)
+                .unwrap_or("external")
+                .to_string();
+            let data = payload
+                .get("data")
+                .cloned()
+                .unwrap_or_else(|| payload.clone());
             send_pain_signal(source, data, severity)?;
             Ok(json!({"status":"sent"}))
         }
         "pleasure" | "send_pleasure_signal" => {
-            let severity = signals::parse_severity(payload.get("severity").and_then(Value::as_str).unwrap_or("medium"));
-            let source = payload.get("source").and_then(Value::as_str).unwrap_or("external").to_string();
-            let data = payload.get("data").cloned().unwrap_or_else(|| payload.clone());
+            let severity = signals::parse_severity(
+                payload
+                    .get("severity")
+                    .and_then(Value::as_str)
+                    .unwrap_or("medium"),
+            );
+            let source = payload
+                .get("source")
+                .and_then(Value::as_str)
+                .unwrap_or("external")
+                .to_string();
+            let data = payload
+                .get("data")
+                .cloned()
+                .unwrap_or_else(|| payload.clone());
             send_pleasure_signal(source, data, severity)?;
             Ok(json!({"status":"sent"}))
         }
         "active" | "get_active_signals" => Ok(serde_json::to_value(get_active_signals().await?)?),
         "metrics" | "get_metrics" => get_metrics().await,
-        _ => Ok(json!({"status":"unknown_operation", "op":op}))
+        _ => Ok(json!({"status":"unknown_operation", "op":op})),
     }
 }

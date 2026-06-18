@@ -12,15 +12,31 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SignalKind { Pain, Pleasure, Anomaly, Opportunity, Emergency }
+pub enum SignalKind {
+    Pain,
+    Pleasure,
+    Anomaly,
+    Opportunity,
+    Emergency,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Severity { Low, Medium, High, Critical }
+pub enum Severity {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
 
 impl Severity {
     pub fn score(self) -> f64 {
-        match self { Self::Low => 0.25, Self::Medium => 0.5, Self::High => 0.75, Self::Critical => 1.0 }
+        match self {
+            Self::Low => 0.25,
+            Self::Medium => 0.5,
+            Self::High => 0.75,
+            Self::Critical => 1.0,
+        }
     }
 }
 
@@ -37,8 +53,16 @@ pub struct AlgedonicSignal {
     pub context: Value,
 }
 
-pub fn create_signal(kind: SignalKind, source: impl Into<String>, data: Value, severity: Severity) -> AlgedonicSignal {
-    let urgency = data.get("urgency").and_then(|v| v.as_f64()).unwrap_or_else(|| severity.score());
+pub fn create_signal(
+    kind: SignalKind,
+    source: impl Into<String>,
+    data: Value,
+    severity: Severity,
+) -> AlgedonicSignal {
+    let urgency = data
+        .get("urgency")
+        .and_then(|v| v.as_f64())
+        .unwrap_or_else(|| severity.score());
     let mut signal = AlgedonicSignal {
         id: format!("sig_{}", Uuid::new_v4()),
         kind,
@@ -55,13 +79,20 @@ pub fn create_signal(kind: SignalKind, source: impl Into<String>, data: Value, s
 }
 
 pub fn create_aggregated_signal(pattern: &Value) -> AlgedonicSignal {
-    let source = pattern.get("source").and_then(|v| v.as_str()).unwrap_or("aggregate");
+    let source = pattern
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("aggregate");
     create_signal(SignalKind::Anomaly, source, pattern.clone(), Severity::High)
 }
 
 pub fn validate_signal(signal: &AlgedonicSignal) -> Result<(), String> {
-    if signal.source.trim().is_empty() { return Err("source is empty".into()); }
-    if !(0.0..=1.0).contains(&signal.urgency) { return Err("urgency must be 0..1".into()); }
+    if signal.source.trim().is_empty() {
+        return Err("source is empty".into());
+    }
+    if !(0.0..=1.0).contains(&signal.urgency) {
+        return Err("urgency must be 0..1".into());
+    }
     Ok(())
 }
 
@@ -97,7 +128,10 @@ pub fn enrich_signal(mut signal: AlgedonicSignal, context: Value) -> AlgedonicSi
 }
 
 pub fn filter_signals(signals: &[AlgedonicSignal], criteria: &Value) -> Vec<AlgedonicSignal> {
-    let min_priority = criteria.get("min_priority").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let min_priority = criteria
+        .get("min_priority")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.0);
     let source = criteria.get("source").and_then(|v| v.as_str());
     signals
         .iter()
@@ -110,8 +144,18 @@ pub fn filter_signals(signals: &[AlgedonicSignal], criteria: &Value) -> Vec<Alge
 pub fn group_signals(signals: &[AlgedonicSignal], by: &str) -> Value {
     let mut groups = serde_json::Map::new();
     for signal in signals {
-        let key = match by { "source" => signal.source.clone(), "severity" => format!("{:?}", signal.severity), "kind" => format!("{:?}", signal.kind), _ => "all".into() };
-        groups.entry(key).or_insert_with(|| json!([])).as_array_mut().unwrap().push(json!(signal));
+        let key = match by {
+            "source" => signal.source.clone(),
+            "severity" => format!("{:?}", signal.severity),
+            "kind" => format!("{:?}", signal.kind),
+            _ => "all".into(),
+        };
+        groups
+            .entry(key)
+            .or_insert_with(|| json!([]))
+            .as_array_mut()
+            .unwrap()
+            .push(json!(signal));
     }
     Value::Object(groups)
 }

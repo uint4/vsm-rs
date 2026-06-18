@@ -14,11 +14,17 @@ use crate::error::VsmResult;
 use crate::names;
 
 pub fn child_spec() -> ChildSpec {
-    service_child(names::TELEMETRY_REPORTER, ServiceKind::TelemetryReporter, json!({"role":"telemetry_reporter"}))
+    service_child(
+        names::TELEMETRY_REPORTER,
+        ServiceKind::TelemetryReporter,
+        json!({"role":"telemetry_reporter"}),
+    )
 }
 
 pub async fn health() -> VsmResult<serde_json::Value> {
     call_service(names::TELEMETRY_REPORTER, "health", json!({})).await
 }
 
-pub fn interval() -> Duration { Duration::from_secs(60) }
+pub fn interval() -> Duration {
+    Duration::from_secs(60)
+}

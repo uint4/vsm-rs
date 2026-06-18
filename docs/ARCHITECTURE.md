@@ -60,7 +60,9 @@ src/
 └── system5/                  Policy service family
 ```
 
-`PORTING_MAP.md` maps the original Elixir files to these Rust files.
+A porting map for the original Elixir files is not currently present in this
+repository. Recreate it before relying on file-by-file correspondence during a
+future migration slice.
 
 ## 3. Supervision tree
 
@@ -707,7 +709,8 @@ For real operations, introduce a domain-specific unit actor or a unit behavior a
 
 The most important current limitations are:
 
-- The crate was generated without a local `cargo check` in the original generation environment.
+- The crate is still in baseline hardening; see `CODEX.md` for the latest
+  validation evidence.
 - Most Systems 2–5 APIs use string operation names and `serde_json::Value`.
 - Channel events for Systems 2–5 are recorded, not converted into domain actions.
 - Broker restart loses registrations and history.

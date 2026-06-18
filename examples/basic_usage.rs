@@ -37,14 +37,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await?;
 
-    let organizational_state = call_service(names::SYSTEM5_POLICY, "get_organizational_state", json!({})).await?;
+    let organizational_state =
+        call_service(names::SYSTEM5_POLICY, "get_organizational_state", json!({})).await?;
 
-    println!("{}", serde_json::to_string_pretty(&json!({
-        "transaction": processed,
-        "status": vsm_rs::vsm_core::status().await?,
-        "intelligence_report": intelligence_report,
-        "organizational_state": organizational_state,
-    }))?);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&json!({
+            "transaction": processed,
+            "status": vsm_rs::vsm_core::status().await?,
+            "intelligence_report": intelligence_report,
+            "organizational_state": organizational_state,
+        }))?
+    );
 
     root.stop(Some("example complete".to_string()));
     let _ = root_handle.await;
