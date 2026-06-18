@@ -1,0 +1,52 @@
+use serde_json::json;
+use tokio::time::{sleep, Duration};
+use tracing_subscriber::EnvFilter;
+
+use vsm_ractor_full::actor_support::call_service;
+use vsm_ractor_full::channels::algedonic::signals::Severity;
+use vsm_ractor_full::names;
+use vsm_ractor_full::system1::{self, Transaction, UnitConfig};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env().add_directive("info".parse()?))
+        .init();
+
+    let (root, root_handle) = vsm_ractor_full::app::start_vsm_core().await?;
+    sleep(Duration::from_millis(100)).await;
+
+    system1::register_unit(UnitConfig::new("payments", ["payment", "io"])).await?;
+    let processed = system1::process_transaction(Transaction::new(
+        "payment",
+        vec!["payment".into()],
+        json!({"amount": 125.0, "currency": "USD"}),
+    ))
+    .await?;
+
+    vsm_ractor_full::channels::algedonic::send_pain_signal(
+        "payments",
+        json!({"message":"latency spike", "urgency":0.8}),
+        Severity::High,
+    )?;
+
+    let intelligence_report = call_service(
+        names::SYSTEM4_INTELLIGENCE,
+        "intelligence_report",
+        json!({"sources":[{"id":"market", "value":0.72}]}),
+    )
+    .await?;
+
+    let organizational_state = call_service(names::SYSTEM5_POLICY, "get_organizational_state", json!({})).await?;
+
+    println!("{}", serde_json::to_string_pretty(&json!({
+        "transaction": processed,
+        "status": vsm_ractor_full::vsm_core::status().await?,
+        "intelligence_report": intelligence_report,
+        "organizational_state": organizational_state,
+    }))?);
+
+    root.stop(Some("example complete".to_string()));
+    let _ = root_handle.await;
+    Ok(())
+}
