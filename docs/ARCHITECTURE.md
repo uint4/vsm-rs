@@ -37,6 +37,10 @@ src/
 ├── domain.rs                 SystemId, ChannelKind, MessageKind, VsmMessage
 ├── error.rs                  VsmError and VsmResult
 ├── cancellation.rs           Crate-owned cooperative cancellation token
+├── config.rs                 Typed runtime configuration
+├── builder.rs                Typed runtime builder
+├── runtime.rs                Typed runtime handles, readiness, shutdown, component snapshots
+├── kernel/                   Private instance-scoped runtime registry scaffold
 ├── protocol/                 Typed migration foundations: addresses, metadata, snapshots, events, System 1 records
 ├── roles/                    ViableSystem type family, role contexts, System 1 contracts, runtime ports
 ├── legacy/                   Temporary adapters from current JSON/System 1 API to typed foundations
@@ -71,7 +75,7 @@ future migration slice.
 ### 2.1 Trait-driven foundation modules
 
 The crate now includes public migration foundations under `protocol`, `roles`,
-`cancellation`, and `legacy`.
+`cancellation`, `config`, `builder`, `runtime`, and `legacy`.
 
 These modules are intentionally alongside the current runtime:
 
@@ -95,6 +99,13 @@ These modules are intentionally alongside the current runtime:
   `NoopStateStore` is not persistent.
 - `cancellation::CancellationToken` is the crate-owned cooperative cancellation
   primitive for future role contexts.
+- `VsmBuilder` builds an instance-scoped `VsmRuntime` handle from required
+  `WorkModel` and `OperationalUnitFactory` role objects plus opt-in default
+  policies and no-op ports.
+- `runtime` defines readiness checks, shutdown acknowledgements, a System 1
+  handle, and private component-directory snapshots. The directory generates
+  internal component names from `RuntimeId` and `RecursionPath` rather than the
+  current process-global actor names.
 - `legacy::system1` contains temporary adapters for current
   `Transaction`/`TransactionResult`/`UnitConfig`/`VsmMessage` shapes.
 
@@ -102,9 +113,14 @@ The foundation modules do not expose `ActorRef`, actor names, or `ractor`
 message types. Downstream role implementations use the crate's re-exported
 `async_trait` macro rather than importing `ractor`. Core typed protocol records
 and role contracts do not require application work, outcome, error, capability,
-unit ID, or snapshot payloads to implement serde. The existing actor runtime
-still uses the legacy facade until later approved milestones wire these types
-into role adapters and runtime handles.
+unit ID, or snapshot payloads to implement serde.
+
+`VsmBuilder` currently starts a typed lifecycle shell: it validates required
+System 1 role objects, reports readiness deterministically, exposes scoped role
+contexts, permits multiple runtime handles in one process, and acknowledges
+shutdown. It does not yet process work through actor adapters. The existing
+actor runtime still uses the legacy facade until the approved System 1
+actor-adapter milestone wires these types into supervised actors.
 
 ## 3. Supervision tree
 

@@ -14,13 +14,13 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Milestone 2 — role contracts and role contexts
-- Approved scope: First-wave role contracts, role contexts, supporting
-  infrastructure ports, no-op/test implementations, documentation, and
-  downstream-style tests only. Do not rewrite actors, introduce the
-  builder/runtime handle, or begin System 1 adapter migration.
+- Approved milestone: Milestone 3 — builder, runtime handle, and instance scope
+- Approved scope: Typed builder, runtime configuration, runtime handle,
+  readiness/lifecycle surface, instance-scoped runtime directory scaffold,
+  validation of required roles, documentation, and tests only. Do not begin the
+  System 1 actor-adapter migration or typed-bus migration.
 - Approved architectural decisions: Recorded in ADR-0001 through ADR-0004
-- Pending decisions: None for the approved Milestone 2 scope
+- Pending decisions: None for the approved Milestone 3 scope
 - Permission to begin next milestone: No
 
 ## Pending user decisions
@@ -31,31 +31,30 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Current status
 
-- Overall state: Milestone 2 complete; review gate active
-- Current phase: Milestone 2 — role contracts and role contexts
-- Current milestone: First-wave role contracts
+- Overall state: Milestone 3 complete; stopped at review gate
+- Current phase: Milestone 3 — builder, runtime handle, and instance scope
+- Current milestone: Typed runtime lifecycle surface
 - Last updated: 2026-06-18
 - Last updated by: Codex
-- Baseline commit: `4c2fa54`
+- Baseline commit: `dcfc9f9`
 - Working branch: `master`
 - Repository clean at start: Yes
-- Repository status now: Milestone 2 changes are present in the working tree
-  and are not yet committed.
+- Repository status now: Contains uncommitted Milestone 3 changes for review.
 
 ## Current objective
 
-Milestone 2 role contracts and contexts are implemented: first-wave System 1
-role traits, role object aliases, role contexts that expose runtime identity,
-correlation, deadline, cancellation, clock, narrow event/report ports, and
-explicitly allowed stores/adapters; supporting telemetry/alert/clock/id ports;
-and no-op/test implementations. Actors were not rewritten and no
-builder/runtime handle was introduced.
+Milestone 3 implementation is complete for review: typed builder, runtime
+configuration, runtime handle, readiness/lifecycle records, private
+instance-scoped runtime directory scaffold, required System 1 role validation,
+documentation, and tests showing independent typed runtime handles can coexist.
+Existing actors were not rewritten and System 1 actor-adapter migration was not
+started.
 
 ## Next action
 
-Wait for explicit user approval to begin Milestone 3. Proposed next milestone:
-add the typed builder, runtime handle, readiness/lifecycle surface, and
-instance scope while keeping old actors underneath.
+Wait for explicit user review/approval before beginning Milestone 4: the System
+1 vertical slice that connects application role contracts to supervised actor
+adapters.
 
 ---
 
@@ -69,7 +68,7 @@ instance scope while keeping old actors underneath.
 | 1 | Application type family | Complete | `src/roles/types.rs` defines `ViableSystem`; `tests/foundational_types.rs` proves non-serde application work, outcome, and snapshot payloads compile. |
 | 1 | Typed core envelopes | Complete | `src/protocol/*`, `src/error.rs`, `src/cancellation.rs`, `src/roles/ports.rs`, and `src/legacy/*` added with tests, docs, and full validation passing. |
 | 2 | Role contracts and factories | Complete | `src/roles/context.rs`, `src/roles/system1.rs`, expanded `src/roles/ports.rs`, and `tests/role_contracts.rs` added; full validation passes. |
-| 2 | Runtime builder and handles | Not started | Awaiting user approval. |
+| 2 | Runtime builder and handles | Complete | `src/builder.rs`, `src/config.rs`, `src/runtime.rs`, private `src/kernel/registry.rs`, `tests/runtime_builder.rs`, and `examples/typed_runtime_builder.rs`; full validation passes. |
 | 3 | System 1 vertical slice | Not started | Awaiting user approval. |
 | 4 | Typed protocol bus | Not started | Awaiting user approval. |
 | 5 | System 2 migration | Not started | Awaiting user approval. |
@@ -101,10 +100,11 @@ documentation are complete.
 |---|---:|---|---|
 | `cargo fmt --all -- --check` | Passed | 2026-06-18 | Formatting drift resolved by `cargo fmt --all`. |
 | `cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. |
-| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 28 integration tests across foundational, role-contract, Phase 0, full-system, and System 1 suites; example test target has 0 tests. |
+| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 33 integration tests across foundational, role-contract, runtime-builder, Phase 0, full-system, and System 1 suites; example test targets have 0 tests. |
 | `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings. |
 | `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
 | `cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
+| `cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-18 | Example starts typed runtime handle through `VsmBuilder`, reports readiness, and shuts down. |
 | `cargo run --example basic_usage --locked` | Passed | 2026-06-18 | Example starts runtime, registers `payments`, processes a transaction, prints status, and exits. |
 | `git diff --check` | Passed | 2026-06-18 | No whitespace errors. |
 
@@ -167,21 +167,39 @@ until a subsequent run succeeds.
   defaults/no-ops, test fakes, and context boundaries.
 - Updated README, architecture, usage, and developer docs for role contracts and
   contexts.
+- Added the typed runtime lifecycle surface:
+  - `RuntimeConfig` for instance ID, recursion path, timeouts, unit-capacity
+    admission configuration, and event-buffer capacity;
+  - `VsmBuilder` for required System 1 role validation, optional/default
+    policy injection, runtime ports, and async `start()`;
+  - `VsmRuntime`, `System1Handle`, readiness checks, lifecycle state, shutdown
+    acknowledgement, runtime ports, and System 1 role bundle accessors;
+  - private `kernel::registry` scaffold for instance-derived internal
+    component names and directory snapshots.
+- Added `tests/runtime_builder.rs` to prove missing-role validation, default
+  policy behavior, deterministic readiness, instance-scoped directory names,
+  two coexisting runtime handles, role-context identity, and idempotent
+  shutdown.
+- Added `examples/typed_runtime_builder.rs` as a runnable typed builder
+  lifecycle example.
+- Updated README, architecture, usage, and developer docs for the builder,
+  runtime handle, readiness, shutdown, and current non-actor-backed boundary.
 
 ---
 
 ## Work in progress
 
-None. Milestone 2 is at the review gate. Do not begin Milestone 3 without
-explicit user approval.
+No implementation work is currently in progress. Milestone 3 is complete and
+paused at the review gate.
 
 ---
 
 ## Decisions made
 
 The user approved the Phase 0-only scope, approved Milestone 1 after the Phase
-0 review gate, and approved Milestone 2 after the Milestone 1 review gate.
-Accepted migration decisions are recorded as ADRs.
+0 review gate, approved Milestone 2 after the Milestone 1 review gate, and
+approved Milestone 3 after the Milestone 2 review gate. Accepted migration
+decisions are recorded as ADRs.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -208,13 +226,27 @@ notes:
   - `WorkRequest` and `UnitDescriptor` now have manual `Clone`
     implementations so the application type family itself is not required to
     implement `Clone`.
+- Milestone 3 introduced no new ADR-level decisions. Implementation notes:
+  - `VsmBuilder::start()` is async even though the first lifecycle shell does
+    not await actor startup yet, preserving room for actor-backed startup
+    without another immediate public lifecycle break.
+  - Required role validation is runtime validation that returns
+    `FrameworkError::InvalidProtocol`; no typestate builder was added in this
+    slice.
+  - Readiness gates use `Ready`, `NotApplicable`, `Pending`, and `Failed`.
+    `NotApplicable` gates are treated as satisfied so the non-actor-backed
+    lifecycle shell can report deterministic readiness without pretending that
+    actor adapters or typed observer subscriptions exist yet.
+  - Private runtime component names are generated from `RuntimeId`,
+    `RecursionPath`, subsystem role, and entity label; no global actor lookup
+    or `ActorRef` is exposed through the typed runtime handle.
 
 ---
 
 ## Compatibility changes
 
-Milestones 1 and 2 add public foundational APIs and do not remove, rename, or
-semantically redesign existing public APIs.
+Milestones 1, 2, and 3 add public foundational APIs and do not remove, rename,
+or semantically redesign existing public APIs.
 
 New public modules and re-exports:
 
@@ -222,10 +254,18 @@ New public modules and re-exports:
 - `vsm_rs::protocol`
 - `vsm_rs::roles`
 - `vsm_rs::legacy`
+- `vsm_rs::builder`
+- `vsm_rs::config`
+- `vsm_rs::runtime`
 - `vsm_rs::{ApplicationFailure, FrameworkError, ViableSystem, WorkError}`
 - `vsm_rs::{OperationalUnit, OperationalUnitFactory, WorkModel}`
 - `vsm_rs::{UnitSelectionPolicy, PerformanceModel, VarietyModel}`
 - `vsm_rs::{AlgedonicPolicy, System1Roles, RoleContext, UnitRoleContext}`
+- `vsm_rs::{VsmBuilder, RuntimeConfig, VsmRuntime, System1Handle}`
+- `vsm_rs::{RuntimeState, RuntimeReadiness, ReadinessCheck}`
+- `vsm_rs::{ReadinessGate, ReadinessStatus, ShutdownReport}`
+- `vsm_rs::{RuntimeDirectorySnapshot, RuntimeComponentSnapshot}`
+- `vsm_rs::{RuntimeComponentStatus, RuntimePorts, System1RuntimeRoles}`
 - `vsm_rs::async_trait`
 
 Observed current behaviors are now characterized, including behaviors intended
@@ -241,19 +281,21 @@ for later removal:
 - `PORTING_MAP.md` is still absent; docs now state this fact.
 - The crate is `publish = false` and lacks final publication metadata and a
   `rust-version`; publication hardening is deferred.
-- Application readiness still relies on sleeps; Phase 0 characterizes startup
-  but does not add a readiness API.
-- Actor names remain process-global; only one default VSM runtime can safely run
-  per process.
+- Legacy actor-facade readiness still relies on sleeps; the new typed
+  `VsmRuntime` handle has deterministic readiness for the lifecycle shell only.
+- Legacy actor names remain process-global; only one default actor-backed VSM
+  runtime can safely run per process. Typed runtime handles are
+  instance-scoped but are not actor-backed yet.
 - State, metrics, channel history, and most service data remain in memory and
   restart-volatile.
 - Systems 2-5 still use string operation names and `serde_json::Value`.
-- Typed foundations are not wired into the actor runtime yet; existing examples
-  still run through the legacy actor/JSON facade.
+- Typed foundations and the builder/runtime handle are not wired into the actor
+  runtime yet; existing operational work still runs through the legacy
+  actor/JSON facade.
 - Temporary `legacy` adapters intentionally bridge current JSON forms for
   round-trip tests only; they are not the target public application surface.
-- First-wave role contracts and contexts are defined but not yet wired into the
-  running actor runtime.
+- First-wave role contracts, contexts, and runtime handles are defined but not
+  yet wired into supervised System 1 actor adapters.
 - Channel targeted-delivery miss falls back to broadcast; characterized as a
   current bug-to-remove in a later typed-bus milestone.
 - Explicit channel broadcast bypasses targeted-message validation; characterized
@@ -272,7 +314,7 @@ resolved, and record the resolution in the development history.
 
 | Deferred item | Reason | Impact | Prerequisite | Intended milestone |
 |---|---|---|---|---|
-| Builder/runtime handles and readiness API | Would change public lifecycle architecture. | Tests still use startup sleeps around the current global runtime. | Typed foundations and user approval for builder work. | Builder/runtime handles |
+| System 1 actor adapters | Requires connecting role contracts to supervised actors and lifecycle integration. | Typed runtime handles cannot process work yet; operational work still uses the legacy actor facade. | Milestone 3 review approval. | System 1 vertical slice |
 | Durable `StateStore` implementations | Persistence contract is accepted, but durable adapters are outside Phase 0. | Current stores are in-memory or no-op only. | StateStore core contract and persistence milestone approval. | Persistence and recovery |
 | Systems 2-5 typed role catalogs and migrations | Later subsystem semantics require separate review gates. | Systems 2-5 continue to use string/JSON service calls. | System 1 pattern and owning milestone approval. | Systems 2-5 migrations |
 | Full event replay and durability | Requires event model and store semantics not approved for Phase 0. | Events and channel history remain non-durable. | Typed bus/event bus and persistence decisions. | Persistence and recovery |
@@ -641,3 +683,142 @@ passed
 
 Wait for explicit user approval to begin Milestone 3: builder, runtime handle,
 readiness/lifecycle surface, and instance scope. Do not begin it automatically.
+
+#### 2026-06-18 — Milestone 3 Start
+
+**Objective**
+
+Begin the approved builder, runtime handle, readiness/lifecycle, and instance
+scope milestone after the user completed the Milestone 2 review gate.
+
+**Changes**
+
+- Updated this journal to record Milestone 3 approval and scope.
+- No Milestone 3 Rust source changes yet.
+
+**Decisions**
+
+- User explicitly approved proceeding after the Milestone 2 review gate.
+- Existing ADR-0001 through ADR-0004 remain the active decision record.
+- No new dependency, compatibility, persistence, or restart guarantee decisions
+  have been made.
+
+**Validation**
+
+Most recent validation remains the Milestone 2 gate suite, all passing on
+2026-06-18. The repository was clean at baseline commit `dcfc9f9` before
+Milestone 3 edits. Validation will be rerun after implementation.
+
+**Next task**
+
+Add the typed builder, runtime configuration, runtime handle, readiness records,
+private runtime directory scaffold, lifecycle tests, and docs, then stop at the
+Milestone 3 review gate.
+
+#### 2026-06-18 — Milestone 3 Runtime Builder and Handles
+
+**Objective**
+
+Implement the typed runtime lifecycle surface before wiring role contracts into
+actor adapters.
+
+**Changes**
+
+- Files changed:
+  - `CODEX.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/DEVELOPERS.md`
+  - `docs/USAGE.md`
+  - `src/lib.rs`
+  - `src/builder.rs`
+  - `src/config.rs`
+  - `src/runtime.rs`
+  - `src/kernel/mod.rs`
+  - `src/kernel/registry.rs`
+  - `tests/runtime_builder.rs`
+  - `examples/typed_runtime_builder.rs`
+- Public APIs added:
+  - `VsmBuilder`;
+  - `RuntimeConfig`;
+  - `VsmRuntime` and `System1Handle`;
+  - `RuntimePorts` and `System1RuntimeRoles`;
+  - `RuntimeState`, `RuntimeReadiness`, `ReadinessCheck`,
+    `ReadinessGate`, and `ReadinessStatus`;
+  - `ShutdownReport`;
+  - `RuntimeDirectorySnapshot`, `RuntimeComponentSnapshot`, and
+    `RuntimeComponentStatus`.
+- Public APIs removed or renamed: none.
+- Tests added:
+  - builder rejects missing `WorkModel`;
+  - builder rejects missing `OperationalUnitFactory`;
+  - builder starts with default optional policies;
+  - default lowest-load selector works through the runtime handle;
+  - runtime handles are instance-scoped and can coexist;
+  - role contexts use runtime identity and recursion path;
+  - shutdown acknowledgement is idempotent and updates the directory snapshot.
+- Documentation updated:
+  - README feature summary and typed-builder example command;
+  - architecture crate layout and typed lifecycle-shell boundary;
+  - usage guide typed builder section;
+  - developer guide layout and runtime-module boundary.
+
+**Decisions**
+
+- No new ADR-level decisions were made.
+- The builder validates required roles at runtime and returns
+  `FrameworkError::InvalidProtocol` for missing required roles.
+- `VsmBuilder::start()` is async now so actor-backed startup can be added in
+  the next slice without changing the lifecycle entry point again.
+- Readiness includes `NotApplicable` so this lifecycle shell can report
+  deterministic readiness while actor adapters and typed observer bus work are
+  still explicitly outside scope.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+passed
+
+cargo check --all-targets --all-features --locked
+passed
+
+cargo test --test runtime_builder --all-features --locked
+passed
+
+cargo test --all-targets --all-features --locked
+passed
+
+cargo clippy --all-targets --all-features --locked -- -D warnings
+passed
+
+cargo doc --all-features --no-deps --locked
+passed
+
+cargo test --doc --all-features --locked
+passed
+
+cargo run --example typed_runtime_builder --locked
+passed
+
+cargo run --example basic_usage --locked
+passed
+
+git diff --check
+passed
+```
+
+**Failures and warnings**
+
+- The first `cargo clippy` run found one redundant borrow in an internal
+  `format!` argument. It was fixed, and the rerun passed with `-D warnings`.
+- The typed runtime handle is intentionally a lifecycle shell in this milestone:
+  it validates roles, exposes readiness and scoped contexts, supports multiple
+  runtime handles, and acknowledges shutdown. It does not process work through
+  actor adapters yet.
+
+**Next task**
+
+Wait for explicit user approval to begin Milestone 4: convert System 1 as the
+first complete vertical slice by wiring role contracts into supervised actor
+adapters. Do not begin it automatically.

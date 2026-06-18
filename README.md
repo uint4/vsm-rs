@@ -37,8 +37,9 @@ The systems communicate through command, coordination, audit, resource-bargain, 
 - Trait-driven migration foundations including `ViableSystem`, instance-scoped
   protocol metadata, typed System 1 records, snapshot/store ports, event/report
   sink traits, first-wave System 1 role contracts, role contexts, opt-in default
-  policies, and legacy JSON adapters. These are not yet wired into the running
-  actor facade.
+  policies, a typed runtime builder/handle with readiness and shutdown
+  acknowledgement, and legacy JSON adapters. Work execution through the typed
+  handle is deferred to the System 1 actor-adapter milestone.
 
 ## Installation
 
@@ -110,6 +111,18 @@ A runnable version is available in [`examples/basic_usage.rs`](examples/basic_us
 
 ```bash
 RUST_LOG=info cargo run --example basic_usage
+```
+
+### Typed runtime builder
+
+The trait-driven migration surface also exposes `VsmBuilder`. It validates the
+required System 1 role objects, applies opt-in default policies, starts an
+instance-scoped runtime handle, reports readiness, and acknowledges shutdown.
+This path is for the new typed lifecycle boundary; operational work still runs
+through the legacy actor facade until the System 1 actor-adapter milestone.
+
+```bash
+cargo run --example typed_runtime_builder --locked
 ```
 
 ## Core API

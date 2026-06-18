@@ -52,6 +52,10 @@ src/
 ├── domain.rs                 Core message and channel domain types
 ├── error.rs                  VsmError and VsmResult
 ├── cancellation.rs           Cooperative cancellation primitive for role contexts
+├── config.rs                 Typed runtime configuration
+├── builder.rs                Typed runtime builder
+├── runtime.rs                Typed runtime handles, readiness, shutdown, component snapshots
+├── kernel/                   Private runtime registry scaffolding
 ├── protocol/                 Typed migration protocols and framework metadata
 ├── roles/                    ViableSystem, role contexts, System 1 contracts, ports
 ├── legacy/                   Temporary adapters from current JSON API to typed foundations
@@ -73,6 +77,12 @@ docs/DEVELOPERS.md             Contributor guide
 docs/adr/                      Architecture decision records
 PORTING_MAP.md                 Not currently present
 ```
+
+The typed builder/runtime modules are the public lifecycle surface for the
+migration path. They should remain independent of `ActorRef`, global actor
+names, and JSON application payloads; actor adapters should plug into these
+handles through private runtime/kernel code as later milestones approve that
+work.
 
 ## 4. Supervision and actor names
 

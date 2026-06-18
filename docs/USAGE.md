@@ -148,15 +148,84 @@ The crate also exposes early trait-driven foundations for the approved migration
 - `cancellation::CancellationToken` for cooperative role cancellation.
 - `legacy::system1` adapters for current `Transaction`, `TransactionResult`,
   `UnitConfig`, and `VsmMessage` shapes.
+- `VsmBuilder`, `RuntimeConfig`, and `VsmRuntime` for instance-scoped typed
+  runtime handles, readiness checks, System 1 role access, and shutdown
+  acknowledgement.
 
 These types are public so downstream-style code can compile against the future
-boundary, but the running actor facade still uses the current global
-actor/JSON-backed runtime until later milestones connect the adapters.
+boundary. `VsmBuilder` starts the typed lifecycle shell now; work processing
+still uses the current global actor/JSON-backed runtime until the System 1
+actor-adapter milestone connects the role contracts to supervised actors.
 
 Application role implementations should import `vsm_rs::async_trait` when
 implementing async role methods. They should not need to import `ractor`,
 `ActorRef`, global actor names, broker message types, or `serde_json` for the
 core role contracts.
+
+### 4.2 Start a typed runtime handle
+
+Use `VsmBuilder` when testing application role implementations against the
+trait-driven runtime boundary. The builder requires a `WorkModel` and an
+`OperationalUnitFactory`; optional System 1 policies default to lowest-load
+selection and no-op performance, variety, and algedonic policies.
+
+```rust
+use vsm_rs::protocol::system1::{CapacitySnapshot, UnitDescriptor};
+use vsm_rs::protocol::RuntimeId;
+use vsm_rs::roles::system1::testing::{
+    AcceptAllWorkModel, StaticOperationalUnitFactory,
+};
+use vsm_rs::VsmBuilder;
+
+# #[derive(Clone, Debug)]
+# struct ExampleWork;
+# #[derive(Clone, Debug)]
+# struct ExampleOutcome;
+# #[derive(Debug)]
+# struct ExampleError;
+# impl std::fmt::Display for ExampleError {
+#     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+#         f.write_str("example error")
+#     }
+# }
+# impl std::error::Error for ExampleError {}
+# #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+# struct ExampleCapability(&'static str);
+# #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+# struct ExampleUnitId(&'static str);
+# struct ExampleSnapshot;
+# struct ExampleSystem;
+# impl vsm_rs::ViableSystem for ExampleSystem {
+#     type Work = ExampleWork;
+#     type Outcome = ExampleOutcome;
+#     type AppError = ExampleError;
+#     type Capability = ExampleCapability;
+#     type UnitId = ExampleUnitId;
+#     type UnitSnapshot = ExampleSnapshot;
+# }
+# async fn build() -> Result<(), vsm_rs::FrameworkError> {
+let descriptor =
+    UnitDescriptor::<ExampleSystem>::new(ExampleUnitId("unit-a"), [ExampleCapability("work")]);
+
+let runtime = VsmBuilder::new()
+    .runtime_id(RuntimeId::from_string("example-runtime"))
+    .work_model(AcceptAllWorkModel::new([ExampleCapability("work")]))
+    .operational_unit_factory(StaticOperationalUnitFactory::new(
+        descriptor,
+        CapacitySnapshot::new(0, Some(4), 0.0),
+        ExampleOutcome,
+    ))
+    .start()
+    .await?;
+
+assert!(runtime.is_ready());
+runtime.shutdown().await?;
+# Ok(())
+# }
+```
+
+A runnable version is available in
+[`examples/typed_runtime_builder.rs`](../examples/typed_runtime_builder.rs).
 
 ## 5. Complete minimal example
 
