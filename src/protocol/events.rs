@@ -7,6 +7,10 @@ use super::system1::{
     AuditEvidence, CoordinationView, PerformanceObservation, ResourceShortageRequest,
     UnitDescriptor,
 };
+use super::system2::{
+    CoordinationAcknowledgement, CoordinationConflict, CoordinationEscalation,
+    CoordinationIntervention,
+};
 
 /// Framework event record.
 #[derive(Clone)]
@@ -22,6 +26,7 @@ where
 {
     Framework(Box<FrameworkEvent>),
     System1(Box<System1Event<V>>),
+    System2(Box<System2Event<V>>),
 }
 
 impl<V> Clone for RuntimeEvent<V>
@@ -32,6 +37,7 @@ where
         match self {
             Self::Framework(event) => Self::Framework(event.clone()),
             Self::System1(event) => Self::System1(Box::new((**event).clone())),
+            Self::System2(event) => Self::System2(Box::new((**event).clone())),
         }
     }
 }
@@ -74,6 +80,7 @@ where
     V: ViableSystem,
 {
     System1(Box<System1Report<V>>),
+    System2(Box<System2Report<V>>),
 }
 
 /// System 1 report stream item.
@@ -84,4 +91,51 @@ where
     Performance(PerformanceObservation<V>),
     Coordination(CoordinationView<V>),
     Audit(AuditEvidence<V>),
+}
+
+/// System 2 event stream item.
+pub enum System2Event<V>
+where
+    V: ViableSystem,
+{
+    CoordinationCycle {
+        conflict_count: usize,
+        intervention_count: usize,
+    },
+    InterventionAcknowledged(Box<CoordinationAcknowledgement<V>>),
+    ConflictEscalated(Box<CoordinationEscalation<V>>),
+}
+
+impl<V> Clone for System2Event<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::CoordinationCycle {
+                conflict_count,
+                intervention_count,
+            } => Self::CoordinationCycle {
+                conflict_count: *conflict_count,
+                intervention_count: *intervention_count,
+            },
+            Self::InterventionAcknowledged(acknowledgement) => {
+                Self::InterventionAcknowledged(Box::new((**acknowledgement).clone()))
+            }
+            Self::ConflictEscalated(escalation) => {
+                Self::ConflictEscalated(Box::new((**escalation).clone()))
+            }
+        }
+    }
+}
+
+/// System 2 report stream item.
+pub enum System2Report<V>
+where
+    V: ViableSystem,
+{
+    Conflict(Box<CoordinationConflict<V>>),
+    Intervention(Box<CoordinationIntervention<V>>),
+    Acknowledgement(Box<CoordinationAcknowledgement<V>>),
+    Escalation(Box<CoordinationEscalation<V>>),
 }

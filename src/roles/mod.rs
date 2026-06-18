@@ -3,6 +3,7 @@
 pub mod context;
 pub mod ports;
 pub mod system1;
+pub mod system2;
 pub mod types;
 
 pub use context::{RoleContext, UnitRoleContext};
@@ -18,4 +19,5 @@ pub use system1::{
     SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel, System1Roles, UnitCandidate,
     UnitSelectionPolicy, VarietyAssessment, VarietyModel, WorkMeasurement, WorkModel,
 };
+pub use system2::{CoordinationPolicy, SharedCoordinationPolicy, System2Roles};
 pub use types::ViableSystem;

@@ -8,8 +8,12 @@ use crate::kernel::event_bus::ObserverEventBus;
 pub use crate::kernel::event_bus::{ObserverBusSnapshot, ObserverId, ObserverSubscription};
 use crate::kernel::registry::RuntimeDirectory;
 use crate::kernel::system1::System1Runtime;
+use crate::kernel::system2::System2Runtime;
 use crate::protocol::system1::{
-    Acknowledgement, UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
+    Acknowledgement, CoordinationView, UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
+};
+use crate::protocol::system2::{
+    CoordinationAcknowledgement, CoordinationCycle, CoordinationIntervention, System2Snapshot,
 };
 use crate::protocol::{
     RecursionPath, RuntimeEvent, RuntimeId, SnapshotKey, SnapshotVersion, SubsystemRole, VsmAddress,
@@ -17,9 +21,9 @@ use crate::protocol::{
 use crate::roles::RoleContext;
 use crate::roles::{
     AlertSink, Clock, EventSink, NoopAlertSink, NoopEventSink, NoopReportSink, NoopStateStore,
-    NoopTelemetrySink, ReportSink, SharedAlgedonicPolicy, SharedOperationalUnitFactory,
-    SharedPerformanceModel, SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel,
-    StateStore, SystemClock, TelemetrySink, ViableSystem,
+    NoopTelemetrySink, ReportSink, SharedAlgedonicPolicy, SharedCoordinationPolicy,
+    SharedOperationalUnitFactory, SharedPerformanceModel, SharedUnitSelectionPolicy,
+    SharedVarietyModel, SharedWorkModel, StateStore, SystemClock, TelemetrySink, ViableSystem,
 };
 
 /// Runtime lifecycle state visible through typed handles.
@@ -463,6 +467,42 @@ where
     }
 }
 
+/// Runtime-selected System 2 role objects.
+pub struct System2RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    coordination_policy: SharedCoordinationPolicy<V>,
+}
+
+impl<V> Clone for System2RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            coordination_policy: Arc::clone(&self.coordination_policy),
+        }
+    }
+}
+
+impl<V> System2RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    /// Creates a runtime role bundle.
+    pub fn new(coordination_policy: SharedCoordinationPolicy<V>) -> Self {
+        Self {
+            coordination_policy,
+        }
+    }
+
+    /// Returns the configured coordination policy object.
+    pub fn coordination_policy(&self) -> SharedCoordinationPolicy<V> {
+        Arc::clone(&self.coordination_policy)
+    }
+}
+
 /// Handle for the System 1 surface owned by a typed runtime.
 pub struct System1Handle<V>
 where
@@ -586,6 +626,136 @@ where
     }
 }
 
+/// Handle for the System 2 surface owned by a typed runtime.
+pub struct System2Handle<V>
+where
+    V: ViableSystem,
+{
+    config: RuntimeConfig,
+    roles: System2RuntimeRoles<V>,
+    ports: RuntimePorts<V>,
+    runtime: Arc<System2Runtime<V>>,
+    system1_runtime: Arc<System1Runtime<V>>,
+}
+
+impl<V> Clone for System2Handle<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            roles: self.roles.clone(),
+            ports: self.ports.clone(),
+            runtime: Arc::clone(&self.runtime),
+            system1_runtime: Arc::clone(&self.system1_runtime),
+        }
+    }
+}
+
+impl<V> System2Handle<V>
+where
+    V: ViableSystem,
+{
+    fn new(
+        config: RuntimeConfig,
+        roles: System2RuntimeRoles<V>,
+        ports: RuntimePorts<V>,
+        runtime: Arc<System2Runtime<V>>,
+        system1_runtime: Arc<System1Runtime<V>>,
+    ) -> Self {
+        Self {
+            config,
+            roles,
+            ports,
+            runtime,
+            system1_runtime,
+        }
+    }
+
+    /// Returns the runtime instance identity.
+    pub fn runtime_id(&self) -> &RuntimeId {
+        &self.config.runtime_id
+    }
+
+    /// Returns the recursion path for this runtime instance.
+    pub fn recursion_path(&self) -> &RecursionPath {
+        &self.config.recursion_path
+    }
+
+    /// Returns the runtime-selected System 2 role bundle.
+    pub fn roles(&self) -> &System2RuntimeRoles<V> {
+        &self.roles
+    }
+
+    /// Builds a System 2 role context with runtime-scoped identity and ports.
+    pub fn role_context(&self) -> RoleContext<V> {
+        self.ports.role_context(
+            self.config.runtime_id.clone(),
+            self.config.recursion_path.clone(),
+            SubsystemRole::System2,
+        )
+    }
+
+    /// Runs one coordination cycle from explicit System 1 coordination views.
+    pub async fn coordinate_views(
+        &self,
+        views: Vec<CoordinationView<V>>,
+    ) -> Result<CoordinationCycle<V>, FrameworkError> {
+        let mut cycle = self.runtime.coordinate_views(views).await?;
+        let acknowledgements = self
+            .deliver_interventions(cycle.interventions.clone())
+            .await;
+        let outcome = self
+            .runtime
+            .record_acknowledgements(acknowledgements)
+            .await?;
+        cycle.acknowledgements = outcome.acknowledgements;
+        cycle.escalations = outcome.escalations;
+        Ok(cycle)
+    }
+
+    /// Collects coordination views from typed System 1 units and runs System 2 policy.
+    pub async fn coordinate_system1(&self) -> Result<CoordinationCycle<V>, FrameworkError> {
+        let views = self.system1_runtime.coordination_views().await?;
+        self.coordinate_views(views).await
+    }
+
+    /// Records externally supplied intervention acknowledgements.
+    pub async fn acknowledge_interventions(
+        &self,
+        acknowledgements: Vec<CoordinationAcknowledgement<V>>,
+    ) -> Result<CoordinationCycle<V>, FrameworkError> {
+        self.runtime.record_acknowledgements(acknowledgements).await
+    }
+
+    /// Returns the current System 2 runtime snapshot.
+    pub async fn snapshot(&self) -> Result<System2Snapshot<V>, FrameworkError> {
+        self.runtime.snapshot().await
+    }
+
+    async fn deliver_interventions(
+        &self,
+        interventions: Vec<CoordinationIntervention<V>>,
+    ) -> Vec<CoordinationAcknowledgement<V>> {
+        let mut acknowledgements = Vec::new();
+
+        for intervention in interventions {
+            if !intervention.requires_ack {
+                continue;
+            }
+
+            acknowledgements.extend(
+                self.system1_runtime
+                    .apply_coordination_intervention(intervention)
+                    .await,
+            );
+        }
+
+        acknowledgements
+    }
+}
+
 /// Typed runtime handle returned by [`crate::VsmBuilder`].
 pub struct VsmRuntime<V>
 where
@@ -598,6 +768,8 @@ where
     ports: RuntimePorts<V>,
     system1_roles: System1RuntimeRoles<V>,
     system1_runtime: Arc<System1Runtime<V>>,
+    system2_roles: System2RuntimeRoles<V>,
+    system2_runtime: Arc<System2Runtime<V>>,
     observer_bus: Arc<ObserverEventBus<V>>,
 }
 
@@ -609,6 +781,7 @@ where
         config: RuntimeConfig,
         ports: RuntimePorts<V>,
         system1_roles: System1RuntimeRoles<V>,
+        system2_roles: System2RuntimeRoles<V>,
     ) -> Result<Self, FrameworkError> {
         let observer_bus = Arc::new(ObserverEventBus::new(
             ports.event_sink(),
@@ -618,6 +791,8 @@ where
         let ports = ports.with_event_sink(observer_sink);
         let system1_runtime =
             System1Runtime::start(config.clone(), system1_roles.clone(), ports.clone()).await?;
+        let system2_runtime =
+            System2Runtime::start(config.clone(), system2_roles.clone(), ports.clone()).await?;
 
         let readiness = RuntimeReadiness::new(vec![
             ReadinessCheck::new(
@@ -628,12 +803,12 @@ where
             ReadinessCheck::new(
                 ReadinessGate::SubsystemActors,
                 ReadinessStatus::Ready,
-                "typed System 1 actor adapters started",
+                "typed System 1 and System 2 actor adapters started",
             ),
             ReadinessCheck::new(
                 ReadinessGate::RoleImplementations,
                 ReadinessStatus::Ready,
-                "required System 1 role objects validated",
+                "required System 1 role objects validated and System 2 coordination policy configured",
             ),
             ReadinessCheck::new(
                 ReadinessGate::Subscriptions,
@@ -658,6 +833,8 @@ where
             ports,
             system1_roles,
             system1_runtime,
+            system2_roles,
+            system2_runtime,
             observer_bus,
         })
     }
@@ -711,6 +888,17 @@ where
         )
     }
 
+    /// Returns a System 2 handle scoped to this runtime instance.
+    pub fn system2(&self) -> System2Handle<V> {
+        System2Handle::new(
+            self.config.clone(),
+            self.system2_roles.clone(),
+            self.ports.clone(),
+            Arc::clone(&self.system2_runtime),
+            Arc::clone(&self.system1_runtime),
+        )
+    }
+
     /// Builds a role context for any subsystem role.
     pub fn role_context(&self, role: SubsystemRole) -> RoleContext<V> {
         self.ports.role_context(
@@ -759,6 +947,7 @@ where
         };
 
         if !already_shutdown {
+            self.system2_runtime.shutdown().await?;
             self.system1_runtime.shutdown().await?;
             self.directory
                 .lock()
@@ -789,6 +978,20 @@ fn register_runtime_components(directory: &mut RuntimeDirectory, config: &Runtim
         recursion_path,
         SubsystemRole::System1,
         "role-bundle",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::System2,
+        "role-bundle",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::System2,
+        "coordination-actor",
         RuntimeComponentStatus::Ready,
     );
     directory.register(

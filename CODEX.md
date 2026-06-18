@@ -14,44 +14,47 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Milestone 5 — typed protocol bus and observer event bus
-- Approved scope: Replace the current hidden targeted-to-broadcast delivery
-  behavior with explicit typed delivery outcomes, add an observer event stream
-  for typed runtime handles, record undeliverable/dead-letter events, update
-  documentation and tests, and keep Systems 2-5 semantic migrations deferred.
-- Approved architectural decisions: Recorded in ADR-0001 through ADR-0004
-- Pending decisions: None for the approved Milestone 5 scope
+- Approved milestone: Milestone 6 — System 2 migration
+- Approved scope: Replace System 2's JSON `ServiceActor` core path with typed
+  coordination protocols and a dedicated coordination runtime, receive typed
+  System 1 coordination views, invoke application-owned coordination policy,
+  track interventions and acknowledgements, keep authoritative resource
+  allocation out of System 2, move current scheduler/balancer behavior under
+  non-core defaults or examples, and update tests/documentation.
+- Approved architectural decisions: Recorded in ADR-0001 through ADR-0005
+- Pending decisions: None for the approved Milestone 6 scope
 - Permission to begin next milestone: No
 
 ## Pending user decisions
 
 | ID | Decision | Options | Recommendation | Blocking milestone | Status |
 |---|---|---|---|---|---|
-| — | — | — | — | — | — |
+| S2-001 | Public `CoordinationPolicy` role shape | A. Minimal view-centric policy over typed System 1 coordination views, generic conflict/intervention/ack records, no new `ViableSystem` associated types; B. System 2 extension type family with app-owned conflict/intervention payload types; C. Keep System 2 policy private for this slice and defer public replacement | A | Milestone 6 | Approved 2026-06-18; recorded in ADR-0005 |
 
 ## Current status
 
-- Overall state: Milestone 5 complete; stopped at review gate
-- Current phase: Milestone 5 — typed protocol bus and observer event bus
-- Current milestone: Explicit delivery outcomes and typed observer stream
+- Overall state: Milestone 6 complete
+- Current phase: Milestone 6 review gate
+- Current milestone: Typed System 2 coordination
 - Last updated: 2026-06-18
 - Last updated by: Codex
-- Baseline commit: `a5f3663`
+- Baseline commit: `a000e0c`
 - Working branch: `master`
 - Repository clean at start: Yes
-- Repository status now: Contains uncommitted Milestone 5 changes for review.
+- Repository status now: Milestone 6 changes are uncommitted and ready for review.
 
 ## Current objective
 
-Milestone 5 implementation is complete for review: the broker now records
-explicit delivery outcomes and dead letters instead of falling back from a
-missing target to broadcast, explicit broadcast is validated as `SystemId::All`,
-the typed runtime handle owns an observer event bus, and typed bus delivery
-status/control-message records are public without requiring JSON app payloads.
+Complete Milestone 6 with the approved Option A role shape: typed System 2
+protocol records, a replaceable view-centric `CoordinationPolicy`, a dedicated
+typed coordination runtime, System 1 coordination-view intake, typed
+interventions/acknowledgements, unresolved-conflict escalation records, and
+documentation/tests proving no JSON/string dispatch remains on the System 2 core
+path.
 
 ## Next action
 
-Wait for explicit user review/approval before beginning Milestone 6: System 2
+Wait for explicit user approval to begin Milestone 7: System 3 and System 3*
 migration. Do not begin it automatically.
 
 ---
@@ -61,7 +64,7 @@ migration. Do not begin it automatically.
 | Phase | Milestone | Status | Evidence |
 |---|---|---:|---|
 | 0 | Repository baseline | Complete | Formatting, check, tests, Clippy, docs, doctests, and example validation pass. |
-| 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, explicit delivery outcomes, removed targeted fallback, broadcast validation, and Systems 2-5 JSON service calls. Existing System 1 and full-system tests still pass. |
+| 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, explicit delivery outcomes, removed targeted fallback, broadcast validation, removed System 2 JSON dispatch, and remaining Systems 3-5 JSON service calls. Existing System 1 and full-system tests still pass. |
 | 0 | ADR setup | Complete | `docs/adr/README.md`, template, and ADR-0001 through ADR-0004 added. |
 | 1 | Application type family | Complete | `src/roles/types.rs` defines `ViableSystem`; `tests/foundational_types.rs` proves non-serde application work, outcome, and snapshot payloads compile. |
 | 1 | Typed core envelopes | Complete | `src/protocol/*`, `src/error.rs`, `src/cancellation.rs`, `src/roles/ports.rs`, and `src/legacy/*` added with tests, docs, and full validation passing. |
@@ -69,7 +72,7 @@ migration. Do not begin it automatically.
 | 2 | Runtime builder and handles | Complete | `src/builder.rs`, `src/config.rs`, `src/runtime.rs`, private `src/kernel/registry.rs`, `tests/runtime_builder.rs`, and `examples/typed_runtime_builder.rs`; full validation passes. |
 | 3 | System 1 vertical slice | Complete | `src/kernel/system1.rs`, expanded `src/runtime.rs`, `tests/system1_typed_runtime.rs`, and `examples/typed_runtime_builder.rs`; full validation passes. |
 | 4 | Typed protocol bus | Complete | `src/protocol/bus.rs`, `src/kernel/event_bus.rs`, expanded `src/channels/broker.rs`, runtime observer APIs, tests, docs, and full validation pass. |
-| 5 | System 2 migration | Not started | Awaiting user approval. |
+| 5 | System 2 migration | Complete | `src/protocol/system2.rs`, `src/roles/system2.rs`, `src/kernel/system2.rs`, expanded runtime handles, updated System 1 coordination hooks, defaults relocation, docs, and `tests/system2_typed_runtime.rs`; full validation passes. |
 | 6 | System 3 and System 3* migration | Not started | Awaiting user approval. |
 | 7 | System 4 migration | Not started | Awaiting user approval. |
 | 8 | System 5 migration | Not started | Awaiting user approval. |
@@ -97,13 +100,13 @@ documentation are complete.
 | Command | Result | Last run | Notes |
 |---|---:|---|---|
 | `cargo fmt --all -- --check` | Passed | 2026-06-18 | Formatting drift resolved by `cargo fmt --all`. |
-| `cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. |
-| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 45 integration tests across foundational, role-contract, runtime-builder, typed-System-1, Phase 0, full-system, and legacy System 1 suites; example test targets have 0 tests. |
-| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings. |
-| `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
-| `cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
-| `cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-18 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
-| `cargo run --example basic_usage --locked` | Passed | 2026-06-18 | Example starts runtime, registers `payments`, processes a transaction, prints status, and exits. |
+| `CARGO_INCREMENTAL=0 cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. Incremental compilation was disabled after the installed nightly compiler hit an incremental ICE on the first check. |
+| `CARGO_INCREMENTAL=0 cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 49 integration tests across foundational, full-system, Phase 0, role-contract, runtime-builder, typed-System-1, and typed-System-2 suites; example test targets have 0 tests. |
+| `CARGO_INCREMENTAL=0 cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings. |
+| `CARGO_INCREMENTAL=0 cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
+| `CARGO_INCREMENTAL=0 cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
+| `CARGO_INCREMENTAL=0 cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-18 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
+| `CARGO_INCREMENTAL=0 cargo run --example basic_usage --locked` | Passed | 2026-06-18 | Example starts runtime, registers `payments`, processes a transaction, prints status, records System 2 target unavailability on the legacy coordination channel, and exits. |
 | `git diff --check` | Passed | 2026-06-18 | No whitespace errors. |
 
 Do not replace failing results with “not run.” Preserve the most recent failure
@@ -234,12 +237,41 @@ until a subsequent run succeeds.
 - Updated README, architecture, usage, and developer docs for explicit broker
   delivery semantics, dead letters, delivery metrics, and typed observer
   subscriptions.
+- Added typed System 2 coordination foundations:
+  - `src/protocol/system2.rs` for coordination view records, conflicts,
+    interventions, acknowledgements, escalations, cycles, and snapshots;
+  - System 2 event/report/control message variants in `src/protocol/events.rs`
+    and `src/protocol/bus.rs`;
+  - `src/roles/system2.rs` for the public `CoordinationPolicy` role,
+    `System2Roles`, shared dynamic policy dispatch, and no-op default policy.
+- Added the private typed System 2 runtime adapter:
+  - `src/kernel/system2.rs` owns view freshness/version tracking, policy
+    invocation, intervention planning, acknowledgement tracking, escalation
+    records, and event/report emission;
+  - `VsmRuntime` now starts and shuts down a System 2 runtime alongside System
+    1 and exposes `System2Handle`;
+  - `System2Handle` can coordinate supplied views, query System 1 views,
+    acknowledge interventions, and produce a typed snapshot.
+- Extended the typed System 1 path so unit actors can expose coordination views
+  and receive typed coordination interventions through
+  `OperationalUnit::handle_coordination_intervention`.
+- Removed the legacy System 2 JSON `ServiceActor` core path:
+  - deleted `src/system2/coordination.rs`;
+  - moved scheduler and balancer examples under `src/system2/defaults/`;
+  - removed `ServiceKind::System2Coordination` dispatch;
+  - changed the legacy System 2 supervisor to start no JSON coordination child.
+- Added `tests/system2_typed_runtime.rs` for downstream-style policy
+  replacement, conflict detection, intervention delivery, acknowledgement
+  recording, rejection escalation, view-version advancement, and no-op default
+  behavior.
+- Updated README, architecture, usage, and developer docs for typed System 2,
+  remaining Systems 3-5 JSON boundaries, and the moved defaults.
 
 ---
 
 ## Work in progress
 
-No implementation work is currently in progress. Milestone 5 is complete and
+No implementation work is currently in progress. Milestone 6 is complete and
 paused at the review gate.
 
 ---
@@ -250,7 +282,8 @@ The user approved the Phase 0-only scope, approved Milestone 1 after the Phase
 0 review gate, approved Milestone 2 after the Milestone 1 review gate, and
 approved Milestone 3 after the Milestone 2 review gate, and approved Milestone
 4 after the Milestone 3 review gate, and approved Milestone 5 after the
-Milestone 4 review gate. Accepted migration decisions are recorded as ADRs.
+Milestone 4 review gate, and approved Milestone 6 after the Milestone 5 review
+gate. Accepted migration decisions are recorded as ADRs.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -258,6 +291,7 @@ Milestone 4 review gate. Accepted migration decisions are recorded as ADRs.
 | [ADR-0002](docs/adr/0002-application-type-family-and-role-contracts.md) | Minimal application type family and role contract shape | Accepted |
 | [ADR-0003](docs/adr/0003-system1-runtime-semantics.md) | First System 1 runtime semantics | Accepted |
 | [ADR-0004](docs/adr/0004-protocol-boundaries-and-deferred-decisions.md) | Protocol boundaries and explicitly deferred choices | Accepted |
+| [ADR-0005](docs/adr/0005-system2-coordination-policy.md) | Minimal view-centric System 2 coordination policy | Accepted |
 
 Milestone 1 introduced no new ADR-level architectural decisions. Implementation
 notes:
@@ -316,14 +350,27 @@ notes:
     the control path. Failures are counted in `ObserverBusSnapshot`.
   - Systems 2-5 typed semantics remain deferred; Milestone 5 adds bus mechanics
     and status records, not subsystem role catalogs.
+- Milestone 6 introduced ADR-0005. Implementation notes:
+  - `CoordinationPolicy` is public, view-centric, object-safe, and replaceable
+    without adding new required associated types to `ViableSystem`.
+  - System 2 records are framework-owned and generic over existing unit
+    identity/capability types; scheduling/resource meaning remains policy,
+    defaults, adapter, or later-extension responsibility.
+  - The typed System 2 runtime runs inside `VsmRuntime`; the legacy global
+    facade no longer starts a System 2 JSON coordination service child.
+  - Rejected intervention acknowledgements produce System 2 escalation records
+    addressed toward System 3. Typed System 3 handling remains deferred to the
+    next milestone.
 
 ---
 
 ## Compatibility changes
 
-Milestones 1 through 5 add public foundational APIs. Milestone 5 intentionally
-changes legacy broker behavior by removing targeted-to-broadcast fallback and
-validating explicit broadcast targets.
+Milestones 1 through 6 add public foundational APIs. Milestone 5 intentionally
+changed legacy broker behavior by removing targeted-to-broadcast fallback and
+validating explicit broadcast targets. Milestone 6 intentionally removes the
+legacy System 2 JSON coordination service from the core path and replaces it
+with typed runtime coordination.
 
 New public modules and re-exports:
 
@@ -343,12 +390,16 @@ New public modules and re-exports:
 - `vsm_rs::{ReadinessGate, ReadinessStatus, ShutdownReport}`
 - `vsm_rs::{RuntimeDirectorySnapshot, RuntimeComponentSnapshot}`
 - `vsm_rs::{RuntimeComponentStatus, RuntimePorts, System1RuntimeRoles}`
+- `vsm_rs::System2RuntimeRoles`
 - `vsm_rs::{UnitAdmissionLimits, UnitSnapshotConfig, UnitRegistration}`
 - `vsm_rs::RegisteredUnit`
 - `vsm_rs::{DeliveryMetrics, DeliveryStatus}`
 - `vsm_rs::{RuntimeControlMessage, System1ControlMessage}`
+- `vsm_rs::System2ControlMessage`
 - `vsm_rs::{DeliveryOutcome, UndeliverableMessage}`
 - `vsm_rs::{ObserverBusSnapshot, ObserverId, ObserverSubscription}`
+- `vsm_rs::{CoordinationPolicy, System2Roles}`
+- `vsm_rs::System2Handle`
 - `vsm_rs::async_trait`
 
 New public channel/runtime APIs:
@@ -359,6 +410,23 @@ New public channel/runtime APIs:
 - `VsmRuntime::subscribe_events`
 - `VsmRuntime::observer_event_history`
 - `VsmRuntime::observer_bus_snapshot`
+- `VsmBuilder::coordination_policy`
+- `VsmBuilder::coordination_policy_arc`
+- `VsmRuntime::system2`
+- `System2Handle::coordinate_views`
+- `System2Handle::coordinate_system1`
+- `System2Handle::acknowledge_interventions`
+- `System2Handle::snapshot`
+- `OperationalUnit::handle_coordination_intervention`
+
+Public behavior changed:
+
+- legacy System 2 JSON service calls no longer dispatch to
+  `system2::coordination`;
+- the legacy global System 2 supervisor remains present but starts no JSON
+  coordination child;
+- `basic_usage` still runs, but the legacy coordination channel records
+  `TargetUnavailable` for the removed System 2 target.
 
 Removed characterized bug behavior:
 
@@ -379,10 +447,13 @@ Removed characterized bug behavior:
   and the typed System 1 path uses private actor adapters.
 - State, metrics, channel history, dead-letter history, observer event history,
   and most service data remain in memory and restart-volatile.
-- Systems 2-5 still use string operation names and `serde_json::Value`.
-- The typed runtime path now processes System 1 work through private unit actor
-  adapters. Systems 2-5 and the legacy `start()` facade still use the current
-  actor/JSON runtime.
+- Systems 3-5 still use string operation names and `serde_json::Value`.
+- The typed runtime path now processes System 1 work and System 2 coordination
+  through private actor adapters. Systems 3-5 and the legacy `start()` facade
+  still use the current actor/JSON runtime.
+- The legacy global System 2 supervisor no longer starts a JSON coordination
+  child; callers using the old targeted coordination channel receive
+  `TargetUnavailable`.
 - Temporary `legacy` adapters intentionally bridge current JSON forms for
   round-trip tests only; they are not the target public application surface.
 - First-wave role contracts, contexts, and runtime handles are wired into the
@@ -407,7 +478,7 @@ resolved, and record the resolution in the development history.
 |---|---|---|---|---|
 | System 1 restart/reconciliation | Automatic unit restart, Operations restart directory reconstruction, and unit-supervisor reconciliation are outside the first actor-backed typed slice. | Typed unit actors stop cleanly on unregister/shutdown, but crash recovery is not complete. | Typed System 1 registration/work path. | System 1 hardening |
 | Durable `StateStore` implementations | Persistence contract is accepted, but durable adapters are outside Phase 0. | Current stores are in-memory or no-op only. | StateStore core contract and persistence milestone approval. | Persistence and recovery |
-| Systems 2-5 typed role catalogs and migrations | Later subsystem semantics require separate review gates. | Systems 2-5 continue to use string/JSON service calls. | System 1 pattern and owning milestone approval. | Systems 2-5 migrations |
+| Systems 3-5 typed role catalogs and migrations | Later subsystem semantics require separate review gates. | Systems 3-5 continue to use string/JSON service calls. | System 1/System 2 patterns and owning milestone approval. | Systems 3-5 migrations |
 | Full event replay and durability | Requires event model and store semantics not approved for Phase 0. | Events and channel history remain non-durable. | Typed bus/event bus and persistence decisions. | Persistence and recovery |
 | Automatic work retries | User chose no automatic work retries in first System 1 slice. | Work retry behavior remains caller/application responsibility. | Failure classification and retry policy review. | Backpressure/execution hardening |
 | Richer defaults | Defaults must be opt-in and non-normative. | Initial defaults remain minimal. | Role contracts and default namespaces. | System 1 and later default milestones |
@@ -1229,3 +1300,154 @@ passed
 
 Wait for explicit user approval to begin Milestone 6: System 2 migration. Do
 not begin it automatically.
+
+#### 2026-06-18 — Milestone 6 System 2 Typed Coordination
+
+**Objective**
+
+Convert System 2 from a JSON `ServiceActor` core path into typed coordination
+runtime machinery, using the approved minimal view-centric
+`CoordinationPolicy` shape from ADR-0005.
+
+**Changes**
+
+- Files changed:
+  - `CODEX.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/DEVELOPERS.md`
+  - `docs/USAGE.md`
+  - `docs/adr/README.md`
+  - `docs/adr/0005-system2-coordination-policy.md`
+  - `src/actor_support.rs`
+  - `src/builder.rs`
+  - `src/channels/mod.rs`
+  - `src/kernel/mod.rs`
+  - `src/kernel/system1.rs`
+  - `src/kernel/system2.rs`
+  - `src/lib.rs`
+  - `src/protocol/bus.rs`
+  - `src/protocol/events.rs`
+  - `src/protocol/mod.rs`
+  - `src/protocol/system1.rs`
+  - `src/protocol/system2.rs`
+  - `src/roles/mod.rs`
+  - `src/roles/system1.rs`
+  - `src/roles/system2.rs`
+  - `src/runtime.rs`
+  - `src/system2/defaults/*`
+  - `src/system2/mod.rs`
+  - `src/system2/supervisor.rs`
+  - `src/vsm_core.rs`
+  - `tests/foundational_types.rs`
+  - `tests/full_system_flow.rs`
+  - `tests/phase0_characterization.rs`
+  - `tests/system2_typed_runtime.rs`
+- Files removed or moved:
+  - `src/system2/coordination.rs` removed;
+  - `src/system2/scheduler.rs` moved to `src/system2/defaults/scheduler.rs`;
+  - `src/system2/balancer.rs` moved to `src/system2/defaults/balancer.rs`.
+- Public APIs added:
+  - `CoordinationPolicy`;
+  - `System2Roles`;
+  - `System2RuntimeRoles`;
+  - `System2Handle`;
+  - `System2ControlMessage`;
+  - typed System 2 protocol records for coordination views, conflicts,
+    interventions, acknowledgements, escalations, cycles, and snapshots;
+  - `VsmBuilder::coordination_policy`;
+  - `VsmBuilder::coordination_policy_arc`;
+  - `VsmRuntime::system2`;
+  - `System2Handle::coordinate_views`;
+  - `System2Handle::coordinate_system1`;
+  - `System2Handle::acknowledge_interventions`;
+  - `System2Handle::snapshot`;
+  - `OperationalUnit::handle_coordination_intervention`.
+- Public behavior changed:
+  - System 2 no longer has JSON string-operation dispatch in the core path;
+  - the legacy System 2 supervisor starts no JSON coordination child;
+  - legacy targeted coordination-channel calls to System 2 now report
+    `TargetUnavailable`;
+  - scheduler and balancer behavior are labeled as defaults rather than core
+    System 2 semantics.
+- Tests added or updated:
+  - downstream-style typed System 2 policy and unit implementations compile
+    without actor or JSON APIs;
+  - System 2 detects a conflict, delivers typed interventions to System 1
+    units, and records acknowledgements;
+  - rejected intervention acknowledgements are escalated toward System 3;
+  - coordination view versions advance on repeated observation;
+  - the default System 2 policy is no-op and replaceable;
+  - Phase 0 characterization now records that System 2 JSON dispatch has been
+    removed while Systems 3-5 JSON service calls remain characterized.
+- Documentation updated:
+  - README public API and migration status;
+  - architecture module boundaries and runtime tree;
+  - usage examples for typed System 2 coordination;
+  - developer guide extension rules;
+  - ADR index.
+
+**Decisions**
+
+- ADR-0005 records the accepted Option A decision: public, minimal,
+  view-centric `CoordinationPolicy` over typed System 1 coordination views,
+  without new required `ViableSystem` associated types.
+- Authoritative resource allocation remains outside System 2 and deferred to
+  System 3.
+- Typed System 3 handling of escalation records remains deferred to Milestone
+  7.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+passed
+
+CARGO_INCREMENTAL=0 cargo check --all-targets --all-features --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo test --test system2_typed_runtime --all-features --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo test --test phase0_characterization --test full_system_flow --all-features --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo clippy --all-targets --all-features --locked -- -D warnings
+passed
+
+CARGO_INCREMENTAL=0 cargo test --all-targets --all-features --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo doc --all-features --no-deps --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo test --doc --all-features --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo run --example typed_runtime_builder --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo run --example basic_usage --locked
+passed
+
+git diff --check
+passed
+```
+
+**Failures and warnings**
+
+- The first full `cargo check --all-targets --all-features --locked` run hit an
+  installed nightly `rustc` incremental compilation ICE. The generated ICE
+  artifacts were removed, and the full validation suite passed with
+  `CARGO_INCREMENTAL=0`.
+- Clippy flagged large enum variants after adding System 2 protocol payloads.
+  Runtime control, event, and report enum variants now box large System 1 and
+  System 2 payloads.
+- Typed System 3 consumption of escalation records, durable coordination
+  history, automatic coordination retries, and richer System 2 defaults remain
+  unresolved.
+
+**Next task**
+
+Wait for explicit user approval to begin Milestone 7: System 3 and System 3*
+migration. Do not begin it automatically.

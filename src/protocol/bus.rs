@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::roles::ViableSystem;
 
 use super::system1::{AuditRequest, UnitCommand, WorkRequest};
+use super::system2::{CoordinationAcknowledgement, CoordinationViewRecord};
 
 /// Delivery result for a typed control-path message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,7 +56,8 @@ pub enum RuntimeControlMessage<V>
 where
     V: ViableSystem,
 {
-    System1(System1ControlMessage<V>),
+    System1(Box<System1ControlMessage<V>>),
+    System2(Box<System2ControlMessage<V>>),
 }
 
 /// Typed System 1 control messages.
@@ -66,4 +68,13 @@ where
     Work(Box<WorkRequest<V>>),
     UnitCommand(UnitCommand<V>),
     AuditRequest(AuditRequest<V>),
+}
+
+/// Typed System 2 control messages.
+pub enum System2ControlMessage<V>
+where
+    V: ViableSystem,
+{
+    CoordinationViews(Vec<CoordinationViewRecord<V>>),
+    InterventionAcknowledgement(Box<CoordinationAcknowledgement<V>>),
 }

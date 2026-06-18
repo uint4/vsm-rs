@@ -9,14 +9,16 @@ use crate::protocol::{RecursionPath, RuntimeId};
 use crate::roles::system1::defaults::{
     LowestLoadSelectionPolicy, NoopAlgedonicPolicy, NoopPerformanceModel, NoopVarietyModel,
 };
+use crate::roles::system2::defaults::NoopCoordinationPolicy;
 use crate::roles::{
-    AlertSink, AlgedonicPolicy, Clock, EventSink, NoopAlertSink, NoopEventSink, NoopReportSink,
-    NoopStateStore, NoopTelemetrySink, OperationalUnitFactory, PerformanceModel, ReportSink,
-    SharedAlgedonicPolicy, SharedOperationalUnitFactory, SharedPerformanceModel,
-    SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel, StateStore, SystemClock,
-    TelemetrySink, UnitSelectionPolicy, VarietyModel, ViableSystem, WorkModel,
+    AlertSink, AlgedonicPolicy, Clock, CoordinationPolicy, EventSink, NoopAlertSink, NoopEventSink,
+    NoopReportSink, NoopStateStore, NoopTelemetrySink, OperationalUnitFactory, PerformanceModel,
+    ReportSink, SharedAlgedonicPolicy, SharedCoordinationPolicy, SharedOperationalUnitFactory,
+    SharedPerformanceModel, SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel,
+    StateStore, SystemClock, TelemetrySink, UnitSelectionPolicy, VarietyModel, ViableSystem,
+    WorkModel,
 };
-use crate::runtime::{RuntimePorts, System1RuntimeRoles, VsmRuntime};
+use crate::runtime::{RuntimePorts, System1RuntimeRoles, System2RuntimeRoles, VsmRuntime};
 
 /// Builder for one typed VSM runtime instance.
 ///
@@ -34,6 +36,7 @@ where
     performance_model: Option<SharedPerformanceModel<V>>,
     variety_model: Option<SharedVarietyModel<V>>,
     algedonic_policy: Option<SharedAlgedonicPolicy<V>>,
+    coordination_policy: Option<SharedCoordinationPolicy<V>>,
     state_store: Arc<dyn StateStore<V>>,
     event_sink: Arc<dyn EventSink<V>>,
     report_sink: Arc<dyn ReportSink<V>>,
@@ -55,6 +58,7 @@ where
             performance_model: None,
             variety_model: None,
             algedonic_policy: None,
+            coordination_policy: None,
             state_store: Arc::new(NoopStateStore::<V>::new()),
             event_sink: Arc::new(NoopEventSink::<V>::new()),
             report_sink: Arc::new(NoopReportSink::<V>::new()),
@@ -221,6 +225,21 @@ where
         self
     }
 
+    /// Sets the optional System 2 coordination policy role.
+    pub fn coordination_policy<P>(mut self, policy: P) -> Self
+    where
+        P: CoordinationPolicy<V> + 'static,
+    {
+        self.coordination_policy = Some(Arc::new(policy));
+        self
+    }
+
+    /// Sets the optional System 2 coordination policy from a shared trait object.
+    pub fn coordination_policy_arc(mut self, policy: SharedCoordinationPolicy<V>) -> Self {
+        self.coordination_policy = Some(policy);
+        self
+    }
+
     /// Sets the state store port. The default is [`NoopStateStore`].
     pub fn state_store<S>(mut self, state_store: S) -> Self
     where
@@ -324,6 +343,7 @@ where
             performance_model,
             variety_model,
             algedonic_policy,
+            coordination_policy,
             state_store,
             event_sink,
             report_sink,
@@ -340,6 +360,7 @@ where
             variety_model,
             algedonic_policy,
         )?;
+        let system2_roles = system2_roles(coordination_policy);
         let ports = RuntimePorts::noop()
             .with_state_store(state_store)
             .with_event_sink(event_sink)
@@ -348,7 +369,7 @@ where
             .with_alert_sink(alert_sink)
             .with_clock(clock);
 
-        VsmRuntime::new(config, ports, roles).await
+        VsmRuntime::new(config, ports, roles, system2_roles).await
     }
 }
 
@@ -386,4 +407,16 @@ fn missing_required_role(role: &'static str) -> FrameworkError {
     FrameworkError::InvalidProtocol {
         reason: format!("missing required System 1 role: {role}"),
     }
+}
+
+fn system2_roles<V>(
+    coordination_policy: Option<SharedCoordinationPolicy<V>>,
+) -> System2RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    let coordination_policy =
+        coordination_policy.unwrap_or_else(|| Arc::new(NoopCoordinationPolicy::<V>::new()));
+
+    System2RuntimeRoles::new(coordination_policy)
 }

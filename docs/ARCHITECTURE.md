@@ -62,7 +62,7 @@ src/
 │   ├── variety_engineering.rs
 │   └── variety/              Calculator, attenuation, amplification
 ├── system1/                  Typed Operations and Unit actors
-├── system2/                  Coordination service and pure algorithms
+├── system2/                  Typed coordination defaults and legacy supervisor placeholder
 ├── system3/                  Control service and pure algorithms
 ├── system4/                  Intelligence service family
 └── system5/                  Policy service family
@@ -94,6 +94,11 @@ These modules are intentionally alongside the current runtime:
 - `protocol::system1` defines typed System 1 records for work, unit descriptors,
   capacity/load, command acknowledgements, performance observations, resource
   shortages, audit evidence, and coordination views.
+- `protocol::system2` defines typed System 2 coordination view records,
+  conflicts, interventions, acknowledgements, escalation records, cycles, and
+  runtime snapshots.
+- `roles::system2` defines the view-centric `CoordinationPolicy` role plus the
+  no-op default policy.
 - `roles::ports` defines `StateStore`, `EventSink`, and `ReportSink`, plus
   no-op implementations. It also defines early `TelemetrySink`, `AlertSink`,
   `Clock`, and `IdGenerator` ports for role contexts and future adapters.
@@ -111,6 +116,10 @@ These modules are intentionally alongside the current runtime:
   runtime. Registered units own application `OperationalUnit` implementations
   behind private actors; the public handle owns orchestration and never exposes
   actor references.
+- `kernel::system2` contains the private typed coordination actor. It stores
+  System 1 coordination views with freshness/version metadata, invokes
+  `CoordinationPolicy`, tracks interventions and acknowledgements, and records
+  unresolved-conflict escalations for System 3.
 - `kernel::event_bus` contains the private observer event bus used by typed
   runtime handles. It implements the `EventSink` port, fans out runtime events
   to subscribers without blocking the control path, retains a bounded
@@ -129,8 +138,9 @@ unit ID, or snapshot payloads to implement serde.
 objects, reports readiness deterministically, exposes scoped role contexts,
 permits multiple runtime handles in one process, registers typed operational
 units, dispatches typed work through private unit actors, supports typed
-observer-event subscriptions, and acknowledges shutdown. The existing global actor runtime still serves the legacy
-`Transaction`/JSON facade.
+System 2 coordination, supports typed observer-event subscriptions, and
+acknowledges shutdown. The existing global actor runtime still serves the legacy
+`Transaction`/JSON facade and Systems 3–5 JSON services.
 
 ## 3. Supervision tree
 
@@ -150,7 +160,7 @@ vsm.root_supervisor
 │   │   └── ...runtime units...
 │   └── vsm.system1.operations
 ├── vsm.system2.supervisor
-│   └── vsm.system2.coordination
+│   └── no legacy JSON children; typed System 2 runs under VsmRuntime
 ├── vsm.system3.supervisor
 │   └── vsm.system3.control
 ├── vsm.system4.supervisor
@@ -235,7 +245,7 @@ This style gives compile-time message checking and is the preferred model for be
 
 ### 5.2 Shared JSON `ServiceActor`
 
-Systems 2–5 and telemetry use `actor_support::ServiceActor`.
+Systems 3–5 and telemetry use `actor_support::ServiceActor`.
 
 ```rust
 pub enum ServiceMsg {
@@ -249,7 +259,6 @@ pub enum ServiceMsg {
 Each instance has a `ServiceKind`, and calls are delegated to a module-specific `actor_call` function:
 
 ```text
-ServiceKind::System2Coordination  -> system2::coordination::actor_call
 ServiceKind::System3Control       -> system3::control::actor_call
 ServiceKind::System4Analytics     -> system4::analytics::actor_call
 ServiceKind::System5Policy        -> system5::policy::actor_call
@@ -413,14 +422,13 @@ The following subscriptions are created during actor startup:
 | Actor | Subscriber ID | Channels |
 |---|---|---|
 | System 1 Operations | `system1` | Command, Coordination, Audit |
-| System 2 Coordination | `system2` | Coordination |
 | System 3 Control | `system3` | ResourceBargain, Command, Audit |
 | System 4 Intelligence | `system4` | Command |
 | System 5 Policy | `system5` | Algedonic |
 
 The dedicated algedonic processor and temporal-variety actor are accessed through their typed APIs; they do not subscribe to the broker in the current supervision tree.
 
-A major current distinction is that `ServiceActor` channel handling records the received message in `history`, but does not dispatch it into the module's domain operations. System 1 has explicit channel behavior; Systems 2–5 currently treat channel messages as observable events unless application code makes a separate service call.
+A major current distinction is that `ServiceActor` channel handling records the received message in `history`, but does not dispatch it into the module's domain operations. System 1 has explicit channel behavior; Systems 3–5 currently treat channel messages as observable events unless application code makes a separate service call.
 
 ## 10. System 1: operational execution
 
@@ -501,14 +509,20 @@ Other messages are ignored after a debug log.
 
 ## 11. System 2: coordination
 
-System 2 has one `ServiceActor`, `vsm.system2.coordination`, plus pure modules:
+System 2 is now owned by the typed runtime path rather than the global JSON
+service shell. `VsmRuntime::system2()` returns a handle that:
 
-- `scheduler`: combines schedules, detects temporal/resource/dependency conflicts, reorders entries, validates schedules, and calculates metrics.
-- `balancer`: allocates resources by priority, calculates efficiency, detects imbalance, and suggests transfers.
+- collects typed System 1 `CoordinationView` records;
+- stores freshness and monotonic view versions per unit;
+- invokes the configured `CoordinationPolicy`;
+- delivers typed `CoordinationIntervention` values to affected units;
+- records unit acknowledgements and rejected/failed intervention escalations
+  for System 3.
 
-The service accepts runtime operations such as `coordinate`, `balance`, `detect_conflicts`, and `get_state`.
-
-Its coordination-channel subscription currently adds incoming messages to service history; it does not automatically turn `UnitRegistered` into a schedule or balancing action.
+The previous JSON `vsm.system2.coordination` service actor is not started by the
+legacy global supervisor. The old scheduler and balancer helpers live under
+`system2::defaults` as explicit example algorithms and are not core System 2
+semantics.
 
 ## 12. System 3: control
 
@@ -694,12 +708,11 @@ The telemetry reporter is currently a generic service actor returning its data a
 ### Unit registration
 
 ```text
-System 1 registers unit
-  -> Coordination/UnitRegistered message
-  -> System 2 receives and records channel event
+Typed runtime registers unit
+  -> System 2 collects typed CoordinationView records from System 1
+  -> CoordinationPolicy detects conflicts and proposes typed interventions
+  -> System 1 units acknowledge interventions
 ```
-
-No automatic System 2 scheduling action follows yet.
 
 ### Successful operational transaction
 
@@ -792,8 +805,8 @@ The most important current limitations are:
 
 - The crate is still in baseline hardening; see `CODEX.md` for the latest
   validation evidence.
-- Most Systems 2–5 APIs use string operation names and `serde_json::Value`.
-- Channel events for Systems 2–5 are recorded, not converted into domain actions.
+- Most Systems 3–5 APIs use string operation names and `serde_json::Value`.
+- Channel events for Systems 3–5 are recorded, not converted into domain actions.
 - Broker restart loses registrations and history for the legacy global actor
   facade. The typed runtime handle's observer subscriptions are owned by the
   handle, not the legacy broker.

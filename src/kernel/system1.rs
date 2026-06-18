@@ -14,9 +14,11 @@ use crate::error::{FrameworkError, WorkError};
 use crate::protocol::events::{RuntimeEvent, RuntimeReport, System1Event, System1Report};
 use crate::protocol::snapshot::SnapshotRecord;
 use crate::protocol::system1::{
-    Acknowledgement, CapacitySnapshot, PerformanceObservation, ResourceShortageRequest,
-    UnitDescriptor, WorkDisposition, WorkOptions, WorkRequest, WorkResponse, WorkResult,
+    Acknowledgement, CapacitySnapshot, CoordinationView, PerformanceObservation,
+    ResourceShortageRequest, UnitDescriptor, WorkDisposition, WorkOptions, WorkRequest,
+    WorkResponse, WorkResult,
 };
+use crate::protocol::system2::{CoordinationAcknowledgement, CoordinationIntervention};
 use crate::protocol::SubsystemRole;
 use crate::roles::{BoxOperationalUnit, RoleContext, UnitCandidate, UnitRoleContext, ViableSystem};
 use crate::runtime::{
@@ -257,6 +259,65 @@ where
         .await;
 
         Ok(entry.descriptor)
+    }
+
+    pub(crate) async fn coordination_views(
+        &self,
+    ) -> Result<Vec<CoordinationView<V>>, FrameworkError> {
+        self.ensure_running()?;
+        let entries = self.unit_entries()?;
+        let mut views = Vec::with_capacity(entries.len());
+
+        for entry in entries {
+            let view = call_t!(
+                entry.actor,
+                UnitActorMsg::CoordinationView,
+                ACTOR_CALL_TIMEOUT_MS
+            )
+            .map_err(|err| FrameworkError::Runtime {
+                reason: format!("failed to query typed System 1 coordination view: {err}"),
+            })??;
+            views.push(view);
+        }
+
+        Ok(views)
+    }
+
+    pub(crate) async fn apply_coordination_intervention(
+        &self,
+        intervention: CoordinationIntervention<V>,
+    ) -> Vec<CoordinationAcknowledgement<V>> {
+        let mut acknowledgements = Vec::with_capacity(intervention.target_units.len());
+
+        for unit_id in intervention.target_units.clone() {
+            let acknowledgement = match self.unit_entry(&unit_id) {
+                Ok(entry) => call_t!(
+                    entry.actor,
+                    UnitActorMsg::CoordinationIntervention,
+                    ACTOR_CALL_TIMEOUT_MS,
+                    Box::new(intervention.clone())
+                )
+                .map_err(|err| FrameworkError::Runtime {
+                    reason: format!("failed to deliver typed System 2 intervention: {err}"),
+                })
+                .and_then(|result| result)
+                .unwrap_or_else(|error| {
+                    CoordinationAcknowledgement::failed(
+                        &intervention,
+                        unit_id.clone(),
+                        error.to_string(),
+                    )
+                }),
+                Err(error) => CoordinationAcknowledgement::failed(
+                    &intervention,
+                    unit_id.clone(),
+                    error.to_string(),
+                ),
+            };
+            acknowledgements.push(acknowledgement);
+        }
+
+        acknowledgements
     }
 
     pub(crate) async fn shutdown(&self) -> Result<(), FrameworkError> {
@@ -645,6 +706,11 @@ where
 {
     Capacity(RpcReplyPort<Result<CapacitySnapshot, FrameworkError>>),
     HandleWork(Box<WorkRequest<V>>, RpcReplyPort<WorkResult<V>>),
+    CoordinationView(RpcReplyPort<Result<CoordinationView<V>, FrameworkError>>),
+    CoordinationIntervention(
+        Box<CoordinationIntervention<V>>,
+        RpcReplyPort<Result<CoordinationAcknowledgement<V>, FrameworkError>>,
+    ),
     Drain(RpcReplyPort<Result<Acknowledgement, FrameworkError>>),
     CaptureSnapshot(RpcReplyPort<Result<(), FrameworkError>>),
 }
@@ -715,6 +781,17 @@ where
             }
             UnitActorMsg::HandleWork(request, reply) => {
                 let result = unit_work(state, *request).await;
+                let _ = reply.send(result);
+            }
+            UnitActorMsg::CoordinationView(reply) => {
+                let result = state.unit.coordination_view(&state.context).await;
+                let _ = reply.send(result);
+            }
+            UnitActorMsg::CoordinationIntervention(intervention, reply) => {
+                let result = state
+                    .unit
+                    .handle_coordination_intervention(&state.context, *intervention)
+                    .await;
                 let _ = reply.send(result);
             }
             UnitActorMsg::Drain(reply) => {

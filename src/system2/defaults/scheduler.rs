@@ -1,4 +1,4 @@
-//! Schedule coordination helpers for System 2.
+//! Default schedule coordination helpers for System 2 examples.
 //!
 //! The scheduler combines existing and new JSON schedule entries, detects
 //! temporal/resource/dependency conflicts, and produces a simple sequential

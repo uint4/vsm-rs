@@ -108,13 +108,16 @@ fn protocol_metadata_carries_instance_scoped_addresses_and_causation() {
 
 #[test]
 fn typed_control_bus_records_do_not_require_json_payloads() {
-    let message = RuntimeControlMessage::<DomainSystem>::System1(System1ControlMessage::Work(
-        Box::new(WorkRequest::new(DomainWork { bytes: vec![42] })),
+    let message = RuntimeControlMessage::<DomainSystem>::System1(Box::new(
+        System1ControlMessage::Work(Box::new(WorkRequest::new(DomainWork { bytes: vec![42] }))),
     ));
     let mut metrics = DeliveryMetrics::default();
     metrics.record(DeliveryStatus::TargetUnavailable);
 
-    let RuntimeControlMessage::System1(System1ControlMessage::Work(request)) = message else {
+    let RuntimeControlMessage::System1(message) = message else {
+        panic!("control message should carry System 1 work");
+    };
+    let System1ControlMessage::Work(request) = *message else {
         panic!("control message should carry System 1 work");
     };
 

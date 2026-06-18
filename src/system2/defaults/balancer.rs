@@ -1,4 +1,4 @@
-//! Resource balancing helpers for System 2.
+//! Default resource balancing helpers for System 2 examples.
 //!
 //! The balancer ranks JSON resource requests, derives or reuses total capacity,
 //! allocates resources by priority, and reports simple efficiency and imbalance

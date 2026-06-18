@@ -294,7 +294,7 @@ where
 }
 
 /// Coordination view shared by a unit without exposing raw mutable state.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CoordinationView<V>
 where
     V: ViableSystem,
@@ -304,6 +304,21 @@ where
     pub capabilities: Vec<CapabilityDescription<V::Capability>>,
     pub capacity: CapacitySnapshot,
     pub snapshot_version: Option<SnapshotVersion>,
+}
+
+impl<V> Clone for CoordinationView<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            metadata: self.metadata.clone(),
+            unit_id: self.unit_id.clone(),
+            capabilities: self.capabilities.clone(),
+            capacity: self.capacity.clone(),
+            snapshot_version: self.snapshot_version,
+        }
+    }
 }
 
 impl<E> From<&WorkError<E>> for WorkDisposition

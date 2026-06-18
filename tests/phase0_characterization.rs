@@ -231,12 +231,10 @@ async fn explicit_broadcast_rejects_targeted_message() {
 
 #[tokio::test]
 #[serial]
-async fn systems_2_to_5_service_calls_return_json_responses() {
+async fn system2_json_service_dispatch_is_removed_and_systems_3_to_5_remain() {
     let app = start_app().await;
 
-    let system2 = call_service(names::SYSTEM2_COORDINATION, "get_state", json!({}))
-        .await
-        .expect("system2 state should return");
+    let system2 = call_service(names::SYSTEM2_COORDINATION, "get_state", json!({})).await;
     let system3 = call_service(names::SYSTEM3_CONTROL, "get_state", json!({}))
         .await
         .expect("system3 state should return");
@@ -251,13 +249,13 @@ async fn systems_2_to_5_service_calls_return_json_responses() {
         .await
         .expect("system5 unknown operation should return JSON");
 
-    let system2_running = system2["state"]["status"] == "running";
+    let system2_unavailable = system2.is_err();
     let system3_running = system3["state"]["status"] == "running";
     let system4_report_shape = system4.get("scan").is_some() && system4.get("insights").is_some();
     let system5_unknown_operation = system5["status"] == "unknown_operation";
     stop_app(app).await;
 
-    assert!(system2_running);
+    assert!(system2_unavailable);
     assert!(system3_running);
     assert!(system4_report_shape);
     assert!(system5_unknown_operation);

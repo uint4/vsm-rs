@@ -24,3 +24,4 @@ implementation milestone by itself.
 | [0002](0002-application-type-family-and-role-contracts.md) | Accepted | Minimal application type family and role contract shape |
 | [0003](0003-system1-runtime-semantics.md) | Accepted | First System 1 runtime semantics |
 | [0004](0004-protocol-boundaries-and-deferred-decisions.md) | Accepted | Protocol boundaries and explicitly deferred choices |
+| [0005](0005-system2-coordination-policy.md) | Accepted | Minimal view-centric System 2 coordination policy |

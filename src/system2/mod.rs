@@ -1,11 +1,9 @@
 //! System 2 coordination and balancing.
 //!
-//! System 2 is supervised as a JSON `ServiceActor` plus pure scheduling and
-//! balancing helpers. Its coordination-channel subscription records incoming
-//! events in service history; schedule coordination and resource balancing run
-//! only when called through the explicit service facade.
+//! The typed runtime path owns System 2 coordination through
+//! [`crate::VsmRuntime::system2`] and the public [`crate::CoordinationPolicy`]
+//! role. Legacy JSON scheduling and balancing helpers are retained under
+//! [`defaults`] as opt-in examples rather than core VSM semantics.
 
-pub mod balancer;
-pub mod coordination;
-pub mod scheduler;
+pub mod defaults;
 pub mod supervisor;

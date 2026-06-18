@@ -11,6 +11,7 @@ use crate::protocol::system1::{
     PerformanceObservation, UnitCommand, UnitDescriptor, WorkDisposition, WorkRequest,
     WorkResponse, WorkResult,
 };
+use crate::protocol::system2::{CoordinationAcknowledgement, CoordinationIntervention};
 use crate::protocol::SnapshotRecord;
 
 use super::{RoleContext, UnitRoleContext, ViableSystem};
@@ -224,6 +225,17 @@ where
         &mut self,
         context: &UnitRoleContext<V>,
     ) -> Result<CoordinationView<V>, FrameworkError>;
+
+    async fn handle_coordination_intervention(
+        &mut self,
+        context: &UnitRoleContext<V>,
+        intervention: CoordinationIntervention<V>,
+    ) -> Result<CoordinationAcknowledgement<V>, FrameworkError> {
+        Ok(CoordinationAcknowledgement::accepted(
+            &intervention,
+            context.unit_id().clone(),
+        ))
+    }
 
     async fn audit_evidence(
         &mut self,

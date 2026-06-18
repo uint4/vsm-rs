@@ -34,14 +34,16 @@ The systems communicate through command, coordination, audit, resource-bargain, 
 - Algedonic pain, pleasure, anomaly, opportunity, and emergency signals.
 - Temporal aggregation, trend, cycle, seasonality, anomaly, forecasting, and causality helpers.
 - Pure functions for scheduling, resource allocation, auditing, forecasting, recursion, and variety engineering.
-- JSON-oriented service boundaries for Systems 2–5, making integration straightforward while the typed API continues to mature.
+- Typed System 2 coordination for the trait-driven runtime, with generic
+  conflict, intervention, acknowledgement, and escalation records.
+- JSON-oriented service boundaries for Systems 3–5, making integration straightforward while the typed API continues to mature.
 - Trait-driven migration foundations including `ViableSystem`, instance-scoped
   protocol metadata, typed System 1 records, snapshot/store ports, event/report
-  sink traits, first-wave System 1 role contracts, role contexts, opt-in default
-  policies, a typed runtime builder/handle with readiness and shutdown
-  acknowledgement, actor-backed typed System 1 registration/work processing,
-  typed observer-event subscriptions, typed bus delivery status records, and
-  legacy JSON adapters.
+  sink traits, first-wave System 1 and System 2 role contracts, role contexts,
+  opt-in default policies, a typed runtime builder/handle with readiness and
+  shutdown acknowledgement, actor-backed typed System 1 registration/work
+  processing, typed System 2 coordination, typed observer-event subscriptions,
+  typed bus delivery status records, and legacy JSON adapters.
 
 ## Installation
 
@@ -120,8 +122,9 @@ RUST_LOG=info cargo run --example basic_usage
 The trait-driven migration surface also exposes `VsmBuilder`. It validates the
 required System 1 role objects, applies opt-in default policies, starts an
 instance-scoped runtime handle, reports readiness, and acknowledges shutdown.
-This path can register typed System 1 units and process typed work through
-private unit actor adapters and subscribe observers to typed runtime events.
+This path can register typed System 1 units, process typed work through private
+unit actor adapters, coordinate System 1 views through typed System 2 policy,
+and subscribe observers to typed runtime events.
 The legacy `start()` facade remains available for the current JSON transaction
 workflow.
 
@@ -194,9 +197,24 @@ messages. A missing target is reported as `TargetUnavailable` and recorded in
 dead-letter history rather than being widened to broadcast. External endpoints
 and explicit `SystemId::All` broadcasts can be used as integration boundaries.
 
-### Systems 2–5
+### System 2 Typed Coordination
 
-Systems 2–5 expose convenience functions for common operations and a generic JSON service interface for extensibility:
+System 2 is available on the typed runtime handle. Applications can provide a
+`CoordinationPolicy` that evaluates typed System 1 coordination views and
+returns generic typed interventions:
+
+```rust
+let cycle = runtime.system2().coordinate_system1().await?;
+println!("conflicts: {}", cycle.conflicts.len());
+```
+
+The previous JSON `system2::coordination` service dispatch has been removed
+from the core path. The old schedule and balancing helpers remain under
+`system2::defaults` as opt-in example algorithms.
+
+### Systems 3–5
+
+Systems 3–5 expose convenience functions for common operations and a generic JSON service interface for extensibility:
 
 ```rust
 use serde_json::json;
@@ -217,8 +235,6 @@ let report = call_service(
 
 Prefer the subsystem convenience functions where one exists, such as:
 
-- `system2::coordination::coordinate_schedules`
-- `system2::coordination::balance_requests`
 - `system3::control::allocate_resources`
 - `system3::control::perform_audit`
 - `system4::intelligence::environmental_scan`
@@ -250,7 +266,8 @@ The crate deliberately follows actor ownership and supervision rather than share
 - Every long-lived actor has a stable global name defined in `names.rs`.
 - Static actors run under `ractor_supervisor::Supervisor`; runtime System 1 units run under `DynamicSupervisor`.
 - The channel broker owns subscriptions and message history.
-- System 1 uses a typed actor protocol. Systems 2–5 currently use a shared JSON service actor.
+- The typed runtime path uses actor-backed System 1 and System 2 protocols.
+  Systems 3–5 currently use a shared JSON service actor.
 
 Important operational constraints in the current release:
 

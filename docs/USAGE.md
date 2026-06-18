@@ -122,7 +122,7 @@ Use interfaces in this order:
 1. **Typed subsystem facade**, such as `system1::process_transaction`.
 2. **Typed dedicated service API**, such as `channels::temporal_variety::get_patterns`.
 3. **Channel facade**, when the interaction is an asynchronous VSM event.
-4. **`actor_support::call_service`**, when using a JSON service operation that has no typed wrapper.
+4. **`actor_support::call_service`**, when using a Systems 3–5 JSON service operation that has no typed wrapper.
 5. **Direct pure function**, when no actor state or supervision is needed.
 
 The typed facade gives the strongest compile-time guarantees. Generic service calls are intentionally flexible but operation and payload mistakes become runtime behavior.
@@ -140,8 +140,10 @@ The crate also exposes early trait-driven foundations for the approved migration
 - `roles::system1` contracts for `OperationalUnit`, `OperationalUnitFactory`,
   `WorkModel`, `UnitSelectionPolicy`, `PerformanceModel`, `VarietyModel`,
   `AlgedonicPolicy`, and `System1Roles`.
+- `roles::system2` contracts for `CoordinationPolicy` and `System2Roles`.
 - `roles::system1::defaults` for opt-in lowest-load selection and no-op
   performance, variety, and algedonic policies.
+- `roles::system2::defaults` for the no-op coordination policy.
 - `roles::system1::testing` for downstream-style test fakes.
 - `roles::ports` for `StateStore`, `EventSink`, `ReportSink`, `TelemetrySink`,
   `AlertSink`, `Clock`, and `IdGenerator`.
@@ -153,9 +155,10 @@ The crate also exposes early trait-driven foundations for the approved migration
   subscriptions, and shutdown acknowledgement.
 
 These types are public so downstream-style code can compile against the future
-boundary. `VsmBuilder` now starts an actor-backed typed System 1 path for unit
-registration, work processing, and observer-event delivery; the current global
-actor/JSON-backed runtime continues to serve the legacy transaction facade.
+boundary. `VsmBuilder` now starts actor-backed typed System 1 and System 2 paths
+for unit registration, work processing, coordination, and observer-event
+delivery; the current global actor/JSON-backed runtime continues to serve the
+legacy transaction facade and Systems 3–5 service APIs.
 
 Application role implementations should import `vsm_rs::async_trait` when
 implementing async role methods. They should not need to import `ractor`,
@@ -771,7 +774,7 @@ Supervise long-lived subscribers rather than spawning detached actors. Re-subscr
 
 ## 10. JSON service calls
 
-Systems 2–5 use the shared service actor facade:
+Systems 3–5 use the shared service actor facade:
 
 ```rust
 use serde_json::json;
@@ -805,79 +808,34 @@ Unknown operations return:
 
 They are not returned as an error, so inspect the response when invoking dynamic operation names.
 
-## 11. System 2 usage
+## 11. System 2 typed coordination
 
-### 11.1 Coordinate schedules
-
-```rust
-use chrono::Utc;
-use serde_json::json;
-use vsm_rs::system2::coordination;
-
-let existing = vec![json!({
-    "id": "job-a",
-    "start_at": Utc::now().to_rfc3339(),
-    "duration_ms": 60_000,
-    "resource": "worker-1",
-    "priority": 0.6,
-    "depends_on": []
-})];
-
-let new = vec![json!({
-    "id": "job-b",
-    "start_at": Utc::now().to_rfc3339(),
-    "duration_ms": 30_000,
-    "resource": "worker-1",
-    "priority": 0.9,
-    "depends_on": ["job-a"]
-})];
-
-let coordinated = coordination::coordinate_schedules(new, existing).await?;
-println!("{coordinated:#}");
-```
-
-The scheduler detects:
-
-- temporal overlap
-- resource overlap
-- missing dependencies
-
-Its optimizer sorts by start time and priority, then lays entries out sequentially beginning at the current time.
-
-### 11.2 Balance resource requests
+System 2 is part of the typed runtime handle. It collects typed System 1
+coordination views, invokes the configured `CoordinationPolicy`, delivers typed
+interventions to affected units, records acknowledgements, and reports rejected
+or failed interventions as typed escalation records for System 3.
 
 ```rust
-let requests = vec![
-    json!({
-        "unit_id": "unit-a",
-        "resources": { "cpu": 40.0, "memory": 20.0 },
-        "priority": 1.0
-    }),
-    json!({
-        "unit_id": "unit-b",
-        "resources": { "cpu": 30.0, "memory": 50.0 },
-        "priority": 0.7
-    }),
-];
+# async fn run<V: vsm_rs::ViableSystem>(
+#     runtime: vsm_rs::VsmRuntime<V>,
+# ) -> Result<(), vsm_rs::FrameworkError> {
+let cycle = runtime.system2().coordinate_system1().await?;
+let snapshot = runtime.system2().snapshot().await?;
 
-let current = json!({
-    "unit-a": { "cpu": 10.0, "memory": 5.0 },
-    "unit-b": { "cpu": 10.0, "memory": 5.0 }
-});
-
-let result = coordination::balance_requests(requests, current).await?;
+println!("conflicts: {}", cycle.conflicts.len());
+println!("stored views: {}", snapshot.views.len());
+# Ok(())
+# }
 ```
 
-### 11.3 System 2 operation reference
+Provide a custom policy with `VsmBuilder::coordination_policy`. If omitted, the
+typed runtime uses the no-op policy, which records views but produces no
+conflicts or interventions.
 
-| Operation | Payload | Result |
-|---|---|---|
-| `coordinate` | `{new_schedules: [...], existing_schedules: [...]}` | Optimized schedule and conflicts |
-| `balance` | `{requests: [...], current_allocations: {...}}` | Allocations, efficiency, remaining resources |
-| `detect_conflicts` | JSON array of schedule entries | Conflict groups |
-| `metrics`, `get_state` | `{}` | Service data and history length |
-
-The typed wrappers cover `coordinate`, `balance`, and `get_state`.
+The old schedule and balancing helpers are retained under
+`system2::defaults::{scheduler, balancer}` as explicit example algorithms. They
+are not part of the typed System 2 core path and do not perform authoritative
+resource allocation.
 
 ## 12. System 3 usage
 
@@ -1456,7 +1414,7 @@ Inspect `root_supervisor` rather than relying only on the top-level `status` str
 let status = vsm_rs::status().await?;
 ```
 
-`status()` combines health with best-effort state from Systems 2–5. Failed subsystem calls are omitted from the subsystem object rather than failing the whole operation.
+`status()` combines health with best-effort state from Systems 3–5. Failed subsystem calls are omitted from the subsystem object rather than failing the whole operation.
 
 ### 19.3 Tracing
 
@@ -1535,7 +1493,7 @@ acknowledgement before treating channels as a durable event bus.
 
 ## 22. Testing
 
-The included tests demonstrate startup, unit registration, transaction processing, System 2/3 state, System 4 analysis, System 5 decisions, and health.
+The included tests demonstrate startup, unit registration, transaction processing, typed System 2 coordination, System 3 state, System 4 analysis, System 5 decisions, and health.
 
 Run:
 
@@ -1571,7 +1529,8 @@ Your HTTP/CLI/event adapters
 Typed application service layer
         |
         +-- System 1 typed facade
-        +-- typed wrappers around Systems 2–5 operations
+        +-- typed System 2 coordination
+        +-- typed wrappers around Systems 3–5 operations
         +-- validated VsmMessage publishing
         +-- domain-specific channel subscribers
         |
@@ -1583,7 +1542,7 @@ Recommended next steps before production use:
 
 1. Add a readiness actor or barrier.
 2. Wrap every string-based service operation in typed request/response structs.
-3. Convert channel events into domain actions for Systems 2–5.
+3. Convert channel events into domain actions for Systems 3–5.
 4. Add durable state or event sourcing for policies, decisions, units, and metrics.
 5. Reconcile subscriptions after broker restart.
 6. Reconcile System 1 unit state after Operations or unit-supervisor restart.
@@ -1602,7 +1561,8 @@ Recommended next steps before production use:
 | Invalid targeted publish | `RejectedByProtocol` outcome and dead-letter history |
 | Missing targeted subscriber | `TargetUnavailable` outcome and dead-letter history |
 | Duplicate subscriber ID | Replaces previous subscription |
-| Systems 2–5 channel reactions | Record history only |
+| System 2 coordination | Typed runtime policy over System 1 coordination views |
+| Systems 3–5 channel reactions | Record history only |
 | System 1 channel reactions | Execute command, coordinate, audit |
 | Advanced algedonic routing | Records route; does not deliver it |
 | Temporal scheduled analysis | Not scheduled; queries calculate on demand |

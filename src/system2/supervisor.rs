@@ -1,23 +1,15 @@
 //! Supervisor specification for System 2.
 //!
-//! The supervisor starts one permanent coordination `ServiceActor` under a
-//! one-for-one strategy. The service owns only in-memory JSON data and bounded
-//! call/channel history.
+//! The legacy global actor tree no longer starts a JSON coordination
+//! `ServiceActor` for System 2. The active System 2 core path is the typed
+//! runtime handle returned by [`crate::VsmRuntime::system2`].
 
 use ractor::concurrency::Duration;
 use ractor_supervisor::{SupervisorArguments, SupervisorOptions, SupervisorStrategy};
-use serde_json::json;
-
-use crate::actor_support::{service_child, ServiceKind};
-use crate::names;
 
 pub fn supervisor_args() -> SupervisorArguments {
     SupervisorArguments {
-        child_specs: vec![service_child(
-            names::SYSTEM2_COORDINATION,
-            ServiceKind::System2Coordination,
-            json!({"subsystem":"system2", "role":"coordination"}),
-        )],
+        child_specs: Vec::new(),
         options: SupervisorOptions {
             strategy: SupervisorStrategy::OneForOne,
             max_restarts: 5,

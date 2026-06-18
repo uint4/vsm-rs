@@ -23,9 +23,6 @@ async fn full_vsm_flow_exercises_all_systems() {
     .expect("transaction call should succeed");
     assert!(matches!(result, TransactionResult::Ok(_)));
 
-    let s2 = vsm_rs::system2::coordination::get_state().await.unwrap();
-    assert_eq!(s2["status"], "running");
-
     let s3 = vsm_rs::system3::control::get_state().await.unwrap();
     assert_eq!(s3["status"], "running");
 
