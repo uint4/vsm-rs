@@ -1,41 +1,270 @@
 # vsm-ractor-full
 
-A Rust/ractor port of the uploaded `viable-systems/vsm-core` Elixir codebase.
+[![Crates.io](https://img.shields.io/crates/v/vsm-ractor-full.svg)](https://crates.io/crates/vsm-ractor-full)
+[![Documentation](https://docs.rs/vsm-ractor-full/badge.svg)](https://docs.rs/vsm-ractor-full)
+[![License](https://img.shields.io/crates/l/vsm-ractor-full.svg)](LICENSE)
 
-This crate mirrors the Elixir `lib/vsm_core/**/*.ex` tree and keeps the same conceptual boundaries:
+An actor-based implementation of Stafford Beer's **Viable System Model (VSM)** for Rust, built with [`ractor`](https://crates.io/crates/ractor) and OTP-style supervision from [`ractor-supervisor`](https://crates.io/crates/ractor-supervisor).
 
-- `src/app.rs` ports `VSMCore.Application` and the top-level supervision tree.
-- `src/domain.rs` and `src/shared/*` port shared message, channel, recursion, and variety-engineering modules.
-- `src/channels/*` ports command, coordination, audit, algedonic, temporal-variety, and advanced algedonic/temporal helpers.
-- `src/system1..system5/*` ports all five VSM subsystems and their supervisors.
-- `src/telemetry_reporter.rs` ports the telemetry reporter.
-- `src/vsm_core.rs` ports the public `VSMCore` facade.
+`vsm-ractor-full` provides a supervised runtime for the five VSM subsystems, typed inter-system messages, operational units, pub/sub channels, algedonic escalation, temporal-variety analysis, and reusable variety-engineering utilities.
 
-## Actor design
+> **Project status:** the crate is currently in the `0.x` series. It is suitable for experimentation, simulation, research, and application integration, but its public API may evolve before `1.0`. Runtime state and channel history are currently in memory.
 
-The original GenServers are represented as `ractor` actors. Static infrastructure is run under `ractor-supervisor::Supervisor`; runtime System 1 units are run under `ractor-supervisor::DynamicSupervisor`. Elixir duplicate registries are represented by `channels::broker::ChannelBroker`, which provides subscription, routing, broadcast, stats, and message history.
+## What the crate models
 
-System 1 uses a dedicated typed actor because it owns dynamic operational units. Systems 2-5 and telemetry use a shared `actor_support::ServiceActor` shell that keeps JSON service state and delegates operations to the corresponding module functions.
+The Viable System Model describes the functions a system needs in order to remain viable in a changing environment:
 
-## Build locally
+| System | Role | Implementation |
+|---|---|---|
+| **System 1 — Operations** | Performs the primary work | Dynamic operational units, transaction routing, metrics, and operational-variety tracking |
+| **System 2 — Coordination** | Dampens oscillation between operational units | Schedule coordination, conflict detection, balancing, and anti-oscillation services |
+| **System 3 — Control** | Manages internal resources and operational control | Resource allocation, control state, and System 3* audit functions |
+| **System 4 — Intelligence** | Observes the environment and looks forward | Environmental scanning, analytics, forecasting, and intelligence reports |
+| **System 5 — Policy** | Maintains identity, values, and direction | Identity, values, policy, strategic decisions, and crisis response |
+
+The systems communicate through command, coordination, audit, resource-bargain, algedonic, and temporal-variety channels. Algedonic signals provide an emergency path to System 5 that bypasses the normal hierarchy.
+
+## Features
+
+- A root supervision tree covering Systems 1–5, channel infrastructure, and telemetry.
+- Dynamic supervision of System 1 operational units.
+- Typed `VsmMessage`, `SystemId`, `ChannelKind`, and `MessageKind` domain types.
+- Targeted routing, broadcast, subscriptions, channel statistics, and bounded in-memory history.
+- Operational transaction routing by capability and current load.
+- Variety measurement and trend tracking based on input and output variety.
+- Algedonic pain, pleasure, anomaly, opportunity, and emergency signals.
+- Temporal aggregation, trend, cycle, seasonality, anomaly, forecasting, and causality helpers.
+- Pure functions for scheduling, resource allocation, auditing, forecasting, recursion, and variety engineering.
+- JSON-oriented service boundaries for Systems 2–5, making integration straightforward while the typed API continues to mature.
+
+## Installation
+
+Add the crate and the runtime dependencies used by your application:
 
 ```bash
-cargo fmt
-cargo check
-cargo test
-cargo run
-cargo run --example basic_usage
+cargo add vsm-ractor-full
+cargo add tokio --features macros,rt-multi-thread,time
+cargo add serde_json
 ```
 
-The generation environment did not have `cargo`/`rustc` installed, so this archive was not compiled in the sandbox. The crate has a complete source tree and no dangling module placeholders, but you should still run `cargo check` locally and adjust any API drift if your chosen `ractor` / `ractor-supervisor` versions differ.
-
-The dependency versions are pinned to keep `ractor` aligned with `ractor-supervisor`:
+Or add them manually:
 
 ```toml
-ractor = { version = "0.14.3", features = ["async-trait"] }
-ractor-supervisor = "0.1.9"
+[dependencies]
+vsm-ractor-full = "0.1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+serde_json = "1"
 ```
 
-## Module mapping
+The package name contains hyphens; Rust code imports it as `vsm_ractor_full`.
 
-See `PORTING_MAP.md` for the Elixir-to-Rust file mapping.
+## Quick start
+
+The following example starts the complete VSM runtime, registers a System 1 unit, processes a transaction, reads system status, and shuts the supervision tree down cleanly.
+
+```rust
+use serde_json::json;
+use tokio::time::{sleep, Duration};
+use vsm_ractor_full::{start, VsmApplication};
+use vsm_ractor_full::system1::{
+    self, Transaction, TransactionResult, UnitConfig,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let VsmApplication {
+        supervisor,
+        join_handle,
+    } = start().await?;
+
+    // Child supervisors are started asynchronously by the root supervisor.
+    sleep(Duration::from_millis(100)).await;
+
+    system1::register_unit(UnitConfig::new(
+        "payments",
+        ["payment", "card", "settlement"],
+    ))
+    .await?;
+
+    let result = system1::process_transaction(Transaction::new(
+        "payment_authorization",
+        vec!["payment".into(), "card".into()],
+        json!({
+            "amount": 42.50,
+            "currency": "USD",
+            "card_token": "tok_demo"
+        }),
+    ))
+    .await?;
+
+    match result {
+        TransactionResult::Ok(output) => println!("processed: {output:#}"),
+        other => println!("not processed: {other:#?}"),
+    }
+
+    println!("status: {:#}", vsm_ractor_full::status().await?);
+
+    supervisor.stop(Some("application shutdown".to_owned()));
+    let _ = join_handle.await;
+    Ok(())
+}
+```
+
+A runnable version is available in [`examples/basic_usage.rs`](examples/basic_usage.rs):
+
+```bash
+RUST_LOG=info cargo run --example basic_usage
+```
+
+## Core API
+
+### Application lifecycle
+
+```rust
+let app = vsm_ractor_full::start().await?;
+let health = vsm_ractor_full::health().await?;
+let status = vsm_ractor_full::status().await?;
+vsm_ractor_full::stop().await?;
+```
+
+Use `app::start_vsm_core()` or the returned `VsmApplication` when the caller needs the root `ActorRef` and join handle for deterministic shutdown.
+
+### System 1 operations
+
+```rust
+use serde_json::json;
+use vsm_ractor_full::system1::{self, Transaction, UnitConfig};
+
+system1::register_unit(UnitConfig::new("billing", ["invoice", "payment"])).await?;
+
+let result = system1::process_transaction(Transaction::new(
+    "create_invoice",
+    vec!["invoice".into()],
+    json!({"customer_id": "customer-42"}),
+))
+.await?;
+
+let units = system1::list_units().await?;
+let metrics = system1::get_metrics().await?;
+let variety = system1::get_variety().await?;
+```
+
+A unit is selected when it advertises every capability required by the transaction. When multiple units match, System 1 chooses the unit reporting the lowest load.
+
+### Inter-system channels
+
+```rust
+use serde_json::json;
+use vsm_ractor_full::{
+    channels,
+    ChannelKind,
+    MessageKind,
+    SystemId,
+    VsmMessage,
+};
+
+channels::publish(VsmMessage::new(
+    SystemId::System3,
+    SystemId::System1,
+    ChannelKind::Command,
+    MessageKind::Execute,
+    json!({"status": "maintenance"}),
+))?;
+
+let command_stats = channels::stats(ChannelKind::Command).await?;
+let command_history = channels::history(ChannelKind::Command).await?;
+```
+
+The broker validates the basic VSM flow matrix before routing internal messages. External endpoints and explicit broadcasts can be used as integration boundaries.
+
+### Systems 2–5
+
+Systems 2–5 expose convenience functions for common operations and a generic JSON service interface for extensibility:
+
+```rust
+use serde_json::json;
+use vsm_ractor_full::{actor_support::call_service, names};
+
+let report = call_service(
+    names::SYSTEM4_INTELLIGENCE,
+    "intelligence_report",
+    json!({
+        "sources": [
+            {"id": "market", "value": 0.72},
+            {"id": "operations", "value": 0.61}
+        ]
+    }),
+)
+.await?;
+```
+
+Prefer the subsystem convenience functions where one exists, such as:
+
+- `system2::coordination::coordinate_schedules`
+- `system2::coordination::balance_requests`
+- `system3::control::allocate_resources`
+- `system3::control::perform_audit`
+- `system4::intelligence::environmental_scan`
+- `system4::intelligence::get_intelligence_report`
+- `system5::policy::make_decision`
+- `system5::policy::set_policy_area`
+
+### Algedonic signals
+
+```rust
+use serde_json::json;
+use vsm_ractor_full::channels::algedonic::{self, signals::Severity};
+
+algedonic::send_pain_signal(
+    "payments",
+    json!({"message": "latency threshold exceeded"}),
+    Severity::High,
+)?;
+
+let active = algedonic::get_active_signals().await?;
+let metrics = algedonic::get_metrics().await?;
+```
+
+## Runtime model and current constraints
+
+The crate deliberately follows actor ownership and supervision rather than shared mutable state:
+
+- Long-lived mutable state belongs to actors and is changed through mailbox messages.
+- Every long-lived actor has a stable global name defined in `names.rs`.
+- Static actors run under `ractor_supervisor::Supervisor`; runtime System 1 units run under `DynamicSupervisor`.
+- The channel broker owns subscriptions and message history.
+- System 1 uses a typed actor protocol. Systems 2–5 currently use a shared JSON service actor.
+
+Important operational constraints in the current release:
+
+- Actor names are process-global, so one default VSM runtime can run in a process at a time.
+- State, metrics, and channel history are not durably persisted.
+- The crate does not provide a network transport or distributed actor cluster.
+- Startup completion does not yet expose a dedicated readiness barrier; examples wait briefly before their first actor call.
+- Applications should validate and bound untrusted JSON payloads before introducing them into the actor system.
+
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the supervision tree, message routing, state ownership, and recovery model.
+
+## Documentation
+
+- [API documentation](https://docs.rs/vsm-ractor-full)
+- [Usage guide](USAGE.md)
+- [Architecture guide](ARCHITECTURE.md)
+- [Developer guide](DEVELOPERS.md)
+- [Elixir-to-Rust porting map](PORTING_MAP.md)
+
+## Versioning
+
+The crate follows semantic versioning. While the version is below `1.0`, public APIs and JSON schemas may change between minor releases. Release notes should call out actor protocol, message schema, persistence, and supervision changes explicitly.
+
+## Origin
+
+This crate is a Rust actor-model port of the Elixir/OTP project [`viable-systems/vsm-core`](https://github.com/viable-systems/vsm-core). The Rust implementation preserves the original VSM boundaries while adapting process registries, GenServers, and OTP supervision to `ractor`, typed Rust messages, and `ractor-supervisor`.
+
+## Contributing
+
+Read [`DEVELOPERS.md`](DEVELOPERS.md) before making architectural changes. It describes the repository layout, actor conventions, supervision rules, testing strategy, documentation expectations, and release checklist.
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).

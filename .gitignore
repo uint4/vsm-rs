@@ -1,4 +1,5 @@
 /target
 .agents
+skills-lock.json
 Cargo.lock
 .env
