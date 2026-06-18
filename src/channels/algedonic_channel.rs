@@ -36,12 +36,6 @@ pub fn send_message(
 }
 
 pub fn broadcast(from: SystemId, kind: MessageKind, payload: serde_json::Value) -> VsmResult<()> {
-    let msg = VsmMessage::new(
-        from,
-        SystemId::External,
-        ChannelKind::Algedonic,
-        kind,
-        payload,
-    );
+    let msg = VsmMessage::new(from, SystemId::All, ChannelKind::Algedonic, kind, payload);
     crate::channels::broadcast(ChannelKind::Algedonic, msg)
 }

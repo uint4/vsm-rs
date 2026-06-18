@@ -14,15 +14,13 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Milestone 4 — System 1 vertical slice
-- Approved scope: Connect first-wave System 1 role contracts to supervised
-  actor-backed runtime behavior: typed unit registration, typed work processing,
-  role-driven validation/capability selection, backpressure/deadline handling,
-  snapshot restore/save scaffolding, reports/events through configured sinks,
-  documentation, and tests. Do not begin typed bus migration or Systems 2-5
-  migrations.
+- Approved milestone: Milestone 5 — typed protocol bus and observer event bus
+- Approved scope: Replace the current hidden targeted-to-broadcast delivery
+  behavior with explicit typed delivery outcomes, add an observer event stream
+  for typed runtime handles, record undeliverable/dead-letter events, update
+  documentation and tests, and keep Systems 2-5 semantic migrations deferred.
 - Approved architectural decisions: Recorded in ADR-0001 through ADR-0004
-- Pending decisions: None for the approved Milestone 4 scope
+- Pending decisions: None for the approved Milestone 5 scope
 - Permission to begin next milestone: No
 
 ## Pending user decisions
@@ -33,30 +31,28 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Current status
 
-- Overall state: Milestone 4 complete; stopped at review gate
-- Current phase: Milestone 4 — System 1 vertical slice
-- Current milestone: Actor-backed typed System 1 runtime
+- Overall state: Milestone 5 complete; stopped at review gate
+- Current phase: Milestone 5 — typed protocol bus and observer event bus
+- Current milestone: Explicit delivery outcomes and typed observer stream
 - Last updated: 2026-06-18
 - Last updated by: Codex
-- Baseline commit: `3024b69`
+- Baseline commit: `a5f3663`
 - Working branch: `master`
 - Repository clean at start: Yes
-- Repository status now: Contains uncommitted Milestone 4 changes for review.
+- Repository status now: Contains uncommitted Milestone 5 changes for review.
 
 ## Current objective
 
-Milestone 4 implementation is complete for review: the typed runtime handle now
-registers typed System 1 units, dispatches typed work through private unit
-actors, delegates validation/capability/selection to roles, enforces basic
-admission and deadlines, emits typed shortage events/performance reports
-through configured sinks, restores/saves typed unit snapshots through
-`StateStore`, supports drain/unregister, and preserves the legacy System 1
-facade unchanged.
+Milestone 5 implementation is complete for review: the broker now records
+explicit delivery outcomes and dead letters instead of falling back from a
+missing target to broadcast, explicit broadcast is validated as `SystemId::All`,
+the typed runtime handle owns an observer event bus, and typed bus delivery
+status/control-message records are public without requiring JSON app payloads.
 
 ## Next action
 
-Wait for explicit user review/approval before beginning Milestone 5: typed
-protocol bus/event bus work.
+Wait for explicit user review/approval before beginning Milestone 6: System 2
+migration. Do not begin it automatically.
 
 ---
 
@@ -65,14 +61,14 @@ protocol bus/event bus work.
 | Phase | Milestone | Status | Evidence |
 |---|---|---:|---|
 | 0 | Repository baseline | Complete | Formatting, check, tests, Clippy, docs, doctests, and example validation pass. |
-| 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, targeted fallback bug-to-remove, broadcast validation gap, and Systems 2-5 JSON service calls. Existing System 1 and full-system tests still pass. |
+| 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, explicit delivery outcomes, removed targeted fallback, broadcast validation, and Systems 2-5 JSON service calls. Existing System 1 and full-system tests still pass. |
 | 0 | ADR setup | Complete | `docs/adr/README.md`, template, and ADR-0001 through ADR-0004 added. |
 | 1 | Application type family | Complete | `src/roles/types.rs` defines `ViableSystem`; `tests/foundational_types.rs` proves non-serde application work, outcome, and snapshot payloads compile. |
 | 1 | Typed core envelopes | Complete | `src/protocol/*`, `src/error.rs`, `src/cancellation.rs`, `src/roles/ports.rs`, and `src/legacy/*` added with tests, docs, and full validation passing. |
 | 2 | Role contracts and factories | Complete | `src/roles/context.rs`, `src/roles/system1.rs`, expanded `src/roles/ports.rs`, and `tests/role_contracts.rs` added; full validation passes. |
 | 2 | Runtime builder and handles | Complete | `src/builder.rs`, `src/config.rs`, `src/runtime.rs`, private `src/kernel/registry.rs`, `tests/runtime_builder.rs`, and `examples/typed_runtime_builder.rs`; full validation passes. |
 | 3 | System 1 vertical slice | Complete | `src/kernel/system1.rs`, expanded `src/runtime.rs`, `tests/system1_typed_runtime.rs`, and `examples/typed_runtime_builder.rs`; full validation passes. |
-| 4 | Typed protocol bus | Not started | Awaiting user approval. |
+| 4 | Typed protocol bus | Complete | `src/protocol/bus.rs`, `src/kernel/event_bus.rs`, expanded `src/channels/broker.rs`, runtime observer APIs, tests, docs, and full validation pass. |
 | 5 | System 2 migration | Not started | Awaiting user approval. |
 | 6 | System 3 and System 3* migration | Not started | Awaiting user approval. |
 | 7 | System 4 migration | Not started | Awaiting user approval. |
@@ -102,7 +98,7 @@ documentation are complete.
 |---|---:|---|---|
 | `cargo fmt --all -- --check` | Passed | 2026-06-18 | Formatting drift resolved by `cargo fmt --all`. |
 | `cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. |
-| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 41 integration tests across foundational, role-contract, runtime-builder, typed-System-1, Phase 0, full-system, and legacy System 1 suites; example test targets have 0 tests. |
+| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 45 integration tests across foundational, role-contract, runtime-builder, typed-System-1, Phase 0, full-system, and legacy System 1 suites; example test targets have 0 tests. |
 | `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings. |
 | `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
 | `cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
@@ -211,12 +207,39 @@ until a subsequent run succeeds.
   restore/save behavior.
 - Updated README, architecture, usage, and developer docs for actor-backed typed
   System 1 behavior.
+- Added typed bus delivery foundations:
+  - `src/protocol/bus.rs` for `DeliveryStatus`, `DeliveryMetrics`,
+    `RuntimeControlMessage`, and `System1ControlMessage`;
+  - crate-root re-exports for typed delivery/control message records.
+- Added the typed runtime observer event bus:
+  - private `kernel::event_bus` implementing the `EventSink` port;
+  - `VsmRuntime::subscribe_events`, `observer_event_history`, and
+    `observer_bus_snapshot`;
+  - bounded newest-first runtime event history and non-blocking fan-out;
+  - downstream event sink failure counting without failing the control path.
+- Reworked the legacy channel broker delivery boundary:
+  - `DeliveryOutcome` and `UndeliverableMessage`;
+  - `publish_with_outcome` and `broadcast_with_outcome`;
+  - channel `dead_letters`;
+  - delivery metrics in `ChannelStats`;
+  - missing targeted subscribers now produce `TargetUnavailable` and dead
+    letters instead of falling back to broadcast;
+  - explicit broadcast now requires `SystemId::All` and records rejected
+    targeted messages as `RejectedByProtocol`.
+- Updated channel-specific broadcast helpers to construct explicit
+  `SystemId::All` broadcasts.
+- Added and updated tests for typed control records, broker delivery outcomes,
+  dead letters, removed fallback delivery, validated broadcast, observer
+  subscriptions, and non-blocking sink failure behavior.
+- Updated README, architecture, usage, and developer docs for explicit broker
+  delivery semantics, dead letters, delivery metrics, and typed observer
+  subscriptions.
 
 ---
 
 ## Work in progress
 
-No implementation work is currently in progress. Milestone 4 is complete and
+No implementation work is currently in progress. Milestone 5 is complete and
 paused at the review gate.
 
 ---
@@ -226,8 +249,8 @@ paused at the review gate.
 The user approved the Phase 0-only scope, approved Milestone 1 after the Phase
 0 review gate, approved Milestone 2 after the Milestone 1 review gate, and
 approved Milestone 3 after the Milestone 2 review gate, and approved Milestone
-4 after the Milestone 3 review gate. Accepted migration decisions are recorded
-as ADRs.
+4 after the Milestone 3 review gate, and approved Milestone 5 after the
+Milestone 4 review gate. Accepted migration decisions are recorded as ADRs.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -279,13 +302,28 @@ notes:
     default factory role for the common case.
   - Observer event/report sink failures are not allowed to fail the work
     control path in this slice.
+- Milestone 5 introduced no new ADR-level decisions. Implementation notes:
+  - The legacy broker now reports target correctness directly: a missing target
+    records a `TargetUnavailable` outcome and dead letter instead of falling
+    back to broadcast.
+  - Explicit broadcast is valid only for messages addressed to `SystemId::All`;
+    targeted messages sent through the broadcast path are recorded as
+    `RejectedByProtocol`.
+  - The typed runtime observer bus is private runtime machinery that implements
+    `EventSink`; public subscribers receive `RuntimeEvent<V>` values through
+    `VsmRuntime::subscribe_events`.
+  - Observer fan-out and downstream event sink failures are non-blocking for
+    the control path. Failures are counted in `ObserverBusSnapshot`.
+  - Systems 2-5 typed semantics remain deferred; Milestone 5 adds bus mechanics
+    and status records, not subsystem role catalogs.
 
 ---
 
 ## Compatibility changes
 
-Milestones 1 through 4 add public foundational APIs and do not remove, rename,
-or semantically redesign existing public APIs.
+Milestones 1 through 5 add public foundational APIs. Milestone 5 intentionally
+changes legacy broker behavior by removing targeted-to-broadcast fallback and
+validating explicit broadcast targets.
 
 New public modules and re-exports:
 
@@ -307,13 +345,25 @@ New public modules and re-exports:
 - `vsm_rs::{RuntimeComponentStatus, RuntimePorts, System1RuntimeRoles}`
 - `vsm_rs::{UnitAdmissionLimits, UnitSnapshotConfig, UnitRegistration}`
 - `vsm_rs::RegisteredUnit`
+- `vsm_rs::{DeliveryMetrics, DeliveryStatus}`
+- `vsm_rs::{RuntimeControlMessage, System1ControlMessage}`
+- `vsm_rs::{DeliveryOutcome, UndeliverableMessage}`
+- `vsm_rs::{ObserverBusSnapshot, ObserverId, ObserverSubscription}`
 - `vsm_rs::async_trait`
 
-Observed current behaviors are now characterized, including behaviors intended
-for later removal:
+New public channel/runtime APIs:
 
-- missing targeted channel subscriber falls back to broadcast;
-- explicit channel broadcast bypasses targeted-message validation.
+- `channels::publish_with_outcome`
+- `channels::broadcast_with_outcome`
+- `channels::dead_letters`
+- `VsmRuntime::subscribe_events`
+- `VsmRuntime::observer_event_history`
+- `VsmRuntime::observer_bus_snapshot`
+
+Removed characterized bug behavior:
+
+- missing targeted channel subscriber no longer falls back to broadcast;
+- explicit channel broadcast no longer bypasses targeted-message validation.
 
 ---
 
@@ -325,10 +375,10 @@ for later removal:
 - Legacy actor-facade readiness still relies on sleeps; the typed `VsmRuntime`
   handle has deterministic readiness for the typed runtime path.
 - Legacy actor names remain process-global; only one default actor-backed VSM
-  runtime can safely run per process. Typed runtime handles are
-  instance-scoped but are not actor-backed yet.
-- State, metrics, channel history, and most service data remain in memory and
-  restart-volatile.
+  runtime can safely run per process. Typed runtime handles are instance-scoped,
+  and the typed System 1 path uses private actor adapters.
+- State, metrics, channel history, dead-letter history, observer event history,
+  and most service data remain in memory and restart-volatile.
 - Systems 2-5 still use string operation names and `serde_json::Value`.
 - The typed runtime path now processes System 1 work through private unit actor
   adapters. Systems 2-5 and the legacy `start()` facade still use the current
@@ -338,11 +388,10 @@ for later removal:
 - First-wave role contracts, contexts, and runtime handles are wired into the
   typed System 1 path, but automatic unit restart/reconciliation is still
   deferred.
-- Channel targeted-delivery miss falls back to broadcast; characterized as a
-  current bug-to-remove in a later typed-bus milestone.
-- Explicit channel broadcast bypasses targeted-message validation; characterized
-  as a current validation gap.
-- Broker restart still loses subscriptions and retained history.
+- Broker delivery outcomes report actor-mailbox delivery, not recipient domain
+  processing acknowledgement.
+- Broker restart still loses subscriptions, retained history, dead-letter
+  history, and delivery metrics.
 - System 1 Operations restart still loses its unit directory.
 - System 1 unit supervisor restart can leave Operations with a stale supervisor
   reference.
@@ -1011,3 +1060,172 @@ passed
 
 Wait for explicit user approval to begin Milestone 5: typed protocol bus and
 observer event bus. Do not begin it automatically.
+
+#### 2026-06-18 — Milestone 5 Start
+
+**Objective**
+
+Begin the approved typed protocol bus and observer event bus milestone after the
+user completed the Milestone 4 review gate.
+
+**Changes**
+
+- Updated this journal to record Milestone 5 approval, scope, baseline, and
+  next task.
+- No Milestone 5 Rust source changes yet.
+
+**Decisions**
+
+- User explicitly approved proceeding after the Milestone 4 review gate.
+- Existing ADR-0001 through ADR-0004 remain the active decision record.
+- No new dependency, persistence, restart guarantee, or Systems 2-5 semantic
+  migration decisions have been made.
+
+**Validation**
+
+Most recent validation remains the Milestone 4 gate suite, all passing on
+2026-06-18. The repository was clean at baseline commit `a5f3663` before
+Milestone 5 edits. Validation will be rerun after implementation.
+
+**Next task**
+
+Map the existing broker and runtime event ports, implement explicit delivery
+outcomes and typed observer subscriptions, add tests and docs, then stop at the
+Milestone 5 review gate.
+
+#### 2026-06-18 — Milestone 5 Typed Protocol Bus and Observer Event Bus
+
+**Objective**
+
+Replace hidden broadcast fallback with explicit delivery outcomes, add typed
+observer-event subscriptions for runtime handles, and keep Systems 2-5 semantic
+migrations deferred.
+
+**Changes**
+
+- Files changed:
+  - `CODEX.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/DEVELOPERS.md`
+  - `docs/USAGE.md`
+  - `src/channels/*_channel.rs`
+  - `src/channels/broker.rs`
+  - `src/channels/mod.rs`
+  - `src/domain.rs`
+  - `src/kernel/event_bus.rs`
+  - `src/kernel/mod.rs`
+  - `src/lib.rs`
+  - `src/protocol/bus.rs`
+  - `src/protocol/events.rs`
+  - `src/protocol/mod.rs`
+  - `src/runtime.rs`
+  - `src/shared/message.rs`
+  - `tests/foundational_types.rs`
+  - `tests/phase0_characterization.rs`
+  - `tests/runtime_builder.rs`
+  - `tests/system1_typed_runtime.rs`
+- Public APIs added:
+  - `DeliveryStatus`;
+  - `DeliveryMetrics`;
+  - `RuntimeControlMessage`;
+  - `System1ControlMessage`;
+  - `DeliveryOutcome`;
+  - `UndeliverableMessage`;
+  - `ObserverId`;
+  - `ObserverSubscription`;
+  - `ObserverBusSnapshot`;
+  - `channels::publish_with_outcome`;
+  - `channels::broadcast_with_outcome`;
+  - `channels::dead_letters`;
+  - `VsmRuntime::subscribe_events`;
+  - `VsmRuntime::observer_event_history`;
+  - `VsmRuntime::observer_bus_snapshot`.
+- Public behavior changed:
+  - targeted broker delivery no longer falls back to broadcast when the target
+    subscriber is missing;
+  - explicit broadcast validates that the message is addressed to
+    `SystemId::All`;
+  - `ChannelStats` now includes delivery metrics and dead-letter counts.
+- Tests added or updated:
+  - typed control bus records work with non-serde application payloads;
+  - targeted publish reports a delivered outcome;
+  - missing targeted subscriber returns `TargetUnavailable`, records a dead
+    letter, and does not broadcast to observers;
+  - explicit broadcast rejects targeted messages and records a dead letter;
+  - typed runtime observer subscriptions receive `RuntimeEvent` values;
+  - downstream event sink failures are counted without blocking observer
+    delivery.
+- Documentation updated:
+  - README feature/channel summary;
+  - architecture channel broker and typed runtime module boundaries;
+  - usage guide outcome/dead-letter and observer examples;
+  - developer guide channel-extension rules.
+
+**Decisions**
+
+- No new ADR-level decisions were made.
+- Existing ADR-0004 required removing targeted-to-broadcast fallback in this
+  milestone; the implementation resolves that characterized bug.
+- Broker outcomes acknowledge actor mailbox delivery only. Recipient processing
+  acknowledgements, retry, durable replay, and typed Systems 2-5 semantics
+  remain deferred.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+passed
+
+cargo check --all-targets --all-features --locked
+passed
+
+cargo test --test foundational_types --all-features --locked
+passed
+
+cargo test --test phase0_characterization --all-features --locked
+passed
+
+cargo test --test runtime_builder --all-features --locked
+passed
+
+cargo test --test system1_typed_runtime --all-features --locked
+passed
+
+cargo test --all-targets --all-features --locked
+passed
+
+cargo clippy --all-targets --all-features --locked -- -D warnings
+passed
+
+cargo doc --all-features --no-deps --locked
+passed
+
+cargo test --doc --all-features --locked
+passed
+
+cargo run --example typed_runtime_builder --locked
+passed
+
+cargo run --example basic_usage --locked
+passed
+
+git diff --check
+passed
+```
+
+**Failures and warnings**
+
+- Initial compile after adding the observer event bus exposed an overly broad
+  derived `Clone` bound on `RuntimeEvent<V>`. Manual clone implementations now
+  preserve the `ViableSystem` bounds.
+- Initial typed observer test matching moved a boxed event out of a pattern
+  guard. The assertion now borrows the event.
+- Full event durability, broker restart subscription recovery, recipient
+  processing acknowledgements, and Systems 2-5 typed migrations remain
+  unresolved.
+
+**Next task**
+
+Wait for explicit user approval to begin Milestone 6: System 2 migration. Do
+not begin it automatically.

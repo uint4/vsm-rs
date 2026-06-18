@@ -5,12 +5,14 @@
 //! adapters while the existing actors continue to serve the legacy facade.
 
 pub mod address;
+pub mod bus;
 pub mod envelope;
 pub mod events;
 pub mod snapshot;
 pub mod system1;
 
 pub use address::{RecursionPath, RuntimeId, SubsystemRole, VsmAddress};
+pub use bus::{DeliveryMetrics, DeliveryStatus, RuntimeControlMessage, System1ControlMessage};
 pub use envelope::{CorrelationId, Priority, ProtocolMetadata, ProtocolVersion, TraceContext};
 pub use events::{FrameworkEvent, RuntimeEvent, RuntimeReport, System1Event, System1Report};
 pub use snapshot::{SnapshotKey, SnapshotRecord, SnapshotVersion};

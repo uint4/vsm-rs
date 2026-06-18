@@ -54,9 +54,9 @@ src/
 ├── cancellation.rs           Cooperative cancellation primitive for role contexts
 ├── config.rs                 Typed runtime configuration
 ├── builder.rs                Typed runtime builder
-├── runtime.rs                Typed runtime handles, readiness, shutdown, component snapshots
-├── kernel/                   Private runtime registry and typed System 1 actor adapters
-├── protocol/                 Typed migration protocols and framework metadata
+├── runtime.rs                Typed runtime handles, readiness, observer subscriptions, shutdown, component snapshots
+├── kernel/                   Private runtime registry, observer bus, and typed System 1 actor adapters
+├── protocol/                 Typed migration protocols, delivery outcomes, and framework metadata
 ├── roles/                    ViableSystem, role contexts, System 1 contracts, ports
 ├── legacy/                   Temporary adapters from current JSON API to typed foundations
 ├── names.rs                  Stable global actor names
@@ -82,7 +82,9 @@ The typed builder/runtime modules are the public lifecycle surface for the
 migration path. They should remain independent of `ActorRef`, global actor
 names, and JSON application payloads. The typed System 1 path uses private
 actor adapters under `kernel::system1`; later subsystem adapters should follow
-that boundary and keep actor references out of public handles.
+that boundary and keep actor references out of public handles. Observer
+subscriptions are exposed through `VsmRuntime`, while fan-out and bounded
+event retention remain private to `kernel::event_bus`.
 
 ## 4. Supervision and actor names
 
@@ -257,7 +259,9 @@ Do not expand the generic service interface indefinitely. Promote an operation t
 
 ## 6. Channels and messages
 
-`channels::broker::ChannelBroker` owns subscriptions and message history. Inter-system messages use `VsmMessage` from `domain.rs`.
+`channels::broker::ChannelBroker` owns subscriptions, message history,
+dead-letter history, and delivery metrics. Inter-system messages use
+`VsmMessage` from `domain.rs`.
 
 ### Adding a message kind
 
@@ -270,6 +274,10 @@ Do not expand the generic service interface indefinitely. Promote an operation t
 ### Adding or changing a route
 
 Update `VsmMessage::validate_basic_flow` and add tests for both permitted and rejected source/destination pairs. Do not bypass flow validation merely to make a test pass.
+Missing targeted subscribers must return or record `TargetUnavailable`; do not
+restore targeted-to-broadcast fallback. Explicit broadcast must use
+`SystemId::All` and should be exercised through the outcome-returning broker
+APIs when correctness matters.
 
 The current route families are:
 
@@ -301,7 +309,11 @@ let _ = channels::unsubscribe(ChannelKind::Command, "example").await;
 
 ### Channel-history rules
 
-History is in memory and bounded by the broker implementation. Changes to retention count, ordering, or message redaction are externally observable and should be documented. Never put secrets into channel payloads or tracing fields unless the embedding application explicitly accepts that risk.
+History and dead-letter history are in memory and bounded by the broker
+implementation. Changes to retention count, ordering, delivery metrics, or
+message redaction are externally observable and should be documented. Never put
+secrets into channel payloads or tracing fields unless the embedding
+application explicitly accepts that risk.
 
 ## 7. State, concurrency, and blocking work
 

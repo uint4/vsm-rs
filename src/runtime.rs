@@ -4,13 +4,15 @@ use std::sync::{Arc, Mutex};
 
 use crate::config::RuntimeConfig;
 use crate::error::FrameworkError;
+use crate::kernel::event_bus::ObserverEventBus;
+pub use crate::kernel::event_bus::{ObserverBusSnapshot, ObserverId, ObserverSubscription};
 use crate::kernel::registry::RuntimeDirectory;
 use crate::kernel::system1::System1Runtime;
 use crate::protocol::system1::{
     Acknowledgement, UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
 };
 use crate::protocol::{
-    RecursionPath, RuntimeId, SnapshotKey, SnapshotVersion, SubsystemRole, VsmAddress,
+    RecursionPath, RuntimeEvent, RuntimeId, SnapshotKey, SnapshotVersion, SubsystemRole, VsmAddress,
 };
 use crate::roles::RoleContext;
 use crate::roles::{
@@ -339,6 +341,10 @@ where
         self
     }
 
+    pub(crate) fn event_sink(&self) -> Arc<dyn EventSink<V>> {
+        Arc::clone(&self.event_sink)
+    }
+
     pub(crate) fn with_report_sink(mut self, report_sink: Arc<dyn ReportSink<V>>) -> Self {
         self.report_sink = report_sink;
         self
@@ -592,6 +598,7 @@ where
     ports: RuntimePorts<V>,
     system1_roles: System1RuntimeRoles<V>,
     system1_runtime: Arc<System1Runtime<V>>,
+    observer_bus: Arc<ObserverEventBus<V>>,
 }
 
 impl<V> VsmRuntime<V>
@@ -603,6 +610,12 @@ where
         ports: RuntimePorts<V>,
         system1_roles: System1RuntimeRoles<V>,
     ) -> Result<Self, FrameworkError> {
+        let observer_bus = Arc::new(ObserverEventBus::new(
+            ports.event_sink(),
+            config.event_buffer_capacity,
+        ));
+        let observer_sink: Arc<dyn EventSink<V>> = observer_bus.clone();
+        let ports = ports.with_event_sink(observer_sink);
         let system1_runtime =
             System1Runtime::start(config.clone(), system1_roles.clone(), ports.clone()).await?;
 
@@ -624,8 +637,8 @@ where
             ),
             ReadinessCheck::new(
                 ReadinessGate::Subscriptions,
-                ReadinessStatus::NotApplicable,
-                "typed observer bus starts in a later milestone",
+                ReadinessStatus::Ready,
+                "typed observer event bus started",
             ),
             ReadinessCheck::new(
                 ReadinessGate::Persistence,
@@ -645,6 +658,7 @@ where
             ports,
             system1_roles,
             system1_runtime,
+            observer_bus,
         })
     }
 
@@ -704,6 +718,25 @@ where
             self.config.recursion_path.clone(),
             role,
         )
+    }
+
+    /// Subscribes an observer to typed runtime events.
+    pub fn subscribe_events(
+        &self,
+        observer_id: impl Into<String>,
+    ) -> Result<ObserverSubscription<V>, FrameworkError> {
+        self.observer_bus
+            .subscribe(ObserverId::from_string(observer_id))
+    }
+
+    /// Returns newest-first retained observer events.
+    pub fn observer_event_history(&self) -> Result<Vec<RuntimeEvent<V>>, FrameworkError> {
+        self.observer_bus.history()
+    }
+
+    /// Returns observer bus delivery metrics.
+    pub fn observer_bus_snapshot(&self) -> Result<ObserverBusSnapshot, FrameworkError> {
+        self.observer_bus.snapshot()
     }
 
     /// Returns true after shutdown has been acknowledged.
@@ -789,9 +822,9 @@ fn register_runtime_components(directory: &mut RuntimeDirectory, config: &Runtim
     directory.register(
         runtime_id,
         recursion_path,
-        SubsystemRole::TemporalVariety,
+        SubsystemRole::EventSink,
         "typed-observer-bus",
-        RuntimeComponentStatus::NotApplicable,
+        RuntimeComponentStatus::Ready,
     );
 }
 

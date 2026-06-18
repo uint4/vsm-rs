@@ -91,6 +91,13 @@ async fn builder_starts_ready_runtime_with_default_policies() {
     );
     assert_eq!(
         readiness
+            .check(ReadinessGate::Subscriptions)
+            .expect("subscription check should exist")
+            .status,
+        ReadinessStatus::Ready
+    );
+    assert_eq!(
+        readiness
             .check(ReadinessGate::SubsystemActors)
             .expect("subsystem actor check should exist")
             .status,

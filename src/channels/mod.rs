@@ -2,10 +2,10 @@
 //!
 //! The channel layer stores in-memory subscriptions and message history, routes
 //! `VsmMessage` values by `ChannelKind` and subscriber ID, and provides thin
-//! channel-specific facades. Delivery is asynchronous, best effort, and not
-//! acknowledged by receivers. Systems 2-5 currently record channel events in
-//! service history, while System 1 handles selected command, coordination, and
-//! audit messages.
+//! channel-specific facades. Legacy enqueue calls remain best effort, while
+//! outcome-returning calls report target-unavailable and validation failures
+//! explicitly. Systems 2-5 currently record channel events in service history,
+//! while System 1 handles selected command, coordination, and audit messages.
 
 pub mod algedonic;
 pub mod algedonic_channel;
@@ -20,7 +20,9 @@ pub mod temporal_variety;
 use ractor::{call_t, ActorRef, DerivedActorRef};
 use serde_json::Value;
 
-use crate::channels::broker::{ChannelBrokerMsg, ChannelStats, VsmActorMsg};
+use crate::channels::broker::{
+    ChannelBrokerMsg, ChannelStats, DeliveryOutcome, UndeliverableMessage, VsmActorMsg,
+};
 use crate::error::{VsmError, VsmResult};
 use crate::names;
 use crate::shared::message::{ChannelKind, VsmMessage};
@@ -67,10 +69,31 @@ pub fn publish(message: VsmMessage) -> VsmResult<()> {
         .map_err(|err| VsmError::Channel(err.to_string()))
 }
 
+pub async fn publish_with_outcome(message: VsmMessage) -> VsmResult<DeliveryOutcome> {
+    let broker = broker_ref()?;
+    call_t!(broker, ChannelBrokerMsg::PublishWithOutcome, 2_000, message)
+        .map_err(|err| VsmError::Channel(err.to_string()))
+}
+
 pub fn broadcast(channel: ChannelKind, message: VsmMessage) -> VsmResult<()> {
     broker_ref()?
         .send_message(ChannelBrokerMsg::Broadcast(channel, message))
         .map_err(|err| VsmError::Channel(err.to_string()))
+}
+
+pub async fn broadcast_with_outcome(
+    channel: ChannelKind,
+    message: VsmMessage,
+) -> VsmResult<DeliveryOutcome> {
+    let broker = broker_ref()?;
+    call_t!(
+        broker,
+        ChannelBrokerMsg::BroadcastWithOutcome,
+        2_000,
+        channel,
+        message
+    )
+    .map_err(|err| VsmError::Channel(err.to_string()))
 }
 
 pub async fn stats(channel: ChannelKind) -> VsmResult<ChannelStats> {
@@ -92,6 +115,12 @@ pub async fn list_channels() -> VsmResult<Vec<ChannelKind>> {
 pub async fn history(channel: ChannelKind) -> VsmResult<Vec<VsmMessage>> {
     let broker = broker_ref()?;
     call_t!(broker, ChannelBrokerMsg::History, 2_000, channel)
+        .map_err(|err| VsmError::Channel(err.to_string()))
+}
+
+pub async fn dead_letters(channel: ChannelKind) -> VsmResult<Vec<UndeliverableMessage>> {
+    let broker = broker_ref()?;
+    call_t!(broker, ChannelBrokerMsg::DeadLetters, 2_000, channel)
         .map_err(|err| VsmError::Channel(err.to_string()))
 }
 

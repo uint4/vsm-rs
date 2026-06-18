@@ -2,8 +2,9 @@
 //!
 //! The helpers wrap `VsmMessage` construction, validation, reply generation,
 //! JSON serialization, and broker publication. `send` publishes asynchronously
-//! through the broker and returns the message that was enqueued, not proof that
-//! a subscriber processed it.
+//! through the broker and returns the message that was enqueued. Use
+//! `channels::publish_with_outcome` when the caller needs broker delivery
+//! status.
 
 use serde_json::Value;
 

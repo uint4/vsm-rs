@@ -133,7 +133,7 @@ The crate also exposes early trait-driven foundations for the approved migration
 
 - `ViableSystem` for the minimal application type family.
 - `protocol` records for instance-scoped metadata, snapshots, events, reports,
-  and typed System 1 messages.
+  typed bus delivery statuses, and typed System 1 messages.
 - `roles::RoleContext` and `roles::UnitRoleContext` for framework identity,
   correlation/deadline metadata, cancellation, clock access, event/report
   emission, and explicitly allowed state storage.
@@ -149,13 +149,13 @@ The crate also exposes early trait-driven foundations for the approved migration
 - `legacy::system1` adapters for current `Transaction`, `TransactionResult`,
   `UnitConfig`, and `VsmMessage` shapes.
 - `VsmBuilder`, `RuntimeConfig`, and `VsmRuntime` for instance-scoped typed
-  runtime handles, readiness checks, System 1 role access, and shutdown
-  acknowledgement.
+  runtime handles, readiness checks, System 1 role access, typed observer-event
+  subscriptions, and shutdown acknowledgement.
 
 These types are public so downstream-style code can compile against the future
 boundary. `VsmBuilder` now starts an actor-backed typed System 1 path for unit
-registration and work processing; the current global actor/JSON-backed runtime
-continues to serve the legacy transaction facade.
+registration, work processing, and observer-event delivery; the current global
+actor/JSON-backed runtime continues to serve the legacy transaction facade.
 
 Application role implementations should import `vsm_rs::async_trait` when
 implementing async role methods. They should not need to import `ractor`,
@@ -222,6 +222,66 @@ assert!(runtime.is_ready());
 runtime.system1().register_descriptor(descriptor).await?;
 let _outcome = runtime.system1().process_work(ExampleWork).await?;
 runtime.shutdown().await?;
+# Ok(())
+# }
+```
+
+Subscribe observers through the runtime handle when application code needs the
+typed event stream without participating in control flow:
+
+```rust
+# use vsm_rs::protocol::system1::{CapacitySnapshot, UnitDescriptor};
+# use vsm_rs::protocol::{RuntimeEvent, RuntimeId};
+# use vsm_rs::roles::system1::testing::{
+#     AcceptAllWorkModel, StaticOperationalUnitFactory,
+# };
+# use vsm_rs::VsmBuilder;
+# #[derive(Clone, Debug)]
+# struct ExampleWork;
+# #[derive(Clone, Debug)]
+# struct ExampleOutcome;
+# #[derive(Debug)]
+# struct ExampleError;
+# impl std::fmt::Display for ExampleError {
+#     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+#         f.write_str("example error")
+#     }
+# }
+# impl std::error::Error for ExampleError {}
+# #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+# struct ExampleCapability(&'static str);
+# #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+# struct ExampleUnitId(&'static str);
+# struct ExampleSnapshot;
+# struct ExampleSystem;
+# impl vsm_rs::ViableSystem for ExampleSystem {
+#     type Work = ExampleWork;
+#     type Outcome = ExampleOutcome;
+#     type AppError = ExampleError;
+#     type Capability = ExampleCapability;
+#     type UnitId = ExampleUnitId;
+#     type UnitSnapshot = ExampleSnapshot;
+# }
+# async fn observe() -> Result<(), vsm_rs::FrameworkError> {
+# let descriptor =
+#     UnitDescriptor::<ExampleSystem>::new(ExampleUnitId("unit-a"), [ExampleCapability("work")]);
+# let runtime = VsmBuilder::new()
+#     .runtime_id(RuntimeId::from_string("observer-runtime"))
+#     .work_model(AcceptAllWorkModel::new([ExampleCapability("work")]))
+#     .operational_unit_factory(StaticOperationalUnitFactory::new(
+#         descriptor.clone(),
+#         CapacitySnapshot::new(0, Some(4), 0.0),
+#         ExampleOutcome,
+#     ))
+#     .start()
+#     .await?;
+let mut events = runtime.subscribe_events("audit-ui")?;
+runtime.system1().register_descriptor(descriptor).await?;
+
+if let Some(RuntimeEvent::System1(event)) = events.recv().await {
+    let _ = event;
+}
+# runtime.shutdown().await?;
 # Ok(())
 # }
 ```
@@ -524,10 +584,14 @@ message
     .validate()
     .map_err(vsm_rs::VsmError::Validation)?;
 
-channels::publish(message)?;
+let outcome = channels::publish_with_outcome(message).await?;
+assert!(outcome.is_delivered());
 ```
 
-`publish()` confirms broker mailbox enqueue only. It does not confirm recipient processing.
+`publish_with_outcome()` returns the broker delivery result. `Delivered` means
+the recipient actor mailbox accepted the message; it does not prove that the
+recipient completed domain processing. `publish()` remains available when the
+caller only needs to enqueue a message to the broker.
 
 ### 8.2 Message convenience facade
 
@@ -571,7 +635,10 @@ channels::broadcast(
 )?;
 ```
 
-Explicit broadcast sends to every subscriber on the channel. The current broker broadcast path does not apply the same validation used by targeted publish.
+Explicit broadcast sends to every subscriber on the channel only when the
+message target is `SystemId::All`. Use `broadcast_with_outcome()` when the
+caller needs to know whether the broker delivered, rejected, or dead-lettered
+the broadcast.
 
 ### 8.5 Channel inspection
 
@@ -579,16 +646,22 @@ Explicit broadcast sends to every subscriber on the channel. The current broker 
 for channel in channels::list_channels().await? {
     let stats = channels::stats(channel).await?;
     println!(
-        "{:?}: {} subscribers, {} retained messages",
+        "{:?}: {} subscribers, {} retained messages, {} dead letters",
         channel,
         stats.subscriber_count,
-        stats.retained_message_count
+        stats.retained_message_count,
+        stats.undeliverable_count
     );
 }
 
 let command_history = channels::history(ChannelKind::Command).await?;
 for message in command_history.iter().take(10) {
     println!("{} {:?}", message.id, message.kind);
+}
+
+let dead_letters = channels::dead_letters(ChannelKind::Command).await?;
+for entry in dead_letters.iter().take(10) {
+    println!("{} {:?}", entry.outcome.message_id, entry.outcome.status);
 }
 ```
 
@@ -1455,7 +1528,10 @@ An actor handles one message at a time. Avoid blocking handlers with long databa
 4. send completion back to the actor
 5. reply or publish a result
 
-The broker does not currently implement queue limits, delivery acknowledgment, retries, or consumer demand. Add those before treating channels as a durable event bus.
+The broker does not currently implement queue limits, recipient processing
+acknowledgements, retries, or consumer demand. Outcome-returning APIs report
+broker delivery, rejection, and dead-lettering; add durable replay and recipient
+acknowledgement before treating channels as a durable event bus.
 
 ## 22. Testing
 
@@ -1513,7 +1589,7 @@ Recommended next steps before production use:
 6. Reconcile System 1 unit state after Operations or unit-supervisor restart.
 7. Replace the demo Unit implementation with domain workers.
 8. Add explicit unit unregister, drain, and update operations.
-9. Add message acknowledgment, retry, and dead-letter behavior where required.
+9. Add recipient processing acknowledgements, retry, and durable replay where required.
 10. Add real telemetry export and periodic reporting.
 
 ## 24. Important current behavior at a glance
@@ -1522,9 +1598,9 @@ Recommended next steps before production use:
 |---|---|
 | Application instances | One per process due to global names |
 | State persistence | In-memory only |
-| Channel delivery | Asynchronous, best effort, no acknowledgment |
-| Invalid targeted publish | Logged/dropped by broker after enqueue |
-| Missing targeted subscriber | Falls back to channel broadcast |
+| Channel delivery | Broker delivery outcomes available; recipient processing is not acknowledged |
+| Invalid targeted publish | `RejectedByProtocol` outcome and dead-letter history |
+| Missing targeted subscriber | `TargetUnavailable` outcome and dead-letter history |
 | Duplicate subscriber ID | Replaces previous subscription |
 | Systems 2–5 channel reactions | Record history only |
 | System 1 channel reactions | Execute command, coordinate, audit |

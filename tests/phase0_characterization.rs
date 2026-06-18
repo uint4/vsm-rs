@@ -7,6 +7,7 @@ use tokio::time::{sleep, Duration};
 
 use vsm_rs::actor_support::call_service;
 use vsm_rs::channels::broker::VsmActorMsg;
+use vsm_rs::protocol::DeliveryStatus;
 use vsm_rs::system1::{Transaction, TransactionResult};
 use vsm_rs::{channels, names, ChannelKind, MessageKind, SystemId, VsmApplication, VsmMessage};
 
@@ -121,7 +122,31 @@ async fn system1_no_suitable_unit_publishes_resource_request() {
 
 #[tokio::test]
 #[serial]
-async fn missing_target_falls_back_to_broadcast_bug_to_remove() {
+async fn targeted_publish_reports_delivered_outcome() {
+    let app = start_app().await;
+    let message = VsmMessage::command(
+        SystemId::System3,
+        SystemId::System1,
+        MessageKind::Execute,
+        json!({"status": "phase0_outcome_probe"}),
+    );
+
+    let outcome = channels::publish_with_outcome(message)
+        .await
+        .expect("publish should return delivery outcome");
+    let stats = channels::stats(ChannelKind::Command)
+        .await
+        .expect("stats should return");
+
+    stop_app(app).await;
+    assert_eq!(outcome.status, DeliveryStatus::Delivered);
+    assert_eq!(outcome.delivered_to, 1);
+    assert!(stats.delivery_metrics.delivered >= 1);
+}
+
+#[tokio::test]
+#[serial]
+async fn missing_target_returns_unavailable_without_broadcast() {
     let app = start_app().await;
     let seen = Arc::new(Mutex::new(Vec::new()));
     let (probe, probe_handle) = Actor::spawn(None, Probe, Arc::clone(&seen))
@@ -130,7 +155,7 @@ async fn missing_target_falls_back_to_broadcast_bug_to_remove() {
 
     channels::subscribe(
         ChannelKind::Audit,
-        "phase0_probe_target_fallback",
+        "phase0_probe_no_fallback",
         probe.get_derived::<VsmActorMsg>(),
     )
     .await
@@ -143,7 +168,9 @@ async fn missing_target_falls_back_to_broadcast_bug_to_remove() {
         json!({"scope": "phase0"}),
     );
 
-    channels::publish(message.clone()).expect("publish should enqueue valid audit message");
+    let outcome = channels::publish_with_outcome(message.clone())
+        .await
+        .expect("publish should return outcome");
     sleep(Duration::from_millis(50)).await;
 
     let observed = seen
@@ -151,16 +178,24 @@ async fn missing_target_falls_back_to_broadcast_bug_to_remove() {
         .expect("probe message store should not be poisoned")
         .iter()
         .any(|seen| seen.id == message.id);
-    let _ = channels::unsubscribe(ChannelKind::Audit, "phase0_probe_target_fallback").await;
+    let _ = channels::unsubscribe(ChannelKind::Audit, "phase0_probe_no_fallback").await;
+    let dead_letters = channels::dead_letters(ChannelKind::Audit)
+        .await
+        .expect("dead letters should return");
+    let dead_letter_seen = dead_letters
+        .iter()
+        .any(|entry| entry.message.id == message.id);
     probe.stop(Some("test complete".to_string()));
     let _ = probe_handle.await;
     stop_app(app).await;
-    assert!(observed);
+    assert_eq!(outcome.status, DeliveryStatus::TargetUnavailable);
+    assert!(!observed);
+    assert!(dead_letter_seen);
 }
 
 #[tokio::test]
 #[serial]
-async fn explicit_broadcast_retains_message_that_targeted_validation_rejects() {
+async fn explicit_broadcast_rejects_targeted_message() {
     let app = start_app().await;
     let message = VsmMessage::command(
         SystemId::System1,
@@ -171,18 +206,27 @@ async fn explicit_broadcast_retains_message_that_targeted_validation_rejects() {
 
     let targeted_validation_rejects = message.validate().is_err();
 
-    channels::broadcast(ChannelKind::Command, message.clone())
-        .expect("explicit broadcast currently bypasses targeted validation");
+    let outcome = channels::broadcast_with_outcome(ChannelKind::Command, message.clone())
+        .await
+        .expect("broadcast should return outcome");
     sleep(Duration::from_millis(50)).await;
 
     let history = channels::history(ChannelKind::Command)
         .await
         .expect("command history should return");
     let retained = history.iter().any(|seen| seen.id == message.id);
+    let dead_letters = channels::dead_letters(ChannelKind::Command)
+        .await
+        .expect("dead letters should return");
+    let dead_letter_seen = dead_letters
+        .iter()
+        .any(|entry| entry.message.id == message.id);
 
     stop_app(app).await;
     assert!(targeted_validation_rejects);
-    assert!(retained);
+    assert_eq!(outcome.status, DeliveryStatus::RejectedByProtocol);
+    assert!(!retained);
+    assert!(dead_letter_seen);
 }
 
 #[tokio::test]

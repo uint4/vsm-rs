@@ -4,8 +4,8 @@
 //! and actors. The domain model preserves the Elixir-compatible serialized
 //! `type` field for message kind and enforces the current internal flow matrix
 //! for command, coordination, audit, resource-bargain, algedonic, and temporal
-//! variety messages. External messages and broadcasts are intentionally more
-//! permissive.
+//! variety messages. External messages are intentionally more permissive, while
+//! explicit broker broadcasts use `SystemId::All`.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

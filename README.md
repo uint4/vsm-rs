@@ -27,7 +27,8 @@ The systems communicate through command, coordination, audit, resource-bargain, 
 - A root supervision tree covering Systems 1–5, channel infrastructure, and telemetry.
 - Dynamic supervision of System 1 operational units.
 - Typed `VsmMessage`, `SystemId`, `ChannelKind`, and `MessageKind` domain types.
-- Targeted routing, broadcast, subscriptions, channel statistics, and bounded in-memory history.
+- Targeted routing with explicit delivery outcomes, broadcast, subscriptions,
+  channel statistics, dead-letter history, and bounded in-memory history.
 - Operational transaction routing by capability and current load.
 - Variety measurement and trend tracking based on input and output variety.
 - Algedonic pain, pleasure, anomaly, opportunity, and emergency signals.
@@ -39,7 +40,8 @@ The systems communicate through command, coordination, audit, resource-bargain, 
   sink traits, first-wave System 1 role contracts, role contexts, opt-in default
   policies, a typed runtime builder/handle with readiness and shutdown
   acknowledgement, actor-backed typed System 1 registration/work processing,
-  and legacy JSON adapters.
+  typed observer-event subscriptions, typed bus delivery status records, and
+  legacy JSON adapters.
 
 ## Installation
 
@@ -119,8 +121,9 @@ The trait-driven migration surface also exposes `VsmBuilder`. It validates the
 required System 1 role objects, applies opt-in default policies, starts an
 instance-scoped runtime handle, reports readiness, and acknowledges shutdown.
 This path can register typed System 1 units and process typed work through
-private unit actor adapters. The legacy `start()` facade remains available for
-the current JSON transaction workflow.
+private unit actor adapters and subscribe observers to typed runtime events.
+The legacy `start()` facade remains available for the current JSON transaction
+workflow.
 
 ```bash
 cargo run --example typed_runtime_builder --locked
@@ -173,19 +176,23 @@ use vsm_rs::{
     VsmMessage,
 };
 
-channels::publish(VsmMessage::new(
+let outcome = channels::publish_with_outcome(VsmMessage::new(
     SystemId::System3,
     SystemId::System1,
     ChannelKind::Command,
     MessageKind::Execute,
     json!({"status": "maintenance"}),
-))?;
+))
+.await?;
 
 let command_stats = channels::stats(ChannelKind::Command).await?;
 let command_history = channels::history(ChannelKind::Command).await?;
 ```
 
-The broker validates the basic VSM flow matrix before routing internal messages. External endpoints and explicit broadcasts can be used as integration boundaries.
+The broker validates the basic VSM flow matrix before routing internal
+messages. A missing target is reported as `TargetUnavailable` and recorded in
+dead-letter history rather than being widened to broadcast. External endpoints
+and explicit `SystemId::All` broadcasts can be used as integration boundaries.
 
 ### Systems 2–5
 

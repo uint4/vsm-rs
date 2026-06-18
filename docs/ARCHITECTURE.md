@@ -40,8 +40,8 @@ src/
 ├── config.rs                 Typed runtime configuration
 ├── builder.rs                Typed runtime builder
 ├── runtime.rs                Typed runtime handles, readiness, shutdown, component snapshots
-├── kernel/                   Private runtime registry and typed System 1 actor adapters
-├── protocol/                 Typed migration foundations: addresses, metadata, snapshots, events, System 1 records
+├── kernel/                   Private runtime registry, observer bus, and typed System 1 actor adapters
+├── protocol/                 Typed migration foundations: addresses, metadata, snapshots, bus outcomes, events, System 1 records
 ├── roles/                    ViableSystem type family, role contexts, System 1 contracts, runtime ports
 ├── legacy/                   Temporary adapters from current JSON/System 1 API to typed foundations
 ├── names.rs                  Stable global actor names
@@ -88,8 +88,9 @@ These modules are intentionally alongside the current runtime:
   `OperationalUnitFactory`, `WorkModel`, `UnitSelectionPolicy`,
   `PerformanceModel`, `VarietyModel`, `AlgedonicPolicy`, and the
   `System1Roles` role catalog.
-- `protocol::address`, `protocol::envelope`, and `protocol::snapshot` define
-  instance-scoped runtime metadata.
+- `protocol::address`, `protocol::envelope`, `protocol::snapshot`, and
+  `protocol::bus` define instance-scoped runtime metadata, typed control-message
+  families, and delivery-status records.
 - `protocol::system1` defines typed System 1 records for work, unit descriptors,
   capacity/load, command acknowledgements, performance observations, resource
   shortages, audit evidence, and coordination views.
@@ -110,6 +111,11 @@ These modules are intentionally alongside the current runtime:
   runtime. Registered units own application `OperationalUnit` implementations
   behind private actors; the public handle owns orchestration and never exposes
   actor references.
+- `kernel::event_bus` contains the private observer event bus used by typed
+  runtime handles. It implements the `EventSink` port, fans out runtime events
+  to subscribers without blocking the control path, retains a bounded
+  newest-first in-memory event history, and forwards events to the configured
+  downstream sink.
 - `legacy::system1` contains temporary adapters for current
   `Transaction`/`TransactionResult`/`UnitConfig`/`VsmMessage` shapes.
 
@@ -122,8 +128,8 @@ unit ID, or snapshot payloads to implement serde.
 `VsmBuilder` starts a typed runtime path: it validates required System 1 role
 objects, reports readiness deterministically, exposes scoped role contexts,
 permits multiple runtime handles in one process, registers typed operational
-units, dispatches typed work through private unit actors, and acknowledges
-shutdown. The existing global actor runtime still serves the legacy
+units, dispatches typed work through private unit actors, supports typed
+observer-event subscriptions, and acknowledges shutdown. The existing global actor runtime still serves the legacy
 `Transaction`/JSON facade.
 
 ## 3. Supervision tree
@@ -330,6 +336,7 @@ A reply generated with `VsmMessage::reply()` reverses the endpoints, preserves t
 ```text
 HashMap<ChannelKind, HashMap<subscriber_id, subscriber_ref>>
 HashMap<ChannelKind, Vec<VsmMessage>>
+HashMap<ChannelKind, Vec<UndeliverableMessage>>
 ```
 
 Each channel retains up to 10,000 messages, newest first.
@@ -348,14 +355,21 @@ For `ChannelBrokerMsg::Publish`:
 2. High-priority message kinds are logged.
 3. Algedonic messages are always delivered to subscriber ID `system5`.
 4. Other messages target `message.to.subscriber_id()`.
-5. If the target does not exist, the broker broadcasts the message to all subscribers on that channel.
-6. The message is retained in channel history.
+5. If the target does not exist or the subscriber reference is unavailable, the
+   broker records a `TargetUnavailable` outcome and stores the message in
+   dead-letter history.
+6. Delivered messages are retained in channel history.
 
-The fallback broadcast preserves the permissive behavior of the original registry dispatch, but it also means a misspelled or absent target can result in wider delivery than intended.
+`channels::publish_with_outcome()` performs the same path and returns the
+broker delivery outcome. `channels::publish()` remains a legacy enqueue helper:
+it reports only whether the broker mailbox accepted the message.
 
 ### 7.3 Explicit broadcast
 
-`channels::broadcast()` sends to every current subscriber on a channel and retains the message. The broker's explicit broadcast branch currently does not run the same validation step used by `Publish`.
+`channels::broadcast()` sends to every current subscriber on a channel only when
+the message target is `SystemId::All`. The broadcast path uses the same broker
+validation boundary as targeted publish. Rejected broadcasts are recorded in
+dead-letter history rather than retained as delivered messages.
 
 ### 7.4 Delivery semantics
 
@@ -363,11 +377,16 @@ Channel delivery is:
 
 - in-process
 - asynchronous
-- best effort
+- explicit at the broker boundary when using outcome-returning APIs
 - not durable
-- not acknowledged by recipients
+- not acknowledged by recipients after actor mailbox delivery
 
-`channels::publish()` reports whether the message reached the broker mailbox, not whether a recipient processed it. Because validation happens asynchronously inside the broker, an invalid message may be accepted by `publish()` and then logged and dropped. Call `message.validate()` before publishing when synchronous validation matters.
+`channels::publish_with_outcome()` and `channels::broadcast_with_outcome()`
+return `Delivered`, `TargetUnavailable`, or `RejectedByProtocol` for the current
+broker implementation. Delivery means the recipient actor mailbox accepted the
+message, not that the recipient processed it. `ChannelStats` includes delivery
+metrics and dead-letter counts; `channels::dead_letters()` returns the retained
+undeliverable records.
 
 The broker removes a subscriber only when a delivery attempt reports a closed actor reference. It does not currently monitor every subscriber proactively.
 
@@ -713,7 +732,7 @@ The demo Unit recognizes a `status` field and updates its status.
 
 ```text
 S3 or S3* -> Audit/AuditRequest -> System 1 Operations
-          -> Audit/AuditResponse -> target/fallback channel delivery
+          -> Audit/AuditResponse -> targeted delivery or dead letter
 ```
 
 ### Algedonic escalation
@@ -775,8 +794,11 @@ The most important current limitations are:
   validation evidence.
 - Most Systems 2–5 APIs use string operation names and `serde_json::Value`.
 - Channel events for Systems 2–5 are recorded, not converted into domain actions.
-- Broker restart loses registrations and history.
-- Application readiness has no explicit barrier.
+- Broker restart loses registrations and history for the legacy global actor
+  facade. The typed runtime handle's observer subscriptions are owned by the
+  handle, not the legacy broker.
+- The legacy global actor facade has no explicit readiness barrier. The typed
+  runtime handle reports readiness gates.
 - State is in-memory and restart-volatile.
 - System 5's four actors have independent state stores.
 - The root dynamic supervisor is present for parity but is not exposed by a public child-management API.

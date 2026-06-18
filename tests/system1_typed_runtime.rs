@@ -169,6 +169,77 @@ async fn no_suitable_unit_emits_resource_shortage_event() {
 }
 
 #[tokio::test]
+async fn observer_subscription_receives_runtime_events() {
+    let runtime = runtime_builder()
+        .event_buffer_capacity(2)
+        .start()
+        .await
+        .expect("runtime should start");
+    let mut events = runtime
+        .subscribe_events("typed-system1-observer")
+        .expect("observer should subscribe");
+
+    runtime
+        .system1()
+        .register_descriptor(descriptor("alpha", "ship"))
+        .await
+        .expect("unit should register");
+    let event = tokio::time::timeout(Duration::from_secs(1), events.recv())
+        .await
+        .expect("observer event should arrive")
+        .expect("observer stream should remain open");
+
+    let history = runtime
+        .observer_event_history()
+        .expect("observer history should return");
+    let snapshot = runtime
+        .observer_bus_snapshot()
+        .expect("observer snapshot should return");
+
+    assert!(matches!(
+        event,
+        RuntimeEvent::System1(event)
+            if matches!(event.as_ref(), System1Event::UnitRegistered(descriptor)
+                if descriptor.unit_id == UnitId("alpha"))
+    ));
+    assert_eq!(history.len(), 1);
+    assert_eq!(snapshot.subscriber_count, 1);
+    assert_eq!(snapshot.retained_event_count, 1);
+}
+
+#[tokio::test]
+async fn event_sink_failures_do_not_block_observer_delivery() {
+    let runtime = runtime_builder()
+        .event_sink(FailingEventSink)
+        .start()
+        .await
+        .expect("runtime should start");
+    let mut events = runtime
+        .subscribe_events("typed-system1-observer")
+        .expect("observer should subscribe");
+
+    runtime
+        .system1()
+        .register_descriptor(descriptor("alpha", "ship"))
+        .await
+        .expect("unit should register");
+    let event = tokio::time::timeout(Duration::from_secs(1), events.recv())
+        .await
+        .expect("observer event should arrive")
+        .expect("observer stream should remain open");
+    let snapshot = runtime
+        .observer_bus_snapshot()
+        .expect("observer snapshot should return");
+
+    assert!(matches!(
+        event,
+        RuntimeEvent::System1(event)
+            if matches!(event.as_ref(), System1Event::UnitRegistered(_))
+    ));
+    assert_eq!(snapshot.sink_error_count, 1);
+}
+
+#[tokio::test]
 async fn admission_limit_returns_backpressured() {
     let runtime = runtime_builder()
         .start()
@@ -550,6 +621,17 @@ impl ReportSink<DomainSystem> for RecordingEventSink {
         _report: RuntimeReport<DomainSystem>,
     ) -> Result<(), FrameworkError> {
         Ok(())
+    }
+}
+
+struct FailingEventSink;
+
+#[async_trait]
+impl EventSink<DomainSystem> for FailingEventSink {
+    async fn record_event(&self, _event: RuntimeEvent<DomainSystem>) -> Result<(), FrameworkError> {
+        Err(FrameworkError::Runtime {
+            reason: "event sink failed".to_string(),
+        })
     }
 }
 

@@ -14,8 +14,9 @@ use vsm_rs::protocol::system1::{
     WorkResponse,
 };
 use vsm_rs::protocol::{
-    FrameworkEvent, ProtocolMetadata, RecursionPath, RuntimeEvent, RuntimeId, RuntimeReport,
-    SnapshotKey, SnapshotRecord, SnapshotVersion, SubsystemRole, System1Report, VsmAddress,
+    DeliveryMetrics, DeliveryStatus, FrameworkEvent, ProtocolMetadata, RecursionPath,
+    RuntimeControlMessage, RuntimeEvent, RuntimeId, RuntimeReport, SnapshotKey, SnapshotRecord,
+    SnapshotVersion, SubsystemRole, System1ControlMessage, System1Report, VsmAddress,
 };
 use vsm_rs::roles::{
     EventSink, NoopEventSink, NoopReportSink, NoopStateStore, ReportSink, StateStore, ViableSystem,
@@ -103,6 +104,22 @@ fn protocol_metadata_carries_instance_scoped_addresses_and_causation() {
     let child = metadata.child();
 
     assert_eq!(child.causation_id, Some(metadata.correlation_id));
+}
+
+#[test]
+fn typed_control_bus_records_do_not_require_json_payloads() {
+    let message = RuntimeControlMessage::<DomainSystem>::System1(System1ControlMessage::Work(
+        Box::new(WorkRequest::new(DomainWork { bytes: vec![42] })),
+    ));
+    let mut metrics = DeliveryMetrics::default();
+    metrics.record(DeliveryStatus::TargetUnavailable);
+
+    let RuntimeControlMessage::System1(System1ControlMessage::Work(request)) = message else {
+        panic!("control message should carry System 1 work");
+    };
+
+    assert_eq!(request.work.bytes, vec![42]);
+    assert_eq!(metrics.target_unavailable, 1);
 }
 
 #[test]

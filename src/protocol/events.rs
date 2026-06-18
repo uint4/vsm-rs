@@ -9,6 +9,7 @@ use super::system1::{
 };
 
 /// Framework event record.
+#[derive(Clone)]
 pub struct FrameworkEvent {
     pub metadata: ProtocolMetadata,
     pub kind: String,
@@ -23,6 +24,18 @@ where
     System1(Box<System1Event<V>>),
 }
 
+impl<V> Clone for RuntimeEvent<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::Framework(event) => Self::Framework(event.clone()),
+            Self::System1(event) => Self::System1(Box::new((**event).clone())),
+        }
+    }
+}
+
 /// System 1 event stream item.
 pub enum System1Event<V>
 where
@@ -31,6 +44,28 @@ where
     UnitRegistered(UnitDescriptor<V>),
     UnitUnregistered { unit_id: V::UnitId },
     ResourceShortage(Box<ResourceShortageRequest<V>>),
+}
+
+impl<V> Clone for System1Event<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::UnitRegistered(descriptor) => Self::UnitRegistered(descriptor.clone()),
+            Self::UnitUnregistered { unit_id } => Self::UnitUnregistered {
+                unit_id: unit_id.clone(),
+            },
+            Self::ResourceShortage(shortage) => {
+                Self::ResourceShortage(Box::new(ResourceShortageRequest {
+                    metadata: shortage.metadata.clone(),
+                    required_capabilities: shortage.required_capabilities.clone(),
+                    work_label: shortage.work_label.clone(),
+                    reason: shortage.reason.clone(),
+                }))
+            }
+        }
+    }
 }
 
 /// Runtime report stream item.
