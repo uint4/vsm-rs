@@ -12,11 +12,15 @@
 
 pub mod actor_support;
 pub mod app;
+pub mod cancellation;
 pub mod channels;
 pub mod domain;
 pub mod error;
+pub mod legacy;
 pub mod names;
 pub mod prelude;
+pub mod protocol;
+pub mod roles;
 pub mod shared;
 pub mod system1;
 pub mod system2;
@@ -28,7 +32,9 @@ pub mod util;
 pub mod vsm_core;
 
 pub use app::{start_application, start_vsm_core, VsmApplication};
-pub use error::{VsmError, VsmResult};
+pub use error::{ApplicationFailure, FrameworkError, VsmError, VsmResult, WorkError};
+pub use ractor::async_trait;
+pub use roles::ViableSystem;
 pub use shared::message::{ChannelKind, MessageKind, SystemId, VsmMessage};
 
 pub use vsm_core::{

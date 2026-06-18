@@ -14,44 +14,47 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Phase 0
-- Approved scope: Baseline, characterization tests, ADR setup, stabilization
+- Approved milestone: Milestone 1 — typed protocol foundations
+- Approved scope: Foundational typed runtime types only, alongside the existing
+  runtime; no actor rewrites, builder runtime, or System 1 adapter migration.
 - Approved architectural decisions: Recorded in ADR-0001 through ADR-0004
-- Pending decisions: None for Phase 0
+- Pending decisions: None for the approved Milestone 1 scope
 - Permission to begin next milestone: No
 
 ## Pending user decisions
 
 | ID | Decision | Options | Recommendation | Blocking milestone | Status |
 |---|---|---|---|---|---|
-| M1-approval | Begin foundational typed runtime work | Approve / revise / defer | Approve after reviewing Phase 0 evidence | Milestone 1 | Waiting for user |
+| — | — | — | — | — | — |
 
 ## Current status
 
-- Overall state: Phase 0 complete; waiting for user review
-- Current phase: Phase 0 — baseline and characterization
-- Current milestone: Phase 0 review gate
+- Overall state: Milestone 1 complete; review gate active
+- Current phase: Milestone 1 — typed protocol foundations
+- Current milestone: Foundational public types
 - Last updated: 2026-06-18
 - Last updated by: Codex
 - Baseline commit: `dea5b3e`
 - Working branch: `master`
 - Repository clean at start: Yes
-- Repository status now: Intended Phase 0 changes are present in the working
-  tree and have not been committed.
+- Repository status now: Phase 0 and Milestone 1 changes are present in the
+  working tree and are not yet committed.
 
 ## Current objective
 
-Phase 0 is implemented: formatting and Clippy baseline are fixed, ADR records
-exist for approved decisions, factual documentation drift is corrected,
-characterization tests cover current behavior, and the required validation suite
-passes.
+Milestone 1 foundations are implemented: instance-scoped address types,
+recursion path and subsystem role identifiers, framework metadata, the minimal
+`ViableSystem` type family, framework/application error wrappers, cancellation,
+snapshot records, `StateStore`, event/report sink traits, System 1 protocol
+records, and narrow legacy conversions needed to round-trip current
+`Transaction`/`VsmMessage` examples. Actors were not rewritten and no
+builder/runtime handle was introduced.
 
 ## Next action
 
-Stop for user review. If approved, the next implementation milestone is
-foundational typed runtime work: `ViableSystem`, framework metadata, errors,
-cancellation, snapshot records, `StateStore`, event/report sink traits, and
-System 1 protocol records. Do not begin this until the user explicitly approves.
+Wait for explicit user approval to begin Milestone 2. Proposed next milestone:
+define first-wave role contracts and role contexts without importing `ractor`
+or `serde_json` into downstream application implementations.
 
 ---
 
@@ -62,8 +65,8 @@ System 1 protocol records. Do not begin this until the user explicitly approves.
 | 0 | Repository baseline | Complete | Formatting, check, tests, Clippy, docs, doctests, and example validation pass. |
 | 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, targeted fallback bug-to-remove, broadcast validation gap, and Systems 2-5 JSON service calls. Existing System 1 and full-system tests still pass. |
 | 0 | ADR setup | Complete | `docs/adr/README.md`, template, and ADR-0001 through ADR-0004 added. |
-| 1 | Application type family | Not started | Awaiting user approval. |
-| 1 | Typed core envelopes | Not started | Awaiting user approval. |
+| 1 | Application type family | Complete | `src/roles/types.rs` defines `ViableSystem`; `tests/foundational_types.rs` proves non-serde application work, outcome, and snapshot payloads compile. |
+| 1 | Typed core envelopes | Complete | `src/protocol/*`, `src/error.rs`, `src/cancellation.rs`, `src/roles/ports.rs`, and `src/legacy/*` added with tests, docs, and full validation passing. |
 | 2 | Role contracts and factories | Not started | Awaiting user approval. |
 | 2 | Runtime builder and handles | Not started | Awaiting user approval. |
 | 3 | System 1 vertical slice | Not started | Awaiting user approval. |
@@ -96,9 +99,9 @@ documentation are complete.
 | Command | Result | Last run | Notes |
 |---|---:|---|---|
 | `cargo fmt --all -- --check` | Passed | 2026-06-18 | Formatting drift resolved by `cargo fmt --all`. |
-| `cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. |
-| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 7 integration tests plus example test target; 0 unit tests. |
-| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | Original 9 warnings-as-errors resolved. |
+| `cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | Passed after clearing a nightly incremental compiler ICE with `cargo clean -p vsm-rs`. |
+| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 18 integration tests across foundational, Phase 0, full-system, and System 1 suites; example test target has 0 tests. |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings. |
 | `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
 | `cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
 | `cargo run --example basic_usage --locked` | Passed | 2026-06-18 | Example starts runtime, registers `payments`, processes a transaction, prints status, and exits. |
@@ -129,19 +132,36 @@ until a subsequent run succeeds.
 - Added focused characterization tests for current behavior.
 - Tightened `tests/full_system_flow.rs` shutdown to await the returned join
   handle instead of using the non-waiting `stop()` facade.
+- Added typed protocol foundations:
+  - `src/protocol/*` for runtime addresses, metadata, snapshots, System 1
+    protocol records, events, and reports;
+  - `src/roles/*` for `ViableSystem`, `StateStore`, event/report sinks, and
+    no-op ports;
+  - `src/cancellation.rs` for crate-owned cooperative cancellation;
+  - `src/error.rs` framework/application/work error wrappers;
+  - `src/legacy/*` temporary adapters for current JSON transaction/message
+    shapes.
+- Re-exported `ViableSystem`, `FrameworkError`, `ApplicationFailure`,
+  `WorkError`, and `async_trait` from the crate root.
+- Added `tests/foundational_types.rs` to prove no-serde payload bounds, no-op
+  port behavior, cancellation mapping, legacy round-trips, and error
+  separation.
+- Updated README, architecture, and usage docs to describe the foundation
+  modules and their current non-wired status.
 
 ---
 
 ## Work in progress
 
-None. Phase 0 is at the review gate.
+None. Milestone 1 is at the review gate. Do not begin Milestone 2 without
+explicit user approval.
 
 ---
 
 ## Decisions made
 
-The user approved the Phase 0-only scope and deferred later milestone decisions.
-Accepted migration decisions are now recorded as ADRs.
+The user approved the Phase 0-only scope, then approved Milestone 1 after the
+Phase 0 review gate. Accepted migration decisions are recorded as ADRs.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -150,11 +170,30 @@ Accepted migration decisions are now recorded as ADRs.
 | [ADR-0003](docs/adr/0003-system1-runtime-semantics.md) | First System 1 runtime semantics | Accepted |
 | [ADR-0004](docs/adr/0004-protocol-boundaries-and-deferred-decisions.md) | Protocol boundaries and explicitly deferred choices | Accepted |
 
+Milestone 1 introduced no new ADR-level architectural decisions. Implementation
+notes:
+
+- `UnitSnapshot` is `Send + 'static` because the always-present async
+  `StateStore` boundary must be safe across runtime tasks. It is not required
+  to implement `Serialize`, `Deserialize`, `Clone`, or `Debug`.
+- Framework-owned metadata derives serde where useful; application work,
+  outcome, and snapshot payloads do not require serde.
+
 ---
 
 ## Compatibility changes
 
-None. Phase 0 did not remove, rename, or semantically redesign public APIs.
+Milestone 1 adds public foundational APIs and does not remove, rename, or
+semantically redesign existing public APIs.
+
+New public modules and re-exports:
+
+- `vsm_rs::cancellation`
+- `vsm_rs::protocol`
+- `vsm_rs::roles`
+- `vsm_rs::legacy`
+- `vsm_rs::{ApplicationFailure, FrameworkError, ViableSystem, WorkError}`
+- `vsm_rs::async_trait`
 
 Observed current behaviors are now characterized, including behaviors intended
 for later removal:
@@ -176,6 +215,11 @@ for later removal:
 - State, metrics, channel history, and most service data remain in memory and
   restart-volatile.
 - Systems 2-5 still use string operation names and `serde_json::Value`.
+- Typed foundations are not wired into the actor runtime yet; existing examples
+  still run through the legacy actor/JSON facade.
+- Temporary `legacy` adapters intentionally bridge current JSON forms for
+  round-trip tests only; they are not the target public application surface.
+- First-wave role contracts and contexts are not defined yet.
 - Channel targeted-delivery miss falls back to broadcast; characterized as a
   current bug-to-remove in a later typed-bus milestone.
 - Explicit channel broadcast bypasses targeted-message validation; characterized
@@ -194,7 +238,6 @@ resolved, and record the resolution in the development history.
 
 | Deferred item | Reason | Impact | Prerequisite | Intended milestone |
 |---|---|---|---|---|
-| Foundational typed runtime traits and protocols | Phase 0 is stabilization and characterization only. | Public API remains actor/JSON-oriented until approved work begins. | User approval at Phase 0 gate. | Milestone 1 |
 | Builder/runtime handles and readiness API | Would change public lifecycle architecture. | Tests still use startup sleeps around the current global runtime. | Typed foundations and user approval for builder work. | Builder/runtime handles |
 | Durable `StateStore` implementations | Persistence contract is accepted, but durable adapters are outside Phase 0. | Current stores are in-memory or no-op only. | StateStore core contract and persistence milestone approval. | Persistence and recovery |
 | Systems 2-5 typed role catalogs and migrations | Later subsystem semantics require separate review gates. | Systems 2-5 continue to use string/JSON service calls. | System 1 pattern and owning milestone approval. | Systems 2-5 migrations |
@@ -294,3 +337,136 @@ passed
 
 Wait for explicit user approval to begin Milestone 1 foundational typed runtime
 work. Do not begin it automatically.
+
+#### 2026-06-18 — Milestone 1 Start
+
+**Objective**
+
+Begin the approved typed protocol foundations milestone after the user completed
+the Phase 0 review gate.
+
+**Changes**
+
+- Updated this journal to record Milestone 1 approval and scope.
+- No Rust source changes yet.
+
+**Decisions**
+
+- User explicitly approved proceeding after Phase 0 review.
+- Existing ADR-0001 through ADR-0004 remain the active decision record.
+
+**Validation**
+
+Most recent validation remains the Phase 0 gate suite, all passing on
+2026-06-18. Validation will be rerun after implementation.
+
+**Next task**
+
+Add foundational public modules and tests, then stop at the Milestone 1 review
+gate.
+
+#### 2026-06-18 — Milestone 1 Typed Protocol Foundations
+
+**Objective**
+
+Implement typed protocol foundations alongside the existing actor runtime,
+without rewriting actors, adding the builder/runtime handle, or beginning System
+1 adapter migration.
+
+**Changes**
+
+- Files changed:
+  - `CODEX.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/USAGE.md`
+  - `src/error.rs`
+  - `src/lib.rs`
+  - `src/cancellation.rs`
+  - `src/legacy/*`
+  - `src/protocol/*`
+  - `src/roles/*`
+  - `tests/foundational_types.rs`
+- Public APIs added:
+  - `ViableSystem`;
+  - `FrameworkError`, `ApplicationFailure`, and `WorkError`;
+  - cooperative `CancellationToken`;
+  - protocol address, metadata, snapshot, event, report, and System 1 record
+    types;
+  - `StateStore`, `NoopStateStore`, `EventSink`, `NoopEventSink`,
+    `ReportSink`, and `NoopReportSink`;
+  - temporary `legacy` adapters for current `Transaction`, `TransactionResult`,
+    `UnitConfig`, and `VsmMessage` shapes;
+  - crate-root re-export of `async_trait`.
+- Public APIs removed or renamed: none.
+- Tests added:
+  - downstream-style `ViableSystem` implementation with non-serde work,
+    outcome, and snapshot payloads;
+  - capacity snapshot admission state;
+  - instance-scoped metadata and causation;
+  - cancellation-to-work-error mapping;
+  - no-op state/event/report ports;
+  - legacy transaction, transaction-result, unit-config, and resource-shortage
+    round-trips;
+  - application/framework work error separation.
+- Documentation updated:
+  - README feature summary for typed foundations;
+  - architecture module map and foundation boundary;
+  - usage notes explaining that foundations are not yet wired into the actor
+    facade.
+
+**Decisions**
+
+- No new ADR-level decisions were made.
+- `UnitSnapshot` is `Send + 'static` at the core type-family boundary because
+  snapshot storage is an async runtime port. No serde, clone, or debug bound was
+  added to application snapshots.
+- Event/report enum variants that can contain application payloads are boxed to
+  keep public enum sizes reasonable and satisfy Clippy.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+passed
+
+cargo check --all-targets --all-features --locked
+passed
+
+cargo test --test foundational_types --all-features --locked
+passed
+
+cargo test --all-targets --all-features --locked
+passed
+
+cargo clippy --all-targets --all-features --locked -- -D warnings
+passed
+
+cargo doc --all-features --no-deps --locked
+passed
+
+cargo test --doc --all-features --locked
+passed
+
+cargo run --example basic_usage --locked
+passed
+
+git diff --check
+passed
+```
+
+**Failures and warnings**
+
+- One `cargo check --all-targets --all-features --locked` run hit a nightly
+  incremental compiler ICE in rustc 1.98.0-nightly. `cargo clean -p vsm-rs`
+  cleared the stale incremental state, and the same command passed afterward.
+- Initial Milestone 1 compile iterations exposed expected type-bound and Clippy
+  issues while the new public generics settled. The final validation suite
+  passes.
+- The new typed foundations are intentionally not wired into the running actor
+  facade yet.
+
+**Next task**
+
+Wait for explicit user approval to begin Milestone 2: first-wave role contracts
+and role contexts. Do not begin it automatically.

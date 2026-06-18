@@ -36,6 +36,10 @@ src/
 ├── actor_support.rs          Shared JSON service actor implementation
 ├── domain.rs                 SystemId, ChannelKind, MessageKind, VsmMessage
 ├── error.rs                  VsmError and VsmResult
+├── cancellation.rs           Crate-owned cooperative cancellation token
+├── protocol/                 Typed migration foundations: addresses, metadata, snapshots, events, System 1 records
+├── roles/                    ViableSystem type family and runtime ports
+├── legacy/                   Temporary adapters from current JSON/System 1 API to typed foundations
 ├── names.rs                  Stable global actor names
 ├── prelude.rs                Small JSON/time helpers
 ├── util.rs                   Numeric and JSON merge helpers
@@ -63,6 +67,32 @@ src/
 A porting map for the original Elixir files is not currently present in this
 repository. Recreate it before relying on file-by-file correspondence during a
 future migration slice.
+
+### 2.1 Trait-driven foundation modules
+
+The crate now includes public migration foundations under `protocol`, `roles`,
+`cancellation`, and `legacy`.
+
+These modules are intentionally alongside the current runtime:
+
+- `roles::ViableSystem` defines the minimal application type family.
+- `protocol::address`, `protocol::envelope`, and `protocol::snapshot` define
+  instance-scoped runtime metadata.
+- `protocol::system1` defines typed System 1 records for work, unit descriptors,
+  capacity/load, command acknowledgements, performance observations, resource
+  shortages, audit evidence, and coordination views.
+- `roles::ports` defines `StateStore`, `EventSink`, and `ReportSink`, plus
+  no-op implementations. `NoopStateStore` is not persistent.
+- `cancellation::CancellationToken` is the crate-owned cooperative cancellation
+  primitive for future role contexts.
+- `legacy::system1` contains temporary adapters for current
+  `Transaction`/`TransactionResult`/`UnitConfig`/`VsmMessage` shapes.
+
+The foundation modules do not expose `ActorRef`, actor names, or `ractor`
+message types. Core typed protocol records do not require application work,
+outcome, error, capability, unit ID, or snapshot payloads to implement serde.
+The existing actor runtime still uses the legacy facade until later approved
+milestones wire these types into role adapters and runtime handles.
 
 ## 3. Supervision tree
 

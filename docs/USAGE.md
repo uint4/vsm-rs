@@ -127,6 +127,22 @@ Use interfaces in this order:
 
 The typed facade gives the strongest compile-time guarantees. Generic service calls are intentionally flexible but operation and payload mistakes become runtime behavior.
 
+### 4.1 Typed migration foundations
+
+The crate also exposes early trait-driven foundations for the approved migration:
+
+- `ViableSystem` for the minimal application type family.
+- `protocol` records for instance-scoped metadata, snapshots, events, reports,
+  and typed System 1 messages.
+- `roles::ports` for `StateStore`, `EventSink`, and `ReportSink`.
+- `cancellation::CancellationToken` for future role contexts.
+- `legacy::system1` adapters for current `Transaction`, `TransactionResult`,
+  `UnitConfig`, and `VsmMessage` shapes.
+
+These types are public so downstream-style code can compile against the future
+boundary, but the running actor facade still uses the current global
+actor/JSON-backed runtime until later milestones connect the adapters.
+
 ## 5. Complete minimal example
 
 ```rust

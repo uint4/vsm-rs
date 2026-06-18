@@ -34,6 +34,10 @@ The systems communicate through command, coordination, audit, resource-bargain, 
 - Temporal aggregation, trend, cycle, seasonality, anomaly, forecasting, and causality helpers.
 - Pure functions for scheduling, resource allocation, auditing, forecasting, recursion, and variety engineering.
 - JSON-oriented service boundaries for Systems 2–5, making integration straightforward while the typed API continues to mature.
+- Trait-driven migration foundations including `ViableSystem`, instance-scoped
+  protocol metadata, typed System 1 records, snapshot/store ports, event/report
+  sink traits, and legacy JSON adapters. These are not yet wired into the
+  running actor facade.
 
 ## Installation
 
