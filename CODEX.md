@@ -12,6 +12,20 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ---
 
+## Approval state
+
+- Approved milestone: Phase 0
+- Approved scope: Baseline, characterization tests, ADR setup, stabilization
+- Approved architectural decisions: None yet
+- Pending decisions: See below
+- Permission to begin next milestone: No
+
+## Pending user decisions
+
+| ID | Decision | Options | Recommendation | Blocking milestone | Status |
+|---|---|---|---|---|---|
+| — | — | — | — | — | — |
+
 ## Current status
 
 - Overall state: Not started

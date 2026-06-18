@@ -14,6 +14,29 @@ criteria.
 
 `CODEX.md` is the live execution journal. Maintain it throughout every task.
 
+## Interactive decision policy
+
+This migration requires user participation at architectural boundaries.
+
+Codex may implement independently only inside the currently approved milestone.
+
+Codex must stop and request user input before:
+
+- making a material public API decision;
+- choosing among materially different architectural alternatives;
+- changing compatibility or deprecation policy;
+- changing persistence or restart guarantees;
+- adding or replacing a foundational dependency;
+- changing the approved milestone scope;
+- beginning the next implementation milestone.
+
+Codex must also stop after completing each milestone. It must update `CODEX.md`,
+present validation evidence, propose the next milestone, and wait for explicit
+approval.
+
+Silence is not approval. A recommendation written in an ADR is not approval.
+Do not begin a subsequent milestone merely because the overall roadmap includes it.
+
 ## Progress tracking
 
 Before editing code:
