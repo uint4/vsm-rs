@@ -134,14 +134,29 @@ The crate also exposes early trait-driven foundations for the approved migration
 - `ViableSystem` for the minimal application type family.
 - `protocol` records for instance-scoped metadata, snapshots, events, reports,
   and typed System 1 messages.
-- `roles::ports` for `StateStore`, `EventSink`, and `ReportSink`.
-- `cancellation::CancellationToken` for future role contexts.
+- `roles::RoleContext` and `roles::UnitRoleContext` for framework identity,
+  correlation/deadline metadata, cancellation, clock access, event/report
+  emission, and explicitly allowed state storage.
+- `roles::system1` contracts for `OperationalUnit`, `OperationalUnitFactory`,
+  `WorkModel`, `UnitSelectionPolicy`, `PerformanceModel`, `VarietyModel`,
+  `AlgedonicPolicy`, and `System1Roles`.
+- `roles::system1::defaults` for opt-in lowest-load selection and no-op
+  performance, variety, and algedonic policies.
+- `roles::system1::testing` for downstream-style test fakes.
+- `roles::ports` for `StateStore`, `EventSink`, `ReportSink`, `TelemetrySink`,
+  `AlertSink`, `Clock`, and `IdGenerator`.
+- `cancellation::CancellationToken` for cooperative role cancellation.
 - `legacy::system1` adapters for current `Transaction`, `TransactionResult`,
   `UnitConfig`, and `VsmMessage` shapes.
 
 These types are public so downstream-style code can compile against the future
 boundary, but the running actor facade still uses the current global
 actor/JSON-backed runtime until later milestones connect the adapters.
+
+Application role implementations should import `vsm_rs::async_trait` when
+implementing async role methods. They should not need to import `ractor`,
+`ActorRef`, global actor names, broker message types, or `serde_json` for the
+core role contracts.
 
 ## 5. Complete minimal example
 

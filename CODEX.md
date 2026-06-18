@@ -14,11 +14,13 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Milestone 1 — typed protocol foundations
-- Approved scope: Foundational typed runtime types only, alongside the existing
-  runtime; no actor rewrites, builder runtime, or System 1 adapter migration.
+- Approved milestone: Milestone 2 — role contracts and role contexts
+- Approved scope: First-wave role contracts, role contexts, supporting
+  infrastructure ports, no-op/test implementations, documentation, and
+  downstream-style tests only. Do not rewrite actors, introduce the
+  builder/runtime handle, or begin System 1 adapter migration.
 - Approved architectural decisions: Recorded in ADR-0001 through ADR-0004
-- Pending decisions: None for the approved Milestone 1 scope
+- Pending decisions: None for the approved Milestone 2 scope
 - Permission to begin next milestone: No
 
 ## Pending user decisions
@@ -29,32 +31,31 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Current status
 
-- Overall state: Milestone 1 complete; review gate active
-- Current phase: Milestone 1 — typed protocol foundations
-- Current milestone: Foundational public types
+- Overall state: Milestone 2 complete; review gate active
+- Current phase: Milestone 2 — role contracts and role contexts
+- Current milestone: First-wave role contracts
 - Last updated: 2026-06-18
 - Last updated by: Codex
-- Baseline commit: `dea5b3e`
+- Baseline commit: `4c2fa54`
 - Working branch: `master`
 - Repository clean at start: Yes
-- Repository status now: Phase 0 and Milestone 1 changes are present in the
-  working tree and are not yet committed.
+- Repository status now: Milestone 2 changes are present in the working tree
+  and are not yet committed.
 
 ## Current objective
 
-Milestone 1 foundations are implemented: instance-scoped address types,
-recursion path and subsystem role identifiers, framework metadata, the minimal
-`ViableSystem` type family, framework/application error wrappers, cancellation,
-snapshot records, `StateStore`, event/report sink traits, System 1 protocol
-records, and narrow legacy conversions needed to round-trip current
-`Transaction`/`VsmMessage` examples. Actors were not rewritten and no
+Milestone 2 role contracts and contexts are implemented: first-wave System 1
+role traits, role object aliases, role contexts that expose runtime identity,
+correlation, deadline, cancellation, clock, narrow event/report ports, and
+explicitly allowed stores/adapters; supporting telemetry/alert/clock/id ports;
+and no-op/test implementations. Actors were not rewritten and no
 builder/runtime handle was introduced.
 
 ## Next action
 
-Wait for explicit user approval to begin Milestone 2. Proposed next milestone:
-define first-wave role contracts and role contexts without importing `ractor`
-or `serde_json` into downstream application implementations.
+Wait for explicit user approval to begin Milestone 3. Proposed next milestone:
+add the typed builder, runtime handle, readiness/lifecycle surface, and
+instance scope while keeping old actors underneath.
 
 ---
 
@@ -67,7 +68,7 @@ or `serde_json` into downstream application implementations.
 | 0 | ADR setup | Complete | `docs/adr/README.md`, template, and ADR-0001 through ADR-0004 added. |
 | 1 | Application type family | Complete | `src/roles/types.rs` defines `ViableSystem`; `tests/foundational_types.rs` proves non-serde application work, outcome, and snapshot payloads compile. |
 | 1 | Typed core envelopes | Complete | `src/protocol/*`, `src/error.rs`, `src/cancellation.rs`, `src/roles/ports.rs`, and `src/legacy/*` added with tests, docs, and full validation passing. |
-| 2 | Role contracts and factories | Not started | Awaiting user approval. |
+| 2 | Role contracts and factories | Complete | `src/roles/context.rs`, `src/roles/system1.rs`, expanded `src/roles/ports.rs`, and `tests/role_contracts.rs` added; full validation passes. |
 | 2 | Runtime builder and handles | Not started | Awaiting user approval. |
 | 3 | System 1 vertical slice | Not started | Awaiting user approval. |
 | 4 | Typed protocol bus | Not started | Awaiting user approval. |
@@ -99,8 +100,8 @@ documentation are complete.
 | Command | Result | Last run | Notes |
 |---|---:|---|---|
 | `cargo fmt --all -- --check` | Passed | 2026-06-18 | Formatting drift resolved by `cargo fmt --all`. |
-| `cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | Passed after clearing a nightly incremental compiler ICE with `cargo clean -p vsm-rs`. |
-| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 18 integration tests across foundational, Phase 0, full-system, and System 1 suites; example test target has 0 tests. |
+| `cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. |
+| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 28 integration tests across foundational, role-contract, Phase 0, full-system, and System 1 suites; example test target has 0 tests. |
 | `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings. |
 | `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
 | `cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
@@ -148,20 +149,39 @@ until a subsequent run succeeds.
   separation.
 - Updated README, architecture, and usage docs to describe the foundation
   modules and their current non-wired status.
+- Added first-wave System 1 role contracts:
+  - `OperationalUnit`, `OperationalUnitFactory`, `WorkModel`,
+    `UnitSelectionPolicy`, `PerformanceModel`, `VarietyModel`,
+    `AlgedonicPolicy`, and `System1Roles`;
+  - object aliases for boxed/shared dynamic role dispatch;
+  - opt-in default lowest-load selection and no-op performance, variety, and
+    algedonic policies;
+  - downstream test helpers for static units and accept-all work models.
+- Added `RoleContext` and `UnitRoleContext` with runtime identity, recursion
+  path, framework metadata, deadline, cancellation, clock, event/report sinks,
+  and explicitly allowed state store access.
+- Added `TelemetrySink`, `AlertSink`, `Clock`, `IdGenerator`, and no-op/system
+  implementations to `roles::ports`.
+- Added `tests/role_contracts.rs` to prove downstream-style role
+  implementations, dyn compatibility, no direct `ractor`/`serde_json` imports,
+  defaults/no-ops, test fakes, and context boundaries.
+- Updated README, architecture, usage, and developer docs for role contracts and
+  contexts.
 
 ---
 
 ## Work in progress
 
-None. Milestone 1 is at the review gate. Do not begin Milestone 2 without
+None. Milestone 2 is at the review gate. Do not begin Milestone 3 without
 explicit user approval.
 
 ---
 
 ## Decisions made
 
-The user approved the Phase 0-only scope, then approved Milestone 1 after the
-Phase 0 review gate. Accepted migration decisions are recorded as ADRs.
+The user approved the Phase 0-only scope, approved Milestone 1 after the Phase
+0 review gate, and approved Milestone 2 after the Milestone 1 review gate.
+Accepted migration decisions are recorded as ADRs.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -178,12 +198,22 @@ notes:
   to implement `Serialize`, `Deserialize`, `Clone`, or `Debug`.
 - Framework-owned metadata derives serde where useful; application work,
   outcome, and snapshot payloads do not require serde.
+- Milestone 2 introduced no new ADR-level decisions. Implementation notes:
+  - `OperationalUnit` methods use `&mut self` so application unit state only
+    needs to satisfy `Send`, not `Sync`; policy/model/factory roles use `&self`
+    and require `Send + Sync` because they are shared.
+  - Work model and variety methods move `WorkRequest`/`WorkResponse` values
+    rather than borrowing app payloads across async futures, preserving the
+    accepted `Work`/`Outcome: Clone + Send + 'static` bounds.
+  - `WorkRequest` and `UnitDescriptor` now have manual `Clone`
+    implementations so the application type family itself is not required to
+    implement `Clone`.
 
 ---
 
 ## Compatibility changes
 
-Milestone 1 adds public foundational APIs and does not remove, rename, or
+Milestones 1 and 2 add public foundational APIs and do not remove, rename, or
 semantically redesign existing public APIs.
 
 New public modules and re-exports:
@@ -193,6 +223,9 @@ New public modules and re-exports:
 - `vsm_rs::roles`
 - `vsm_rs::legacy`
 - `vsm_rs::{ApplicationFailure, FrameworkError, ViableSystem, WorkError}`
+- `vsm_rs::{OperationalUnit, OperationalUnitFactory, WorkModel}`
+- `vsm_rs::{UnitSelectionPolicy, PerformanceModel, VarietyModel}`
+- `vsm_rs::{AlgedonicPolicy, System1Roles, RoleContext, UnitRoleContext}`
 - `vsm_rs::async_trait`
 
 Observed current behaviors are now characterized, including behaviors intended
@@ -219,7 +252,8 @@ for later removal:
   still run through the legacy actor/JSON facade.
 - Temporary `legacy` adapters intentionally bridge current JSON forms for
   round-trip tests only; they are not the target public application surface.
-- First-wave role contracts and contexts are not defined yet.
+- First-wave role contracts and contexts are defined but not yet wired into the
+  running actor runtime.
 - Channel targeted-delivery miss falls back to broadcast; characterized as a
   current bug-to-remove in a later typed-bus milestone.
 - Explicit channel broadcast bypasses targeted-message validation; characterized
@@ -470,3 +504,140 @@ passed
 
 Wait for explicit user approval to begin Milestone 2: first-wave role contracts
 and role contexts. Do not begin it automatically.
+
+#### 2026-06-18 — Milestone 2 Start
+
+**Objective**
+
+Begin the approved role contracts and role contexts milestone after the user
+completed the Milestone 1 review gate.
+
+**Changes**
+
+- Updated this journal to record Milestone 2 approval and scope.
+- No Milestone 2 Rust source changes yet.
+
+**Decisions**
+
+- User explicitly approved proceeding after the Milestone 1 review gate.
+- Existing ADR-0001 through ADR-0004 remain the active decision record.
+- No new dependency, compatibility, persistence, or restart guarantee decisions
+  have been made.
+
+**Validation**
+
+Most recent validation remains the Milestone 1 gate suite, all passing on
+2026-06-18. The repository was clean at baseline commit `4c2fa54` before
+Milestone 2 edits. Validation will be rerun after implementation.
+
+**Next task**
+
+Add role contracts, role contexts, supporting ports, no-op/test
+implementations, downstream-style tests, and docs, then stop at the Milestone 2
+review gate.
+
+#### 2026-06-18 — Milestone 2 Role Contracts and Contexts
+
+**Objective**
+
+Implement the first-wave role contracts and role contexts before changing actor
+implementations.
+
+**Changes**
+
+- Files changed:
+  - `CODEX.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/DEVELOPERS.md`
+  - `docs/USAGE.md`
+  - `src/lib.rs`
+  - `src/protocol/system1.rs`
+  - `src/roles/mod.rs`
+  - `src/roles/ports.rs`
+  - `src/roles/context.rs`
+  - `src/roles/system1.rs`
+  - `tests/role_contracts.rs`
+- Public APIs added:
+  - `RoleContext` and `UnitRoleContext`;
+  - `OperationalUnit`, `OperationalUnitFactory`, `WorkModel`,
+    `UnitSelectionPolicy`, `PerformanceModel`, `VarietyModel`,
+    `AlgedonicPolicy`, and `System1Roles`;
+  - role object aliases for boxed/shared dynamic dispatch;
+  - `WorkMeasurement`, `UnitCandidate`, `PerformanceAssessment`,
+    `VarietyAssessment`, and algedonic signal support types;
+  - opt-in `roles::system1::defaults` policies;
+  - `roles::system1::testing` fakes;
+  - `TelemetrySink`, `AlertSink`, `Clock`, `IdGenerator`, and no-op/system/UUID
+    implementations.
+- Public APIs removed or renamed: none.
+- Tests added:
+  - downstream-style implementation of every first-wave role;
+  - dyn-compatible role object construction;
+  - opt-in default/no-op policy behavior;
+  - static unit factory and accept-all work model fakes;
+  - role context identity, cancellation, and sink access;
+  - explicit unsupported snapshot failure;
+  - unit command, coordination view, audit evidence, and static capability
+    checks.
+- Documentation updated:
+  - README feature summary;
+  - architecture foundation module boundary;
+  - usage guide role-contract section;
+  - developer guide layout.
+
+**Decisions**
+
+- No new ADR-level decisions were made.
+- Unit role methods use `&mut self` consistently. This preserves the accepted
+  mutable-unit posture and avoids requiring application unit state to implement
+  `Sync` only because of async trait futures.
+- Policy/model/factory roles use `&self` and are `Send + Sync` because runtime
+  adapters are expected to share them.
+- Methods that inspect application work/outcome move typed protocol values
+  rather than borrowing app payloads across async futures. This preserves the
+  accepted `Work` and `Outcome` bounds without adding `Sync`.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+passed
+
+cargo check --all-targets --all-features --locked
+passed
+
+cargo test --test role_contracts --all-features --locked
+passed
+
+cargo test --all-targets --all-features --locked
+passed
+
+cargo clippy --all-targets --all-features --locked -- -D warnings
+passed
+
+cargo doc --all-features --no-deps --locked
+passed
+
+cargo test --doc --all-features --locked
+passed
+
+cargo run --example basic_usage --locked
+passed
+
+git diff --check
+passed
+```
+
+**Failures and warnings**
+
+- Initial compile iterations exposed over-broad derive bounds on generic
+  protocol/context types and accidental `Sync` pressure from async methods that
+  borrowed application payloads. The final implementation preserves the
+  accepted bounds and validation passes.
+- The new role contracts are intentionally not wired into the actor runtime yet.
+
+**Next task**
+
+Wait for explicit user approval to begin Milestone 3: builder, runtime handle,
+readiness/lifecycle surface, and instance scope. Do not begin it automatically.

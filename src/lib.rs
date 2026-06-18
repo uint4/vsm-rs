@@ -34,7 +34,10 @@ pub mod vsm_core;
 pub use app::{start_application, start_vsm_core, VsmApplication};
 pub use error::{ApplicationFailure, FrameworkError, VsmError, VsmResult, WorkError};
 pub use ractor::async_trait;
-pub use roles::ViableSystem;
+pub use roles::{
+    AlgedonicPolicy, OperationalUnit, OperationalUnitFactory, PerformanceModel, RoleContext,
+    System1Roles, UnitRoleContext, UnitSelectionPolicy, VarietyModel, ViableSystem, WorkModel,
+};
 pub use shared::message::{ChannelKind, MessageKind, SystemId, VsmMessage};
 
 pub use vsm_core::{

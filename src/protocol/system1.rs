@@ -28,7 +28,7 @@ impl Default for WorkOptions {
 }
 
 /// Typed work request owned by the application type family.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct WorkRequest<V>
 where
     V: ViableSystem,
@@ -36,6 +36,19 @@ where
     pub metadata: ProtocolMetadata,
     pub work: V::Work,
     pub options: WorkOptions,
+}
+
+impl<V> Clone for WorkRequest<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            metadata: self.metadata.clone(),
+            work: self.work.clone(),
+            options: self.options.clone(),
+        }
+    }
 }
 
 impl<V> WorkRequest<V>
@@ -124,7 +137,7 @@ impl CapacitySnapshot {
 }
 
 /// Static descriptor used to register or restore an operational unit.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct UnitDescriptor<V>
 where
     V: ViableSystem,
@@ -132,6 +145,19 @@ where
     pub unit_id: V::UnitId,
     pub capabilities: Vec<CapabilityDescription<V::Capability>>,
     pub labels: BTreeMap<String, String>,
+}
+
+impl<V> Clone for UnitDescriptor<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            unit_id: self.unit_id.clone(),
+            capabilities: self.capabilities.clone(),
+            labels: self.labels.clone(),
+        }
+    }
 }
 
 impl<V> UnitDescriptor<V>

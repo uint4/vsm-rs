@@ -1,11 +1,16 @@
-//! Runtime ports for state, events, and reports.
+//! Runtime ports for state, events, reports, telemetry, alerts, clocks, and IDs.
 
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
+use chrono::{DateTime, Utc};
 use ractor::async_trait;
 
 use crate::error::FrameworkError;
-use crate::protocol::{RuntimeEvent, RuntimeReport, SnapshotKey, SnapshotRecord};
+use crate::protocol::{
+    CorrelationId, ProtocolMetadata, RuntimeEvent, RuntimeId, RuntimeReport, SnapshotKey,
+    SnapshotRecord,
+};
 
 use super::ViableSystem;
 
@@ -144,5 +149,131 @@ where
 {
     async fn record_report(&self, _report: RuntimeReport<V>) -> Result<(), FrameworkError> {
         Ok(())
+    }
+}
+
+/// Structured telemetry emitted by runtime adapters and role wrappers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TelemetryRecord {
+    pub metadata: ProtocolMetadata,
+    pub name: String,
+    pub fields: BTreeMap<String, String>,
+    pub observed_at: DateTime<Utc>,
+}
+
+impl TelemetryRecord {
+    /// Creates a telemetry record observed at the current wall-clock time.
+    pub fn new(metadata: ProtocolMetadata, name: impl Into<String>) -> Self {
+        Self {
+            metadata,
+            name: name.into(),
+            fields: BTreeMap::new(),
+            observed_at: Utc::now(),
+        }
+    }
+}
+
+/// Port for runtime telemetry export.
+#[async_trait]
+pub trait TelemetrySink: Send + Sync {
+    async fn record_telemetry(&self, record: TelemetryRecord) -> Result<(), FrameworkError>;
+}
+
+/// Telemetry sink that drops all records.
+#[derive(Debug, Default)]
+pub struct NoopTelemetrySink;
+
+#[async_trait]
+impl TelemetrySink for NoopTelemetrySink {
+    async fn record_telemetry(&self, _record: TelemetryRecord) -> Result<(), FrameworkError> {
+        Ok(())
+    }
+}
+
+/// Framework-level alert severity for external notification ports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AlertSeverity {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// Alert intended for an external notification adapter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AlertRecord {
+    pub metadata: ProtocolMetadata,
+    pub severity: AlertSeverity,
+    pub message: String,
+    pub details: BTreeMap<String, String>,
+    pub raised_at: DateTime<Utc>,
+}
+
+impl AlertRecord {
+    /// Creates an alert record raised at the current wall-clock time.
+    pub fn new(
+        metadata: ProtocolMetadata,
+        severity: AlertSeverity,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            metadata,
+            severity,
+            message: message.into(),
+            details: BTreeMap::new(),
+            raised_at: Utc::now(),
+        }
+    }
+}
+
+/// Port for external alert delivery.
+#[async_trait]
+pub trait AlertSink: Send + Sync {
+    async fn publish_alert(&self, alert: AlertRecord) -> Result<(), FrameworkError>;
+}
+
+/// Alert sink that drops all alerts.
+#[derive(Debug, Default)]
+pub struct NoopAlertSink;
+
+#[async_trait]
+impl AlertSink for NoopAlertSink {
+    async fn publish_alert(&self, _alert: AlertRecord) -> Result<(), FrameworkError> {
+        Ok(())
+    }
+}
+
+/// Clock port used by role contexts and deterministic tests.
+pub trait Clock: Send + Sync {
+    fn now(&self) -> DateTime<Utc>;
+}
+
+/// Clock implementation backed by [`Utc::now`].
+#[derive(Debug, Default)]
+pub struct SystemClock;
+
+impl Clock for SystemClock {
+    fn now(&self) -> DateTime<Utc> {
+        Utc::now()
+    }
+}
+
+/// ID generator port for runtime and correlation identifiers.
+pub trait IdGenerator: Send + Sync {
+    fn new_runtime_id(&self) -> RuntimeId;
+    fn new_correlation_id(&self) -> CorrelationId;
+}
+
+/// UUID-backed ID generator.
+#[derive(Debug, Default)]
+pub struct UuidIdGenerator;
+
+impl IdGenerator for UuidIdGenerator {
+    fn new_runtime_id(&self) -> RuntimeId {
+        RuntimeId::new()
+    }
+
+    fn new_correlation_id(&self) -> CorrelationId {
+        CorrelationId::new()
     }
 }

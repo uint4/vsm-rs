@@ -51,6 +51,10 @@ src/
 ├── actor_support.rs          Shared JSON ServiceActor implementation
 ├── domain.rs                 Core message and channel domain types
 ├── error.rs                  VsmError and VsmResult
+├── cancellation.rs           Cooperative cancellation primitive for role contexts
+├── protocol/                 Typed migration protocols and framework metadata
+├── roles/                    ViableSystem, role contexts, System 1 contracts, ports
+├── legacy/                   Temporary adapters from current JSON API to typed foundations
 ├── names.rs                  Stable global actor names
 ├── channels/                 Broker, channels, algedonic, temporal services
 ├── shared/                   Message, recursion, and variety utilities

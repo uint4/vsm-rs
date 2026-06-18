@@ -36,8 +36,9 @@ The systems communicate through command, coordination, audit, resource-bargain, 
 - JSON-oriented service boundaries for Systems 2–5, making integration straightforward while the typed API continues to mature.
 - Trait-driven migration foundations including `ViableSystem`, instance-scoped
   protocol metadata, typed System 1 records, snapshot/store ports, event/report
-  sink traits, and legacy JSON adapters. These are not yet wired into the
-  running actor facade.
+  sink traits, first-wave System 1 role contracts, role contexts, opt-in default
+  policies, and legacy JSON adapters. These are not yet wired into the running
+  actor facade.
 
 ## Installation
 

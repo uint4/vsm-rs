@@ -38,7 +38,7 @@ src/
 ├── error.rs                  VsmError and VsmResult
 ├── cancellation.rs           Crate-owned cooperative cancellation token
 ├── protocol/                 Typed migration foundations: addresses, metadata, snapshots, events, System 1 records
-├── roles/                    ViableSystem type family and runtime ports
+├── roles/                    ViableSystem type family, role contexts, System 1 contracts, runtime ports
 ├── legacy/                   Temporary adapters from current JSON/System 1 API to typed foundations
 ├── names.rs                  Stable global actor names
 ├── prelude.rs                Small JSON/time helpers
@@ -76,23 +76,35 @@ The crate now includes public migration foundations under `protocol`, `roles`,
 These modules are intentionally alongside the current runtime:
 
 - `roles::ViableSystem` defines the minimal application type family.
+- `roles::RoleContext` and `roles::UnitRoleContext` expose runtime identity,
+  recursion path, correlation/deadline metadata, cooperative cancellation,
+  clock, no-op/default event and report sinks, and explicitly allowed state
+  storage to application roles.
+- `roles::system1` defines first-wave role contracts for `OperationalUnit`,
+  `OperationalUnitFactory`, `WorkModel`, `UnitSelectionPolicy`,
+  `PerformanceModel`, `VarietyModel`, `AlgedonicPolicy`, and the
+  `System1Roles` role catalog.
 - `protocol::address`, `protocol::envelope`, and `protocol::snapshot` define
   instance-scoped runtime metadata.
 - `protocol::system1` defines typed System 1 records for work, unit descriptors,
   capacity/load, command acknowledgements, performance observations, resource
   shortages, audit evidence, and coordination views.
 - `roles::ports` defines `StateStore`, `EventSink`, and `ReportSink`, plus
-  no-op implementations. `NoopStateStore` is not persistent.
+  no-op implementations. It also defines early `TelemetrySink`, `AlertSink`,
+  `Clock`, and `IdGenerator` ports for role contexts and future adapters.
+  `NoopStateStore` is not persistent.
 - `cancellation::CancellationToken` is the crate-owned cooperative cancellation
   primitive for future role contexts.
 - `legacy::system1` contains temporary adapters for current
   `Transaction`/`TransactionResult`/`UnitConfig`/`VsmMessage` shapes.
 
 The foundation modules do not expose `ActorRef`, actor names, or `ractor`
-message types. Core typed protocol records do not require application work,
-outcome, error, capability, unit ID, or snapshot payloads to implement serde.
-The existing actor runtime still uses the legacy facade until later approved
-milestones wire these types into role adapters and runtime handles.
+message types. Downstream role implementations use the crate's re-exported
+`async_trait` macro rather than importing `ractor`. Core typed protocol records
+and role contracts do not require application work, outcome, error, capability,
+unit ID, or snapshot payloads to implement serde. The existing actor runtime
+still uses the legacy facade until later approved milestones wire these types
+into role adapters and runtime handles.
 
 ## 3. Supervision tree
 
