@@ -40,7 +40,7 @@ src/
 ├── config.rs                 Typed runtime configuration
 ├── builder.rs                Typed runtime builder
 ├── runtime.rs                Typed runtime handles, readiness, shutdown, component snapshots
-├── kernel/                   Private instance-scoped runtime registry scaffold
+├── kernel/                   Private runtime registry and typed System 1 actor adapters
 ├── protocol/                 Typed migration foundations: addresses, metadata, snapshots, events, System 1 records
 ├── roles/                    ViableSystem type family, role contexts, System 1 contracts, runtime ports
 ├── legacy/                   Temporary adapters from current JSON/System 1 API to typed foundations
@@ -103,9 +103,13 @@ These modules are intentionally alongside the current runtime:
   `WorkModel` and `OperationalUnitFactory` role objects plus opt-in default
   policies and no-op ports.
 - `runtime` defines readiness checks, shutdown acknowledgements, a System 1
-  handle, and private component-directory snapshots. The directory generates
-  internal component names from `RuntimeId` and `RecursionPath` rather than the
-  current process-global actor names.
+  handle, typed unit registration/work APIs, and private component-directory
+  snapshots. The directory generates internal component names from `RuntimeId`
+  and `RecursionPath` rather than the current process-global actor names.
+- `kernel::system1` contains private actor adapters for the typed System 1
+  runtime. Registered units own application `OperationalUnit` implementations
+  behind private actors; the public handle owns orchestration and never exposes
+  actor references.
 - `legacy::system1` contains temporary adapters for current
   `Transaction`/`TransactionResult`/`UnitConfig`/`VsmMessage` shapes.
 
@@ -115,12 +119,12 @@ message types. Downstream role implementations use the crate's re-exported
 and role contracts do not require application work, outcome, error, capability,
 unit ID, or snapshot payloads to implement serde.
 
-`VsmBuilder` currently starts a typed lifecycle shell: it validates required
-System 1 role objects, reports readiness deterministically, exposes scoped role
-contexts, permits multiple runtime handles in one process, and acknowledges
-shutdown. It does not yet process work through actor adapters. The existing
-actor runtime still uses the legacy facade until the approved System 1
-actor-adapter milestone wires these types into supervised actors.
+`VsmBuilder` starts a typed runtime path: it validates required System 1 role
+objects, reports readiness deterministically, exposes scoped role contexts,
+permits multiple runtime handles in one process, registers typed operational
+units, dispatches typed work through private unit actors, and acknowledges
+shutdown. The existing global actor runtime still serves the legacy
+`Transaction`/JSON facade.
 
 ## 3. Supervision tree
 

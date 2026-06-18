@@ -94,7 +94,7 @@ async fn builder_starts_ready_runtime_with_default_policies() {
             .check(ReadinessGate::SubsystemActors)
             .expect("subsystem actor check should exist")
             .status,
-        ReadinessStatus::NotApplicable
+        ReadinessStatus::Ready
     );
 
     let context = runtime.system1().role_context();

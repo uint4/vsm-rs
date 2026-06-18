@@ -14,13 +14,15 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Milestone 3 — builder, runtime handle, and instance scope
-- Approved scope: Typed builder, runtime configuration, runtime handle,
-  readiness/lifecycle surface, instance-scoped runtime directory scaffold,
-  validation of required roles, documentation, and tests only. Do not begin the
-  System 1 actor-adapter migration or typed-bus migration.
+- Approved milestone: Milestone 4 — System 1 vertical slice
+- Approved scope: Connect first-wave System 1 role contracts to supervised
+  actor-backed runtime behavior: typed unit registration, typed work processing,
+  role-driven validation/capability selection, backpressure/deadline handling,
+  snapshot restore/save scaffolding, reports/events through configured sinks,
+  documentation, and tests. Do not begin typed bus migration or Systems 2-5
+  migrations.
 - Approved architectural decisions: Recorded in ADR-0001 through ADR-0004
-- Pending decisions: None for the approved Milestone 3 scope
+- Pending decisions: None for the approved Milestone 4 scope
 - Permission to begin next milestone: No
 
 ## Pending user decisions
@@ -31,30 +33,30 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Current status
 
-- Overall state: Milestone 3 complete; stopped at review gate
-- Current phase: Milestone 3 — builder, runtime handle, and instance scope
-- Current milestone: Typed runtime lifecycle surface
+- Overall state: Milestone 4 complete; stopped at review gate
+- Current phase: Milestone 4 — System 1 vertical slice
+- Current milestone: Actor-backed typed System 1 runtime
 - Last updated: 2026-06-18
 - Last updated by: Codex
-- Baseline commit: `dcfc9f9`
+- Baseline commit: `3024b69`
 - Working branch: `master`
 - Repository clean at start: Yes
-- Repository status now: Contains uncommitted Milestone 3 changes for review.
+- Repository status now: Contains uncommitted Milestone 4 changes for review.
 
 ## Current objective
 
-Milestone 3 implementation is complete for review: typed builder, runtime
-configuration, runtime handle, readiness/lifecycle records, private
-instance-scoped runtime directory scaffold, required System 1 role validation,
-documentation, and tests showing independent typed runtime handles can coexist.
-Existing actors were not rewritten and System 1 actor-adapter migration was not
-started.
+Milestone 4 implementation is complete for review: the typed runtime handle now
+registers typed System 1 units, dispatches typed work through private unit
+actors, delegates validation/capability/selection to roles, enforces basic
+admission and deadlines, emits typed shortage events/performance reports
+through configured sinks, restores/saves typed unit snapshots through
+`StateStore`, supports drain/unregister, and preserves the legacy System 1
+facade unchanged.
 
 ## Next action
 
-Wait for explicit user review/approval before beginning Milestone 4: the System
-1 vertical slice that connects application role contracts to supervised actor
-adapters.
+Wait for explicit user review/approval before beginning Milestone 5: typed
+protocol bus/event bus work.
 
 ---
 
@@ -69,7 +71,7 @@ adapters.
 | 1 | Typed core envelopes | Complete | `src/protocol/*`, `src/error.rs`, `src/cancellation.rs`, `src/roles/ports.rs`, and `src/legacy/*` added with tests, docs, and full validation passing. |
 | 2 | Role contracts and factories | Complete | `src/roles/context.rs`, `src/roles/system1.rs`, expanded `src/roles/ports.rs`, and `tests/role_contracts.rs` added; full validation passes. |
 | 2 | Runtime builder and handles | Complete | `src/builder.rs`, `src/config.rs`, `src/runtime.rs`, private `src/kernel/registry.rs`, `tests/runtime_builder.rs`, and `examples/typed_runtime_builder.rs`; full validation passes. |
-| 3 | System 1 vertical slice | Not started | Awaiting user approval. |
+| 3 | System 1 vertical slice | Complete | `src/kernel/system1.rs`, expanded `src/runtime.rs`, `tests/system1_typed_runtime.rs`, and `examples/typed_runtime_builder.rs`; full validation passes. |
 | 4 | Typed protocol bus | Not started | Awaiting user approval. |
 | 5 | System 2 migration | Not started | Awaiting user approval. |
 | 6 | System 3 and System 3* migration | Not started | Awaiting user approval. |
@@ -100,11 +102,11 @@ documentation are complete.
 |---|---:|---|---|
 | `cargo fmt --all -- --check` | Passed | 2026-06-18 | Formatting drift resolved by `cargo fmt --all`. |
 | `cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. |
-| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 33 integration tests across foundational, role-contract, runtime-builder, Phase 0, full-system, and System 1 suites; example test targets have 0 tests. |
+| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 41 integration tests across foundational, role-contract, runtime-builder, typed-System-1, Phase 0, full-system, and legacy System 1 suites; example test targets have 0 tests. |
 | `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings. |
 | `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
 | `cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
-| `cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-18 | Example starts typed runtime handle through `VsmBuilder`, reports readiness, and shuts down. |
+| `cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-18 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
 | `cargo run --example basic_usage --locked` | Passed | 2026-06-18 | Example starts runtime, registers `payments`, processes a transaction, prints status, and exits. |
 | `git diff --check` | Passed | 2026-06-18 | No whitespace errors. |
 
@@ -184,12 +186,37 @@ until a subsequent run succeeds.
   lifecycle example.
 - Updated README, architecture, usage, and developer docs for the builder,
   runtime handle, readiness, shutdown, and current non-actor-backed boundary.
+- Added the actor-backed typed System 1 runtime path:
+  - private `kernel::system1` unit actor adapters that own
+    `OperationalUnit` implementations;
+  - typed unit registration through `UnitRegistration`;
+  - `System1Handle` APIs for register, list, process, response wrapping,
+    drain, and unregister;
+  - role-driven work validation, capability derivation, and unit selection;
+  - basic admission/backpressure and deadline enforcement;
+  - typed resource-shortage events and performance reports through configured
+    sinks;
+  - typed snapshot restore on registration and save on unregister through
+    `StateStore`.
+- Added public typed System 1 runtime support types:
+  - `UnitAdmissionLimits`;
+  - `UnitSnapshotConfig`;
+  - `UnitRegistration`;
+  - `RegisteredUnit`.
+- Updated `examples/typed_runtime_builder.rs` to register a typed unit and
+  process typed work.
+- Added `tests/system1_typed_runtime.rs` for typed work processing, work-model
+  validation, custom selection, resource-shortage events, admission
+  backpressure, deadline timeout, drain/unregister lifecycle, and snapshot
+  restore/save behavior.
+- Updated README, architecture, usage, and developer docs for actor-backed typed
+  System 1 behavior.
 
 ---
 
 ## Work in progress
 
-No implementation work is currently in progress. Milestone 3 is complete and
+No implementation work is currently in progress. Milestone 4 is complete and
 paused at the review gate.
 
 ---
@@ -198,8 +225,9 @@ paused at the review gate.
 
 The user approved the Phase 0-only scope, approved Milestone 1 after the Phase
 0 review gate, approved Milestone 2 after the Milestone 1 review gate, and
-approved Milestone 3 after the Milestone 2 review gate. Accepted migration
-decisions are recorded as ADRs.
+approved Milestone 3 after the Milestone 2 review gate, and approved Milestone
+4 after the Milestone 3 review gate. Accepted migration decisions are recorded
+as ADRs.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -240,12 +268,23 @@ notes:
   - Private runtime component names are generated from `RuntimeId`,
     `RecursionPath`, subsystem role, and entity label; no global actor lookup
     or `ActorRef` is exposed through the typed runtime handle.
+- Milestone 4 introduced no new ADR-level decisions. Implementation notes:
+  - The typed runtime path uses private unit actor adapters under
+    `kernel::system1`; public handles expose no `ActorRef`, actor names, or
+    JSON payloads.
+  - The first actor-backed slice covers register, list, process, drain, and
+    unregister. Automatic restart/reconciliation remains deferred.
+  - `UnitRegistration` may provide a per-unit factory and snapshot/admission
+    configuration; `System1Handle::register_descriptor` uses the runtime's
+    default factory role for the common case.
+  - Observer event/report sink failures are not allowed to fail the work
+    control path in this slice.
 
 ---
 
 ## Compatibility changes
 
-Milestones 1, 2, and 3 add public foundational APIs and do not remove, rename,
+Milestones 1 through 4 add public foundational APIs and do not remove, rename,
 or semantically redesign existing public APIs.
 
 New public modules and re-exports:
@@ -266,6 +305,8 @@ New public modules and re-exports:
 - `vsm_rs::{ReadinessGate, ReadinessStatus, ShutdownReport}`
 - `vsm_rs::{RuntimeDirectorySnapshot, RuntimeComponentSnapshot}`
 - `vsm_rs::{RuntimeComponentStatus, RuntimePorts, System1RuntimeRoles}`
+- `vsm_rs::{UnitAdmissionLimits, UnitSnapshotConfig, UnitRegistration}`
+- `vsm_rs::RegisteredUnit`
 - `vsm_rs::async_trait`
 
 Observed current behaviors are now characterized, including behaviors intended
@@ -281,21 +322,22 @@ for later removal:
 - `PORTING_MAP.md` is still absent; docs now state this fact.
 - The crate is `publish = false` and lacks final publication metadata and a
   `rust-version`; publication hardening is deferred.
-- Legacy actor-facade readiness still relies on sleeps; the new typed
-  `VsmRuntime` handle has deterministic readiness for the lifecycle shell only.
+- Legacy actor-facade readiness still relies on sleeps; the typed `VsmRuntime`
+  handle has deterministic readiness for the typed runtime path.
 - Legacy actor names remain process-global; only one default actor-backed VSM
   runtime can safely run per process. Typed runtime handles are
   instance-scoped but are not actor-backed yet.
 - State, metrics, channel history, and most service data remain in memory and
   restart-volatile.
 - Systems 2-5 still use string operation names and `serde_json::Value`.
-- Typed foundations and the builder/runtime handle are not wired into the actor
-  runtime yet; existing operational work still runs through the legacy
-  actor/JSON facade.
+- The typed runtime path now processes System 1 work through private unit actor
+  adapters. Systems 2-5 and the legacy `start()` facade still use the current
+  actor/JSON runtime.
 - Temporary `legacy` adapters intentionally bridge current JSON forms for
   round-trip tests only; they are not the target public application surface.
-- First-wave role contracts, contexts, and runtime handles are defined but not
-  yet wired into supervised System 1 actor adapters.
+- First-wave role contracts, contexts, and runtime handles are wired into the
+  typed System 1 path, but automatic unit restart/reconciliation is still
+  deferred.
 - Channel targeted-delivery miss falls back to broadcast; characterized as a
   current bug-to-remove in a later typed-bus milestone.
 - Explicit channel broadcast bypasses targeted-message validation; characterized
@@ -314,7 +356,7 @@ resolved, and record the resolution in the development history.
 
 | Deferred item | Reason | Impact | Prerequisite | Intended milestone |
 |---|---|---|---|---|
-| System 1 actor adapters | Requires connecting role contracts to supervised actors and lifecycle integration. | Typed runtime handles cannot process work yet; operational work still uses the legacy actor facade. | Milestone 3 review approval. | System 1 vertical slice |
+| System 1 restart/reconciliation | Automatic unit restart, Operations restart directory reconstruction, and unit-supervisor reconciliation are outside the first actor-backed typed slice. | Typed unit actors stop cleanly on unregister/shutdown, but crash recovery is not complete. | Typed System 1 registration/work path. | System 1 hardening |
 | Durable `StateStore` implementations | Persistence contract is accepted, but durable adapters are outside Phase 0. | Current stores are in-memory or no-op only. | StateStore core contract and persistence milestone approval. | Persistence and recovery |
 | Systems 2-5 typed role catalogs and migrations | Later subsystem semantics require separate review gates. | Systems 2-5 continue to use string/JSON service calls. | System 1 pattern and owning milestone approval. | Systems 2-5 migrations |
 | Full event replay and durability | Requires event model and store semantics not approved for Phase 0. | Events and channel history remain non-durable. | Typed bus/event bus and persistence decisions. | Persistence and recovery |
@@ -822,3 +864,150 @@ passed
 Wait for explicit user approval to begin Milestone 4: convert System 1 as the
 first complete vertical slice by wiring role contracts into supervised actor
 adapters. Do not begin it automatically.
+
+#### 2026-06-18 — Milestone 4 Start
+
+**Objective**
+
+Begin the approved System 1 vertical slice after the user completed the
+Milestone 3 review gate.
+
+**Changes**
+
+- Updated this journal to record Milestone 4 approval, scope, baseline, and
+  next task.
+- No Milestone 4 Rust source changes yet.
+
+**Decisions**
+
+- User explicitly approved proceeding after the Milestone 3 review gate.
+- Existing ADR-0001 through ADR-0004 remain the active decision record.
+- No new dependency, compatibility, persistence, typed-bus, or Systems 2-5
+  migration decisions have been made.
+
+**Validation**
+
+Most recent validation remains the Milestone 3 gate suite, all passing on
+2026-06-18. The repository was clean at baseline commit `3024b69` before
+Milestone 4 edits. Validation will be rerun after implementation.
+
+**Next task**
+
+Map existing System 1 actors and typed role contracts, implement the smallest
+complete actor-backed typed System 1 runtime path, add tests and docs, then
+stop at the Milestone 4 review gate.
+
+#### 2026-06-18 — Milestone 4 Typed System 1 Vertical Slice
+
+**Objective**
+
+Connect the first-wave System 1 role contracts to an actor-backed typed runtime
+path without beginning the typed bus or Systems 2-5 migrations.
+
+**Changes**
+
+- Files changed:
+  - `CODEX.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/DEVELOPERS.md`
+  - `docs/USAGE.md`
+  - `examples/typed_runtime_builder.rs`
+  - `src/builder.rs`
+  - `src/kernel/mod.rs`
+  - `src/kernel/system1.rs`
+  - `src/lib.rs`
+  - `src/runtime.rs`
+  - `tests/runtime_builder.rs`
+  - `tests/system1_typed_runtime.rs`
+- Public APIs added:
+  - `UnitAdmissionLimits`;
+  - `UnitSnapshotConfig`;
+  - `UnitRegistration`;
+  - `RegisteredUnit`;
+  - `System1Handle::register_unit`;
+  - `System1Handle::register_descriptor`;
+  - `System1Handle::list_units`;
+  - `System1Handle::process_work`;
+  - `System1Handle::process`;
+  - `System1Handle::process_response`;
+  - `System1Handle::drain_unit`;
+  - `System1Handle::unregister_unit`.
+- Public APIs removed or renamed: none.
+- Tests added:
+  - typed System 1 unit returns a domain outcome;
+  - work-model validation rejects before unit dispatch;
+  - custom selector changes routing;
+  - no suitable unit emits a typed resource-shortage event;
+  - admission limit returns `Backpressured`;
+  - expired deadline returns framework `Timeout`;
+  - drain and unregister update lifecycle state;
+  - snapshot restore and save use `StateStore`.
+- Documentation updated:
+  - README feature summary and typed builder behavior;
+  - architecture typed foundation and `kernel::system1` boundary;
+  - usage guide builder example with registration and typed processing;
+  - developer guide private adapter boundary.
+
+**Decisions**
+
+- No new ADR-level decisions were made.
+- The typed System 1 path is private-actor-backed but not yet a full supervised
+  restart/reconciliation implementation. Automatic restarts remain deferred to
+  System 1 hardening.
+- Legacy `system1::*` transaction APIs and the global actor facade remain
+  unchanged and characterized.
+- Event/report sink failures are ignored for the work control path in this
+  slice, matching the non-blocking observer posture.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+passed
+
+cargo check --all-targets --all-features --locked
+passed
+
+cargo test --test system1_typed_runtime --all-features --locked
+passed
+
+cargo test --all-targets --all-features --locked
+passed
+
+cargo clippy --all-targets --all-features --locked -- -D warnings
+passed
+
+cargo doc --all-features --no-deps --locked
+passed
+
+cargo test --doc --all-features --locked
+passed
+
+cargo run --example typed_runtime_builder --locked
+passed
+
+cargo run --example basic_usage --locked
+passed
+
+git diff --check
+passed
+```
+
+**Failures and warnings**
+
+- An exploratory `cargo metadata --format-version 1 --locked` attempted to
+  download uncached registry artifacts and failed because network access is not
+  available. It was not part of gate validation.
+- The first compile after adding the adapter hit the known nightly incremental
+  compiler ICE. `cargo clean -p vsm-rs` cleared local incremental state and the
+  subsequent compile passed.
+- The first Clippy run flagged a large private actor-message variant. Boxing the
+  typed work request fixed it; the rerun passed with `-D warnings`.
+- Automatic unit crash restart, Operations restart directory reconstruction,
+  and unit-supervisor reconciliation remain unresolved.
+
+**Next task**
+
+Wait for explicit user approval to begin Milestone 5: typed protocol bus and
+observer event bus. Do not begin it automatically.

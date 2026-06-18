@@ -5,7 +5,13 @@ use std::sync::{Arc, Mutex};
 use crate::config::RuntimeConfig;
 use crate::error::FrameworkError;
 use crate::kernel::registry::RuntimeDirectory;
-use crate::protocol::{RecursionPath, RuntimeId, SubsystemRole, VsmAddress};
+use crate::kernel::system1::System1Runtime;
+use crate::protocol::system1::{
+    Acknowledgement, UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
+};
+use crate::protocol::{
+    RecursionPath, RuntimeId, SnapshotKey, SnapshotVersion, SubsystemRole, VsmAddress,
+};
 use crate::roles::RoleContext;
 use crate::roles::{
     AlertSink, Clock, EventSink, NoopAlertSink, NoopEventSink, NoopReportSink, NoopStateStore,
@@ -137,6 +143,145 @@ pub struct ShutdownReport {
     pub previous_state: RuntimeState,
     pub current_state: RuntimeState,
     pub already_shutdown: bool,
+}
+
+/// Per-unit admission limits enforced by the typed System 1 runtime.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UnitAdmissionLimits {
+    pub max_in_flight: Option<usize>,
+}
+
+impl UnitAdmissionLimits {
+    /// Creates limits with no per-unit in-flight cap.
+    pub fn unbounded() -> Self {
+        Self {
+            max_in_flight: None,
+        }
+    }
+
+    /// Creates limits with a maximum number of in-flight work requests.
+    pub fn max_in_flight(max_in_flight: usize) -> Self {
+        Self {
+            max_in_flight: Some(max_in_flight),
+        }
+    }
+}
+
+impl Default for UnitAdmissionLimits {
+    fn default() -> Self {
+        Self::unbounded()
+    }
+}
+
+/// Snapshot behavior for one registered operational unit.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnitSnapshotConfig {
+    pub key: Option<SnapshotKey>,
+    pub version: SnapshotVersion,
+    pub save_on_unregister: bool,
+}
+
+impl UnitSnapshotConfig {
+    /// Disables unit snapshot load/save for this registration.
+    pub fn disabled() -> Self {
+        Self {
+            key: None,
+            version: SnapshotVersion::INITIAL,
+            save_on_unregister: false,
+        }
+    }
+
+    /// Enables snapshot load/save for a specific key and version.
+    pub fn keyed(key: SnapshotKey, version: SnapshotVersion) -> Self {
+        Self {
+            key: Some(key),
+            version,
+            save_on_unregister: true,
+        }
+    }
+}
+
+impl Default for UnitSnapshotConfig {
+    fn default() -> Self {
+        Self::disabled()
+    }
+}
+
+/// Typed registration for one System 1 operational unit.
+pub struct UnitRegistration<V>
+where
+    V: ViableSystem,
+{
+    pub descriptor: UnitDescriptor<V>,
+    pub factory: SharedOperationalUnitFactory<V>,
+    pub admission: UnitAdmissionLimits,
+    pub snapshot: UnitSnapshotConfig,
+}
+
+impl<V> Clone for UnitRegistration<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            descriptor: self.descriptor.clone(),
+            factory: Arc::clone(&self.factory),
+            admission: self.admission,
+            snapshot: self.snapshot.clone(),
+        }
+    }
+}
+
+impl<V> UnitRegistration<V>
+where
+    V: ViableSystem,
+{
+    /// Creates a registration from a descriptor and restartable unit factory.
+    pub fn new(descriptor: UnitDescriptor<V>, factory: SharedOperationalUnitFactory<V>) -> Self {
+        Self {
+            descriptor,
+            factory,
+            admission: UnitAdmissionLimits::default(),
+            snapshot: UnitSnapshotConfig::default(),
+        }
+    }
+
+    /// Sets per-unit admission limits.
+    pub fn with_admission(mut self, admission: UnitAdmissionLimits) -> Self {
+        self.admission = admission;
+        self
+    }
+
+    /// Sets snapshot load/save behavior.
+    pub fn with_snapshot(mut self, snapshot: UnitSnapshotConfig) -> Self {
+        self.snapshot = snapshot;
+        self
+    }
+}
+
+/// Runtime view of one registered typed System 1 unit.
+pub struct RegisteredUnit<V>
+where
+    V: ViableSystem,
+{
+    pub descriptor: UnitDescriptor<V>,
+    pub in_flight: usize,
+    pub admission: UnitAdmissionLimits,
+    pub draining: bool,
+}
+
+impl<V> Clone for RegisteredUnit<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            descriptor: self.descriptor.clone(),
+            in_flight: self.in_flight,
+            admission: self.admission,
+            draining: self.draining,
+        }
+    }
 }
 
 /// Shared runtime ports used to create role contexts.
@@ -320,6 +465,7 @@ where
     config: RuntimeConfig,
     roles: System1RuntimeRoles<V>,
     ports: RuntimePorts<V>,
+    runtime: Arc<System1Runtime<V>>,
 }
 
 impl<V> Clone for System1Handle<V>
@@ -331,6 +477,7 @@ where
             config: self.config.clone(),
             roles: self.roles.clone(),
             ports: self.ports.clone(),
+            runtime: Arc::clone(&self.runtime),
         }
     }
 }
@@ -339,11 +486,17 @@ impl<V> System1Handle<V>
 where
     V: ViableSystem,
 {
-    fn new(config: RuntimeConfig, roles: System1RuntimeRoles<V>, ports: RuntimePorts<V>) -> Self {
+    fn new(
+        config: RuntimeConfig,
+        roles: System1RuntimeRoles<V>,
+        ports: RuntimePorts<V>,
+        runtime: Arc<System1Runtime<V>>,
+    ) -> Self {
         Self {
             config,
             roles,
             ports,
+            runtime,
         }
     }
 
@@ -370,6 +523,61 @@ where
             SubsystemRole::System1,
         )
     }
+
+    /// Registers one operational unit with an explicit restartable factory.
+    pub async fn register_unit(
+        &self,
+        registration: UnitRegistration<V>,
+    ) -> Result<UnitDescriptor<V>, FrameworkError> {
+        self.runtime.register_unit(registration).await
+    }
+
+    /// Registers one operational unit using the runtime's default factory role.
+    pub async fn register_descriptor(
+        &self,
+        descriptor: UnitDescriptor<V>,
+    ) -> Result<UnitDescriptor<V>, FrameworkError> {
+        self.register_unit(UnitRegistration::new(
+            descriptor,
+            self.roles.operational_unit_factory(),
+        ))
+        .await
+    }
+
+    /// Lists typed System 1 unit registrations owned by this runtime.
+    pub fn list_units(&self) -> Result<Vec<RegisteredUnit<V>>, FrameworkError> {
+        self.runtime.list_units()
+    }
+
+    /// Processes application work through the typed System 1 runtime.
+    pub async fn process_work(&self, work: V::Work) -> WorkResult<V> {
+        self.process(WorkRequest::new(work)).await
+    }
+
+    /// Processes a fully formed typed work request.
+    pub async fn process(&self, request: WorkRequest<V>) -> WorkResult<V> {
+        self.runtime.process(request).await
+    }
+
+    /// Processes a request and preserves framework metadata in the response.
+    pub async fn process_response(&self, request: WorkRequest<V>) -> WorkResponse<V> {
+        let metadata = request.metadata.clone();
+        let result = self.process(request).await;
+        WorkResponse { metadata, result }
+    }
+
+    /// Marks one unit as draining so it stops accepting new work.
+    pub async fn drain_unit(&self, unit_id: &V::UnitId) -> Result<Acknowledgement, FrameworkError> {
+        self.runtime.drain_unit(unit_id).await
+    }
+
+    /// Unregisters one unit and stops its actor adapter.
+    pub async fn unregister_unit(
+        &self,
+        unit_id: &V::UnitId,
+    ) -> Result<UnitDescriptor<V>, FrameworkError> {
+        self.runtime.unregister_unit(unit_id).await
+    }
 }
 
 /// Typed runtime handle returned by [`crate::VsmBuilder`].
@@ -383,17 +591,21 @@ where
     directory: Mutex<RuntimeDirectory>,
     ports: RuntimePorts<V>,
     system1_roles: System1RuntimeRoles<V>,
+    system1_runtime: Arc<System1Runtime<V>>,
 }
 
 impl<V> VsmRuntime<V>
 where
     V: ViableSystem,
 {
-    pub(crate) fn new(
+    pub(crate) async fn new(
         config: RuntimeConfig,
         ports: RuntimePorts<V>,
         system1_roles: System1RuntimeRoles<V>,
-    ) -> Self {
+    ) -> Result<Self, FrameworkError> {
+        let system1_runtime =
+            System1Runtime::start(config.clone(), system1_roles.clone(), ports.clone()).await?;
+
         let readiness = RuntimeReadiness::new(vec![
             ReadinessCheck::new(
                 ReadinessGate::Infrastructure,
@@ -402,8 +614,8 @@ where
             ),
             ReadinessCheck::new(
                 ReadinessGate::SubsystemActors,
-                ReadinessStatus::NotApplicable,
-                "typed actor adapters start in the System 1 vertical slice",
+                ReadinessStatus::Ready,
+                "typed System 1 actor adapters started",
             ),
             ReadinessCheck::new(
                 ReadinessGate::RoleImplementations,
@@ -425,14 +637,15 @@ where
         let mut directory = RuntimeDirectory::new();
         register_runtime_components(&mut directory, &config);
 
-        Self {
+        Ok(Self {
             config,
             readiness,
             lifecycle: Mutex::new(RuntimeState::Ready),
             directory: Mutex::new(directory),
             ports,
             system1_roles,
-        }
+            system1_runtime,
+        })
     }
 
     /// Returns the runtime instance configuration.
@@ -480,6 +693,7 @@ where
             self.config.clone(),
             self.system1_roles.clone(),
             self.ports.clone(),
+            Arc::clone(&self.system1_runtime),
         )
     }
 
@@ -499,23 +713,35 @@ where
 
     /// Shuts the typed runtime handle down and returns an acknowledgement.
     pub async fn shutdown(&self) -> Result<ShutdownReport, FrameworkError> {
-        let mut lifecycle = self.lifecycle.lock().map_err(poisoned_lifecycle)?;
-        let previous_state = *lifecycle;
-        let already_shutdown = previous_state == RuntimeState::Shutdown;
+        let (previous_state, already_shutdown) = {
+            let mut lifecycle = self.lifecycle.lock().map_err(poisoned_lifecycle)?;
+            let previous_state = *lifecycle;
+            let already_shutdown = previous_state == RuntimeState::Shutdown;
+
+            if !already_shutdown {
+                *lifecycle = RuntimeState::ShuttingDown;
+            }
+
+            (previous_state, already_shutdown)
+        };
 
         if !already_shutdown {
-            *lifecycle = RuntimeState::ShuttingDown;
+            self.system1_runtime.shutdown().await?;
             self.directory
                 .lock()
                 .map_err(poisoned_directory)?
                 .mark_all_shutdown();
+
+            let mut lifecycle = self.lifecycle.lock().map_err(poisoned_lifecycle)?;
             *lifecycle = RuntimeState::Shutdown;
         }
+
+        let current_state = self.state()?;
 
         Ok(ShutdownReport {
             runtime_id: self.config.runtime_id.clone(),
             previous_state,
-            current_state: *lifecycle,
+            current_state,
             already_shutdown,
         })
     }

@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let descriptor =
         UnitDescriptor::<ExampleSystem>::new(ExampleUnitId("unit-a"), [ExampleCapability("work")]);
     let factory = StaticOperationalUnitFactory::new(
-        descriptor,
+        descriptor.clone(),
         CapacitySnapshot::new(0, Some(4), 0.0),
         ExampleOutcome,
     );
@@ -60,7 +60,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     assert!(runtime.is_ready());
-    println!("runtime {} ready", runtime.runtime_id());
+    runtime.system1().register_descriptor(descriptor).await?;
+    let _outcome = runtime.system1().process_work(ExampleWork).await?;
+
+    println!("runtime {} processed typed work", runtime.runtime_id());
 
     runtime.shutdown().await?;
     Ok(())

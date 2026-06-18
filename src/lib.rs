@@ -45,9 +45,10 @@ pub use roles::{
     System1Roles, UnitRoleContext, UnitSelectionPolicy, VarietyModel, ViableSystem, WorkModel,
 };
 pub use runtime::{
-    ReadinessCheck, ReadinessGate, ReadinessStatus, RuntimeComponentSnapshot,
+    ReadinessCheck, ReadinessGate, ReadinessStatus, RegisteredUnit, RuntimeComponentSnapshot,
     RuntimeComponentStatus, RuntimeDirectorySnapshot, RuntimePorts, RuntimeReadiness, RuntimeState,
-    ShutdownReport, System1Handle, System1RuntimeRoles, VsmRuntime,
+    ShutdownReport, System1Handle, System1RuntimeRoles, UnitAdmissionLimits, UnitRegistration,
+    UnitSnapshotConfig, VsmRuntime,
 };
 pub use shared::message::{ChannelKind, MessageKind, SystemId, VsmMessage};
 

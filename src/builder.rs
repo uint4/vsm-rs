@@ -348,7 +348,7 @@ where
             .with_alert_sink(alert_sink)
             .with_clock(clock);
 
-        Ok(VsmRuntime::new(config, ports, roles))
+        VsmRuntime::new(config, ports, roles).await
     }
 }
 

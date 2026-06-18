@@ -38,8 +38,8 @@ The systems communicate through command, coordination, audit, resource-bargain, 
   protocol metadata, typed System 1 records, snapshot/store ports, event/report
   sink traits, first-wave System 1 role contracts, role contexts, opt-in default
   policies, a typed runtime builder/handle with readiness and shutdown
-  acknowledgement, and legacy JSON adapters. Work execution through the typed
-  handle is deferred to the System 1 actor-adapter milestone.
+  acknowledgement, actor-backed typed System 1 registration/work processing,
+  and legacy JSON adapters.
 
 ## Installation
 
@@ -118,8 +118,9 @@ RUST_LOG=info cargo run --example basic_usage
 The trait-driven migration surface also exposes `VsmBuilder`. It validates the
 required System 1 role objects, applies opt-in default policies, starts an
 instance-scoped runtime handle, reports readiness, and acknowledges shutdown.
-This path is for the new typed lifecycle boundary; operational work still runs
-through the legacy actor facade until the System 1 actor-adapter milestone.
+This path can register typed System 1 units and process typed work through
+private unit actor adapters. The legacy `start()` facade remains available for
+the current JSON transaction workflow.
 
 ```bash
 cargo run --example typed_runtime_builder --locked

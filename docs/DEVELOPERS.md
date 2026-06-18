@@ -55,7 +55,7 @@ src/
 ├── config.rs                 Typed runtime configuration
 ├── builder.rs                Typed runtime builder
 ├── runtime.rs                Typed runtime handles, readiness, shutdown, component snapshots
-├── kernel/                   Private runtime registry scaffolding
+├── kernel/                   Private runtime registry and typed System 1 actor adapters
 ├── protocol/                 Typed migration protocols and framework metadata
 ├── roles/                    ViableSystem, role contexts, System 1 contracts, ports
 ├── legacy/                   Temporary adapters from current JSON API to typed foundations
@@ -80,9 +80,9 @@ PORTING_MAP.md                 Not currently present
 
 The typed builder/runtime modules are the public lifecycle surface for the
 migration path. They should remain independent of `ActorRef`, global actor
-names, and JSON application payloads; actor adapters should plug into these
-handles through private runtime/kernel code as later milestones approve that
-work.
+names, and JSON application payloads. The typed System 1 path uses private
+actor adapters under `kernel::system1`; later subsystem adapters should follow
+that boundary and keep actor references out of public handles.
 
 ## 4. Supervision and actor names
 

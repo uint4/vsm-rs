@@ -153,9 +153,9 @@ The crate also exposes early trait-driven foundations for the approved migration
   acknowledgement.
 
 These types are public so downstream-style code can compile against the future
-boundary. `VsmBuilder` starts the typed lifecycle shell now; work processing
-still uses the current global actor/JSON-backed runtime until the System 1
-actor-adapter milestone connects the role contracts to supervised actors.
+boundary. `VsmBuilder` now starts an actor-backed typed System 1 path for unit
+registration and work processing; the current global actor/JSON-backed runtime
+continues to serve the legacy transaction facade.
 
 Application role implementations should import `vsm_rs::async_trait` when
 implementing async role methods. They should not need to import `ractor`,
@@ -164,7 +164,7 @@ core role contracts.
 
 ### 4.2 Start a typed runtime handle
 
-Use `VsmBuilder` when testing application role implementations against the
+Use `VsmBuilder` to run application role implementations against the
 trait-driven runtime boundary. The builder requires a `WorkModel` and an
 `OperationalUnitFactory`; optional System 1 policies default to lowest-load
 selection and no-op performance, variety, and algedonic policies.
@@ -211,7 +211,7 @@ let runtime = VsmBuilder::new()
     .runtime_id(RuntimeId::from_string("example-runtime"))
     .work_model(AcceptAllWorkModel::new([ExampleCapability("work")]))
     .operational_unit_factory(StaticOperationalUnitFactory::new(
-        descriptor,
+        descriptor.clone(),
         CapacitySnapshot::new(0, Some(4), 0.0),
         ExampleOutcome,
     ))
@@ -219,6 +219,8 @@ let runtime = VsmBuilder::new()
     .await?;
 
 assert!(runtime.is_ready());
+runtime.system1().register_descriptor(descriptor).await?;
+let _outcome = runtime.system1().process_work(ExampleWork).await?;
 runtime.shutdown().await?;
 # Ok(())
 # }
