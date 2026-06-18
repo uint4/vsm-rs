@@ -40,9 +40,9 @@ src/
 ├── config.rs                 Typed runtime configuration
 ├── builder.rs                Typed runtime builder
 ├── runtime.rs                Typed runtime handles, readiness, shutdown, component snapshots
-├── kernel/                   Private runtime registry, observer bus, and typed System 1 actor adapters
-├── protocol/                 Typed migration foundations: addresses, metadata, snapshots, bus outcomes, events, System 1 records
-├── roles/                    ViableSystem type family, role contexts, System 1 contracts, runtime ports
+├── kernel/                   Private runtime registry, observer bus, and typed System 1-3 actor adapters
+├── protocol/                 Typed migration foundations: addresses, metadata, snapshots, bus outcomes, events, System 1-3 records
+├── roles/                    ViableSystem type family, role contexts, System 1-3 contracts, runtime ports
 ├── legacy/                   Temporary adapters from current JSON/System 1 API to typed foundations
 ├── names.rs                  Stable global actor names
 ├── prelude.rs                Small JSON/time helpers
@@ -63,7 +63,7 @@ src/
 │   └── variety/              Calculator, attenuation, amplification
 ├── system1/                  Typed Operations and Unit actors
 ├── system2/                  Typed coordination defaults and legacy supervisor placeholder
-├── system3/                  Control service and pure algorithms
+├── system3/                  Typed defaults and legacy supervisor placeholder
 ├── system4/                  Intelligence service family
 └── system5/                  Policy service family
 ```
@@ -97,8 +97,13 @@ These modules are intentionally alongside the current runtime:
 - `protocol::system2` defines typed System 2 coordination view records,
   conflicts, interventions, acknowledgements, escalation records, cycles, and
   runtime snapshots.
+- `protocol::system3` defines typed System 3 resource requests, allocation
+  decisions, operational directives, acknowledgements, operational summaries,
+  System 3* audit requests, findings, remediations, responses, and snapshots.
 - `roles::system2` defines the view-centric `CoordinationPolicy` role plus the
   no-op default policy.
+- `roles::system3` defines `ResourceGovernance`, `OperationalControlPolicy`,
+  and `Auditor` roles plus explicit defaults.
 - `roles::ports` defines `StateStore`, `EventSink`, and `ReportSink`, plus
   no-op implementations. It also defines early `TelemetrySink`, `AlertSink`,
   `Clock`, and `IdGenerator` ports for role contexts and future adapters.
@@ -120,6 +125,12 @@ These modules are intentionally alongside the current runtime:
   System 1 coordination views with freshness/version metadata, invokes
   `CoordinationPolicy`, tracks interventions and acknowledgements, and records
   unresolved-conflict escalations for System 3.
+- `kernel::system3` contains private typed System 3 control and System 3* audit
+  actors. Control invokes resource governance and operational-control roles,
+  tracks authority/version/expiry/acknowledgement records, and delivers
+  directives through private System 1 unit adapters. Audit invokes the
+  application `Auditor` with evidence collected through a separate System 1
+  audit path.
 - `kernel::event_bus` contains the private observer event bus used by typed
   runtime handles. It implements the `EventSink` port, fans out runtime events
   to subscribers without blocking the control path, retains a bounded
@@ -137,10 +148,11 @@ unit ID, or snapshot payloads to implement serde.
 `VsmBuilder` starts a typed runtime path: it validates required System 1 role
 objects, reports readiness deterministically, exposes scoped role contexts,
 permits multiple runtime handles in one process, registers typed operational
-units, dispatches typed work through private unit actors, supports typed
-System 2 coordination, supports typed observer-event subscriptions, and
-acknowledges shutdown. The existing global actor runtime still serves the legacy
-`Transaction`/JSON facade and Systems 3–5 JSON services.
+units, dispatches typed work through private unit actors, supports typed System
+2 coordination, supports typed System 3 governance/audit, supports typed
+observer-event subscriptions, and acknowledges shutdown. The existing global
+actor runtime still serves the legacy `Transaction`/JSON facade and Systems 4–5
+JSON services.
 
 ## 3. Supervision tree
 
@@ -162,7 +174,7 @@ vsm.root_supervisor
 ├── vsm.system2.supervisor
 │   └── no legacy JSON children; typed System 2 runs under VsmRuntime
 ├── vsm.system3.supervisor
-│   └── vsm.system3.control
+│   └── no legacy JSON children; typed System 3 runs under VsmRuntime
 ├── vsm.system4.supervisor
 │   ├── vsm.system4.intelligence
 │   ├── vsm.system4.scanner
@@ -207,7 +219,6 @@ Examples:
 vsm.root_supervisor
 vsm.channels.broker
 vsm.system1.operations
-vsm.system3.control
 vsm.system5.policy
 vsm.system1.unit.payments
 ```
@@ -245,7 +256,7 @@ This style gives compile-time message checking and is the preferred model for be
 
 ### 5.2 Shared JSON `ServiceActor`
 
-Systems 3–5 and telemetry use `actor_support::ServiceActor`.
+Systems 4–5 and telemetry use `actor_support::ServiceActor`.
 
 ```rust
 pub enum ServiceMsg {
@@ -259,7 +270,6 @@ pub enum ServiceMsg {
 Each instance has a `ServiceKind`, and calls are delegated to a module-specific `actor_call` function:
 
 ```text
-ServiceKind::System3Control       -> system3::control::actor_call
 ServiceKind::System4Analytics     -> system4::analytics::actor_call
 ServiceKind::System5Policy        -> system5::policy::actor_call
 ...
@@ -422,13 +432,12 @@ The following subscriptions are created during actor startup:
 | Actor | Subscriber ID | Channels |
 |---|---|---|
 | System 1 Operations | `system1` | Command, Coordination, Audit |
-| System 3 Control | `system3` | ResourceBargain, Command, Audit |
 | System 4 Intelligence | `system4` | Command |
 | System 5 Policy | `system5` | Algedonic |
 
 The dedicated algedonic processor and temporal-variety actor are accessed through their typed APIs; they do not subscribe to the broker in the current supervision tree.
 
-A major current distinction is that `ServiceActor` channel handling records the received message in `history`, but does not dispatch it into the module's domain operations. System 1 has explicit channel behavior; Systems 3–5 currently treat channel messages as observable events unless application code makes a separate service call.
+A major current distinction is that `ServiceActor` channel handling records the received message in `history`, but does not dispatch it into the module's domain operations. System 1 has explicit channel behavior; Systems 4–5 currently treat channel messages as observable events unless application code makes a separate service call.
 
 ## 10. System 1: operational execution
 
@@ -479,7 +488,11 @@ caller
 
 A unit can handle a transaction only when it contains **all** required capabilities.
 
-When no suitable unit exists, Operations publishes a `ResourceBargain/UnitRequest` message to System 3 and returns `TransactionResult::NoSuitableUnit`. System 3 currently records that channel event; it does not automatically allocate a unit or reply.
+When no suitable unit exists, legacy Operations publishes a
+`ResourceBargain/UnitRequest` message addressed to System 3 and returns
+`TransactionResult::NoSuitableUnit`. The legacy System 3 JSON subscriber has
+been removed, so that message is recorded as target-unavailable by the broker.
+Typed resource-shortage handling is available through `VsmRuntime::system3()`.
 
 ### 10.4 Current unit implementation
 
@@ -524,16 +537,25 @@ legacy global supervisor. The old scheduler and balancer helpers live under
 `system2::defaults` as explicit example algorithms and are not core System 2
 semantics.
 
-## 12. System 3: control
+## 12. System 3: control and audit
 
-System 3 has one `ServiceActor`, `vsm.system3.control`, plus:
+Typed System 3 runs under `VsmRuntime`, not the legacy global service tree. It
+has two private actor adapters:
 
-- `resources`: request prioritization, resource allocation, availability, optimization, prediction, and validation.
-- `audit`: unit audits, audit scheduling, pattern analysis, and report generation.
+- a System 3 control actor for resource governance, operational directives,
+  directive acknowledgements, authority/version metadata, and operational
+  summaries;
+- a System 3* audit actor for authorized audit requests, evidence boundaries,
+  findings, remediation proposals, and audit responses.
 
-The service accepts `allocate_resources`, `audit`, and `get_state` operations.
+Applications provide `ResourceGovernance`, `OperationalControlPolicy`, and
+`Auditor` role implementations. The default resource governance role denies
+requests explicitly, the default control policy emits no directives, and the
+default auditor returns an empty response.
 
-It subscribes to ResourceBargain, Command, and Audit channels. Those messages are recorded in its history but are not automatically translated into allocation, control, or audit calls.
+The old `vsm.system3.control` JSON service actor is not started by the legacy
+global supervisor. Former JSON resource and audit helper algorithms live under
+`system3::defaults` as opt-in examples and are not core System 3 semantics.
 
 ## 13. System 4: intelligence
 
@@ -727,11 +749,13 @@ Caller -> System 1 Operations -> selected Unit -> result
 Caller -> System 1 Operations
        -> no matching unit
        -> ResourceBargain/UnitRequest to System 3
-       -> System 3 records channel event
+       -> broker records target unavailable on the legacy channel
        -> caller receives NoSuitableUnit
 ```
 
-No automatic resource allocation or unit creation follows yet.
+Typed resource-shortage handling is available through the typed System 3
+runtime handle; the legacy channel path does not automatically allocate or
+create units.
 
 ### Command
 
@@ -805,8 +829,8 @@ The most important current limitations are:
 
 - The crate is still in baseline hardening; see `CODEX.md` for the latest
   validation evidence.
-- Most Systems 3–5 APIs use string operation names and `serde_json::Value`.
-- Channel events for Systems 3–5 are recorded, not converted into domain actions.
+- Most Systems 4–5 APIs use string operation names and `serde_json::Value`.
+- Channel events for Systems 4–5 are recorded, not converted into domain actions.
 - Broker restart loses registrations and history for the legacy global actor
   facade. The typed runtime handle's observer subscriptions are owned by the
   handle, not the legacy broker.

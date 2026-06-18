@@ -14,15 +14,16 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Milestone 6 — System 2 migration
-- Approved scope: Replace System 2's JSON `ServiceActor` core path with typed
-  coordination protocols and a dedicated coordination runtime, receive typed
-  System 1 coordination views, invoke application-owned coordination policy,
-  track interventions and acknowledgements, keep authoritative resource
-  allocation out of System 2, move current scheduler/balancer behavior under
-  non-core defaults or examples, and update tests/documentation.
-- Approved architectural decisions: Recorded in ADR-0001 through ADR-0005
-- Pending decisions: None for the approved Milestone 6 scope
+- Approved milestone: Milestone 7 — System 3 and System 3* migration
+- Approved scope: Replace System 3's JSON `ServiceActor` core path with typed
+  control/resource governance and a distinct System 3* audit actor, consume
+  typed performance/resource inputs, invoke application-owned governance,
+  control, and audit roles, track authority/version/acknowledgement/expiry,
+  keep audit access separate from normal System 1 reporting, move current
+  resource/audit algorithms under defaults/examples or remove them, and update
+  tests/documentation.
+- Approved architectural decisions: Recorded in ADR-0001 through ADR-0006
+- Pending decisions: None for the approved Milestone 7 scope
 - Permission to begin next milestone: No
 
 ## Pending user decisions
@@ -30,32 +31,35 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 | ID | Decision | Options | Recommendation | Blocking milestone | Status |
 |---|---|---|---|---|---|
 | S2-001 | Public `CoordinationPolicy` role shape | A. Minimal view-centric policy over typed System 1 coordination views, generic conflict/intervention/ack records, no new `ViableSystem` associated types; B. System 2 extension type family with app-owned conflict/intervention payload types; C. Keep System 2 policy private for this slice and defer public replacement | A | Milestone 6 | Approved 2026-06-18; recorded in ADR-0005 |
+| S3-001 | Public System 3/System 3* role boundary | A. Minimal framework-owned records with `ResourceGovernance`, `OperationalControlPolicy`, and `Auditor` roles over existing `ViableSystem` types; B. Add a System 3 extension type family for app-owned resource/directive/audit payloads; C. Convert control/resource governance now and defer System 3* audit | A | Milestone 7 | Approved 2026-06-18; recorded in ADR-0006 |
 
 ## Current status
 
-- Overall state: Milestone 6 complete
-- Current phase: Milestone 6 review gate
-- Current milestone: Typed System 2 coordination
+- Overall state: Milestone 7 complete; review gate reached
+- Current phase: Review gate after Milestone 7 — System 3 and System 3*
+  migration
+- Current milestone: Typed System 3 control/resource governance and System 3*
+  audit
 - Last updated: 2026-06-18
 - Last updated by: Codex
-- Baseline commit: `a000e0c`
+- Baseline commit: `1e1aed5`
 - Working branch: `master`
-- Repository clean at start: Yes
-- Repository status now: Milestone 6 changes are uncommitted and ready for review.
+- Repository clean at start: No; earlier migration changes remained
+  uncommitted in the working tree.
+- Repository status now: Milestone 7 implementation complete with uncommitted
+  changes; validation passed and review gate is reached.
 
 ## Current objective
 
-Complete Milestone 6 with the approved Option A role shape: typed System 2
-protocol records, a replaceable view-centric `CoordinationPolicy`, a dedicated
-typed coordination runtime, System 1 coordination-view intake, typed
-interventions/acknowledgements, unresolved-conflict escalation records, and
-documentation/tests proving no JSON/string dispatch remains on the System 2 core
-path.
+Milestone 7 has been implemented with the approved Option A role boundary:
+typed System 3 resource governance/control and distinct System 3* audit roles
+over framework-owned records without adding new `ViableSystem` associated
+types.
 
 ## Next action
 
-Wait for explicit user approval to begin Milestone 7: System 3 and System 3*
-migration. Do not begin it automatically.
+Stop at the Milestone 7 review gate. Present validation evidence and wait for
+explicit user approval before beginning Milestone 8: System 4 migration.
 
 ---
 
@@ -64,7 +68,7 @@ migration. Do not begin it automatically.
 | Phase | Milestone | Status | Evidence |
 |---|---|---:|---|
 | 0 | Repository baseline | Complete | Formatting, check, tests, Clippy, docs, doctests, and example validation pass. |
-| 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, explicit delivery outcomes, removed targeted fallback, broadcast validation, removed System 2 JSON dispatch, and remaining Systems 3-5 JSON service calls. Existing System 1 and full-system tests still pass. |
+| 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, explicit delivery outcomes, removed targeted fallback, broadcast validation, removed System 2/System 3 JSON dispatch, and remaining Systems 4-5 JSON service calls. Existing System 1 and full-system tests still pass. |
 | 0 | ADR setup | Complete | `docs/adr/README.md`, template, and ADR-0001 through ADR-0004 added. |
 | 1 | Application type family | Complete | `src/roles/types.rs` defines `ViableSystem`; `tests/foundational_types.rs` proves non-serde application work, outcome, and snapshot payloads compile. |
 | 1 | Typed core envelopes | Complete | `src/protocol/*`, `src/error.rs`, `src/cancellation.rs`, `src/roles/ports.rs`, and `src/legacy/*` added with tests, docs, and full validation passing. |
@@ -73,7 +77,7 @@ migration. Do not begin it automatically.
 | 3 | System 1 vertical slice | Complete | `src/kernel/system1.rs`, expanded `src/runtime.rs`, `tests/system1_typed_runtime.rs`, and `examples/typed_runtime_builder.rs`; full validation passes. |
 | 4 | Typed protocol bus | Complete | `src/protocol/bus.rs`, `src/kernel/event_bus.rs`, expanded `src/channels/broker.rs`, runtime observer APIs, tests, docs, and full validation pass. |
 | 5 | System 2 migration | Complete | `src/protocol/system2.rs`, `src/roles/system2.rs`, `src/kernel/system2.rs`, expanded runtime handles, updated System 1 coordination hooks, defaults relocation, docs, and `tests/system2_typed_runtime.rs`; full validation passes. |
-| 6 | System 3 and System 3* migration | Not started | Awaiting user approval. |
+| 6 | System 3 and System 3* migration | Complete | ADR-0006 accepted as Option A; `src/protocol/system3.rs`, `src/roles/system3.rs`, `src/kernel/system3.rs`, `System3Handle`, builder hooks, docs, and `tests/system3_typed_runtime.rs` added; full validation passes. |
 | 7 | System 4 migration | Not started | Awaiting user approval. |
 | 8 | System 5 migration | Not started | Awaiting user approval. |
 | 9 | Variety and algedonic migration | Not started | Awaiting user approval. |
@@ -99,10 +103,10 @@ documentation are complete.
 
 | Command | Result | Last run | Notes |
 |---|---:|---|---|
-| `cargo fmt --all -- --check` | Passed | 2026-06-18 | Formatting drift resolved by `cargo fmt --all`. |
-| `CARGO_INCREMENTAL=0 cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. Incremental compilation was disabled after the installed nightly compiler hit an incremental ICE on the first check. |
-| `CARGO_INCREMENTAL=0 cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 49 integration tests across foundational, full-system, Phase 0, role-contract, runtime-builder, typed-System-1, and typed-System-2 suites; example test targets have 0 tests. |
-| `CARGO_INCREMENTAL=0 cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings. |
+| `cargo fmt --all -- --check` | Passed | 2026-06-18 | No formatting drift. |
+| `CARGO_INCREMENTAL=0 cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. |
+| `CARGO_INCREMENTAL=0 cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 54 integration tests across foundational, full-system, Phase 0, role-contract, runtime-builder, typed-System-1, typed-System-2, and typed-System-3 suites; example test targets have 0 tests. |
+| `CARGO_INCREMENTAL=0 cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings after factoring the private System 3 audit snapshot reply alias. |
 | `CARGO_INCREMENTAL=0 cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
 | `CARGO_INCREMENTAL=0 cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
 | `CARGO_INCREMENTAL=0 cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-18 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
@@ -265,14 +269,63 @@ until a subsequent run succeeds.
   recording, rejection escalation, view-version advancement, and no-op default
   behavior.
 - Updated README, architecture, usage, and developer docs for typed System 2,
-  remaining Systems 3-5 JSON boundaries, and the moved defaults.
+  the then-remaining later-subsystem JSON boundaries, and the moved defaults.
+- Accepted ADR-0006 for the minimal System 3/System 3* Option A role boundary.
+- Added typed System 3 protocol foundations:
+  - `src/protocol/system3.rs` for resource requests, resource decisions and
+    allocations, allocation acknowledgements, control authorities,
+    operational directives, directive acknowledgements, operational summaries,
+    System 3* audit requests, evidence boundaries, findings, remediations,
+    audit responses, and snapshots;
+  - System 3 control-message, event, and report variants in
+    `src/protocol/bus.rs` and `src/protocol/events.rs`.
+- Added public System 3 role contracts:
+  - `ResourceGovernance`;
+  - `OperationalControlPolicy`;
+  - `Auditor`;
+  - `System3Roles`;
+  - shared dynamic role aliases and opt-in defaults for deny-all governance,
+    no-op control, and no-op audit.
+- Added the private typed System 3 runtime adapter:
+  - `src/kernel/system3.rs` starts separate control and System 3* audit
+    actors;
+  - control invokes application governance/control roles, tracks
+    authority/version/expiry/acknowledgement records, emits events, and records
+    reports;
+  - audit invokes application auditors with evidence collected through a
+    separate System 1 audit path and applies audit boundaries before role
+    dispatch.
+- Extended the typed runtime surface:
+  - `VsmBuilder` now accepts optional System 3 governance/control/auditor
+    roles;
+  - `VsmRuntime` starts and shuts down typed System 3 alongside System 1 and
+    System 2;
+  - `System3Handle` exposes resource governance, resource-shortage handling,
+    directive acknowledgement, System 3* audit, supplied-evidence audit, role
+    contexts, and snapshots.
+- Extended the typed System 1 adapter with operational-directive delivery and
+  audit-evidence collection used by System 3/System 3*.
+- Removed the legacy System 3 JSON `ServiceActor` core path:
+  - deleted `src/system3/control.rs`, `src/system3/resources.rs`, and
+    `src/system3/audit.rs`;
+  - moved old JSON resource and audit helper algorithms under
+    `src/system3/defaults/`;
+  - removed `ServiceKind::System3Control` dispatch;
+  - changed the legacy System 3 supervisor to start no JSON control child.
+- Added `tests/system3_typed_runtime.rs` for downstream-style governance,
+  directive delivery/acknowledgement, System 3* audit authorization and
+  evidence collection, and default/no-op behavior.
+- Updated Phase 0 and full-flow tests for removed System 3 JSON dispatch and
+  retained Systems 4-5 JSON services.
+- Updated README, architecture, usage, and developer docs for typed System 3,
+  remaining Systems 4-5 JSON boundaries, and the moved defaults.
 
 ---
 
 ## Work in progress
 
-No implementation work is currently in progress. Milestone 6 is complete and
-paused at the review gate.
+No implementation is currently in progress. Milestone 7 is complete under
+ADR-0006 Option A and is paused at the review gate.
 
 ---
 
@@ -280,10 +333,11 @@ paused at the review gate.
 
 The user approved the Phase 0-only scope, approved Milestone 1 after the Phase
 0 review gate, approved Milestone 2 after the Milestone 1 review gate, and
-approved Milestone 3 after the Milestone 2 review gate, and approved Milestone
-4 after the Milestone 3 review gate, and approved Milestone 5 after the
-Milestone 4 review gate, and approved Milestone 6 after the Milestone 5 review
-gate. Accepted migration decisions are recorded as ADRs.
+approved Milestone 3 after the Milestone 2 review gate, approved Milestone 4
+after the Milestone 3 review gate, approved Milestone 5 after the Milestone 4
+review gate, approved Milestone 6 after the Milestone 5 review gate, and
+approved Milestone 7 after the Milestone 6 review gate. Accepted migration
+decisions are recorded as ADRs.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -292,6 +346,7 @@ gate. Accepted migration decisions are recorded as ADRs.
 | [ADR-0003](docs/adr/0003-system1-runtime-semantics.md) | First System 1 runtime semantics | Accepted |
 | [ADR-0004](docs/adr/0004-protocol-boundaries-and-deferred-decisions.md) | Protocol boundaries and explicitly deferred choices | Accepted |
 | [ADR-0005](docs/adr/0005-system2-coordination-policy.md) | Minimal view-centric System 2 coordination policy | Accepted |
+| [ADR-0006](docs/adr/0006-system3-role-boundary.md) | Minimal System 3/System 3* role boundary | Accepted |
 
 Milestone 1 introduced no new ADR-level architectural decisions. Implementation
 notes:
@@ -348,8 +403,8 @@ notes:
     `VsmRuntime::subscribe_events`.
   - Observer fan-out and downstream event sink failures are non-blocking for
     the control path. Failures are counted in `ObserverBusSnapshot`.
-  - Systems 2-5 typed semantics remain deferred; Milestone 5 adds bus mechanics
-    and status records, not subsystem role catalogs.
+  - Later subsystem typed semantics remained deferred; Milestone 5 adds bus
+    mechanics and status records, not subsystem role catalogs.
 - Milestone 6 introduced ADR-0005. Implementation notes:
   - `CoordinationPolicy` is public, view-centric, object-safe, and replaceable
     without adding new required associated types to `ViableSystem`.
@@ -359,18 +414,35 @@ notes:
   - The typed System 2 runtime runs inside `VsmRuntime`; the legacy global
     facade no longer starts a System 2 JSON coordination service child.
   - Rejected intervention acknowledgements produce System 2 escalation records
-    addressed toward System 3. Typed System 3 handling remains deferred to the
-    next milestone.
+    addressed toward System 3. At the Milestone 6 gate, typed System 3 handling
+    was deferred to the next milestone.
+- Milestone 7 introduced ADR-0006. Implementation notes:
+  - `ResourceGovernance`, `OperationalControlPolicy`, and `Auditor` are
+    public, object-safe, runtime-selectable roles over framework-owned records
+    and the existing `ViableSystem` associated types.
+  - System 3 control and System 3* audit run as separate private actors inside
+    `VsmRuntime`; the public handle exposes no actor references, global names,
+    or JSON payloads.
+  - System 3* audit evidence is collected through a distinct System 1 audit
+    path. Audit boundaries can remove snapshots and cap evidence count before
+    the application auditor is invoked.
+  - Former JSON resource and audit algorithms are retained only as
+    `system3::defaults` helpers; the legacy global System 3 supervisor starts
+    no JSON control service child.
+  - Automatic routing from System 2 escalation records into System 3 governance
+    remains deferred.
 
 ---
 
 ## Compatibility changes
 
-Milestones 1 through 6 add public foundational APIs. Milestone 5 intentionally
+Milestones 1 through 7 add public foundational APIs. Milestone 5 intentionally
 changed legacy broker behavior by removing targeted-to-broadcast fallback and
 validating explicit broadcast targets. Milestone 6 intentionally removes the
 legacy System 2 JSON coordination service from the core path and replaces it
-with typed runtime coordination.
+with typed runtime coordination. Milestone 7 intentionally removes the legacy
+System 3 JSON control service from the core path and replaces it with typed
+runtime governance/control and System 3* audit.
 
 New public modules and re-exports:
 
@@ -400,6 +472,9 @@ New public modules and re-exports:
 - `vsm_rs::{ObserverBusSnapshot, ObserverId, ObserverSubscription}`
 - `vsm_rs::{CoordinationPolicy, System2Roles}`
 - `vsm_rs::System2Handle`
+- `vsm_rs::System3ControlMessage`
+- `vsm_rs::{ResourceGovernance, OperationalControlPolicy, Auditor}`
+- `vsm_rs::{System3Roles, System3RuntimeRoles, System3Handle}`
 - `vsm_rs::async_trait`
 
 New public channel/runtime APIs:
@@ -418,6 +493,19 @@ New public channel/runtime APIs:
 - `System2Handle::acknowledge_interventions`
 - `System2Handle::snapshot`
 - `OperationalUnit::handle_coordination_intervention`
+- `VsmBuilder::resource_governance`
+- `VsmBuilder::resource_governance_arc`
+- `VsmBuilder::operational_control_policy`
+- `VsmBuilder::operational_control_policy_arc`
+- `VsmBuilder::auditor`
+- `VsmBuilder::auditor_arc`
+- `VsmRuntime::system3`
+- `System3Handle::govern_resources`
+- `System3Handle::handle_resource_shortage`
+- `System3Handle::acknowledge_directives`
+- `System3Handle::audit_system1`
+- `System3Handle::audit_with_evidence`
+- `System3Handle::snapshot`
 
 Public behavior changed:
 
@@ -427,6 +515,14 @@ Public behavior changed:
   coordination child;
 - `basic_usage` still runs, but the legacy coordination channel records
   `TargetUnavailable` for the removed System 2 target.
+- legacy System 3 JSON service calls no longer dispatch to `system3::control`;
+- the legacy global System 3 supervisor remains present but starts no JSON
+  control child;
+- legacy System 1 no-suitable-unit resource-bargain messages addressed to
+  System 3 now record `TargetUnavailable`; typed shortage handling is available
+  through `VsmRuntime::system3()`;
+- former System 3 resource and audit helpers live under `system3::defaults` as
+  opt-in examples.
 
 Removed characterized bug behavior:
 
@@ -447,13 +543,15 @@ Removed characterized bug behavior:
   and the typed System 1 path uses private actor adapters.
 - State, metrics, channel history, dead-letter history, observer event history,
   and most service data remain in memory and restart-volatile.
-- Systems 3-5 still use string operation names and `serde_json::Value`.
-- The typed runtime path now processes System 1 work and System 2 coordination
-  through private actor adapters. Systems 3-5 and the legacy `start()` facade
-  still use the current actor/JSON runtime.
-- The legacy global System 2 supervisor no longer starts a JSON coordination
-  child; callers using the old targeted coordination channel receive
-  `TargetUnavailable`.
+- Systems 4-5 still use string operation names and `serde_json::Value`.
+- The typed runtime path now processes System 1 work, System 2 coordination,
+  and System 3 governance/audit through private actor adapters. Systems 4-5
+  and the legacy `start()` facade still use the current actor/JSON runtime.
+- The legacy global System 2 and System 3 supervisors no longer start JSON
+  service children; callers using the old targeted coordination or
+  resource-bargain channels receive `TargetUnavailable`.
+- Automatic routing of System 2 escalation records into System 3 governance is
+  still deferred; callers can invoke System 3 through the typed handle.
 - Temporary `legacy` adapters intentionally bridge current JSON forms for
   round-trip tests only; they are not the target public application surface.
 - First-wave role contracts, contexts, and runtime handles are wired into the
@@ -478,7 +576,7 @@ resolved, and record the resolution in the development history.
 |---|---|---|---|---|
 | System 1 restart/reconciliation | Automatic unit restart, Operations restart directory reconstruction, and unit-supervisor reconciliation are outside the first actor-backed typed slice. | Typed unit actors stop cleanly on unregister/shutdown, but crash recovery is not complete. | Typed System 1 registration/work path. | System 1 hardening |
 | Durable `StateStore` implementations | Persistence contract is accepted, but durable adapters are outside Phase 0. | Current stores are in-memory or no-op only. | StateStore core contract and persistence milestone approval. | Persistence and recovery |
-| Systems 3-5 typed role catalogs and migrations | Later subsystem semantics require separate review gates. | Systems 3-5 continue to use string/JSON service calls. | System 1/System 2 patterns and owning milestone approval. | Systems 3-5 migrations |
+| Systems 4-5 typed role catalogs and migrations | Later subsystem semantics require separate review gates. | Systems 4-5 continue to use string/JSON service calls. | System 1/System 2/System 3 patterns and owning milestone approval. | Systems 4-5 migrations |
 | Full event replay and durability | Requires event model and store semantics not approved for Phase 0. | Events and channel history remain non-durable. | Typed bus/event bus and persistence decisions. | Persistence and recovery |
 | Automatic work retries | User chose no automatic work retries in first System 1 slice. | Work retry behavior remains caller/application responsibility. | Failure classification and retry policy review. | Backpressure/execution hardening |
 | Richer defaults | Defaults must be opt-in and non-normative. | Initial defaults remain minimal. | Role contracts and default namespaces. | System 1 and later default milestones |
@@ -1378,8 +1476,9 @@ runtime machinery, using the approved minimal view-centric
   - rejected intervention acknowledgements are escalated toward System 3;
   - coordination view versions advance on repeated observation;
   - the default System 2 policy is no-op and replaceable;
-  - Phase 0 characterization now records that System 2 JSON dispatch has been
-    removed while Systems 3-5 JSON service calls remain characterized.
+  - At the Milestone 6 gate, Phase 0 characterization recorded that System 2
+    JSON dispatch had been removed while the later-subsystem JSON service
+    calls remained characterized.
 - Documentation updated:
   - README public API and migration status;
   - architecture module boundaries and runtime tree;
@@ -1394,8 +1493,8 @@ runtime machinery, using the approved minimal view-centric
   without new required `ViableSystem` associated types.
 - Authoritative resource allocation remains outside System 2 and deferred to
   System 3.
-- Typed System 3 handling of escalation records remains deferred to Milestone
-  7.
+- Typed System 3 handling of escalation records was deferred to Milestone 7 at
+  the Milestone 6 gate.
 
 **Validation**
 
@@ -1443,11 +1542,199 @@ passed
 - Clippy flagged large enum variants after adding System 2 protocol payloads.
   Runtime control, event, and report enum variants now box large System 1 and
   System 2 payloads.
-- Typed System 3 consumption of escalation records, durable coordination
-  history, automatic coordination retries, and richer System 2 defaults remain
-  unresolved.
+- Automatic consumption of System 2 escalation records by System 3, durable
+  coordination history, automatic coordination retries, and richer System 2
+  defaults remained unresolved at the Milestone 6 gate.
 
 **Next task**
 
 Wait for explicit user approval to begin Milestone 7: System 3 and System 3*
 migration. Do not begin it automatically.
+
+#### 2026-06-18 — Milestone 7 Start
+
+**Objective**
+
+Begin the System 3 and System 3* migration after the user completed the
+Milestone 6 review gate.
+
+**Changes**
+
+- Updated this journal to record Milestone 7 approval and scope.
+- Added proposed ADR-0006 for the public System 3/System 3* role boundary.
+- No Milestone 7 Rust public API or runtime changes have begun.
+
+**Decisions**
+
+- User explicitly approved proceeding after the Milestone 6 review gate.
+- S3-001 was pending because the System 3 role boundary is a material public API
+  decision.
+
+**Validation**
+
+Most recent validation remains the Milestone 6 gate suite, all passing on
+2026-06-18. Validation will be rerun after implementation.
+
+**Next task**
+
+Wait for the user to choose S3-001. If Option A is approved, accept ADR-0006,
+implement the typed System 3/System 3* slice, and stop at the Milestone 7
+review gate.
+
+#### 2026-06-18 — Milestone 7 Typed System 3 Control and Audit
+
+**Objective**
+
+Convert System 3 from a JSON `ServiceActor` core path into typed runtime
+governance/control machinery, and split System 3* audit into a distinct typed
+actor path, using the approved minimal role boundary from ADR-0006.
+
+**Changes**
+
+- Files changed:
+  - `CODEX.md`
+  - `README.md`
+  - `docs/ARCHITECTURE.md`
+  - `docs/DEVELOPERS.md`
+  - `docs/USAGE.md`
+  - `docs/adr/README.md`
+  - `docs/adr/0006-system3-role-boundary.md`
+  - `src/actor_support.rs`
+  - `src/builder.rs`
+  - `src/channels/mod.rs`
+  - `src/kernel/mod.rs`
+  - `src/kernel/system1.rs`
+  - `src/kernel/system3.rs`
+  - `src/lib.rs`
+  - `src/protocol/bus.rs`
+  - `src/protocol/events.rs`
+  - `src/protocol/mod.rs`
+  - `src/protocol/system1.rs`
+  - `src/protocol/system3.rs`
+  - `src/roles/mod.rs`
+  - `src/roles/system3.rs`
+  - `src/runtime.rs`
+  - `src/system3/defaults/*`
+  - `src/system3/mod.rs`
+  - `src/system3/supervisor.rs`
+  - `src/vsm_core.rs`
+  - `tests/full_system_flow.rs`
+  - `tests/phase0_characterization.rs`
+  - `tests/system3_typed_runtime.rs`
+- Files removed or moved:
+  - `src/system3/control.rs` removed;
+  - `src/system3/resources.rs` moved to
+    `src/system3/defaults/resources.rs`;
+  - `src/system3/audit.rs` moved to `src/system3/defaults/audit.rs`.
+- Public APIs added:
+  - `ResourceGovernance`;
+  - `OperationalControlPolicy`;
+  - `Auditor`;
+  - `System3Roles`;
+  - `System3RuntimeRoles`;
+  - `System3Handle`;
+  - `System3ControlMessage`;
+  - typed System 3 protocol records for resource requests, allocation
+    decisions, allocations, allocation acknowledgements, operational
+    directives, directive acknowledgements, operational summaries, audit
+    requests, audit boundaries, findings, remediations, audit responses, and
+    snapshots;
+  - `VsmBuilder::resource_governance`;
+  - `VsmBuilder::resource_governance_arc`;
+  - `VsmBuilder::operational_control_policy`;
+  - `VsmBuilder::operational_control_policy_arc`;
+  - `VsmBuilder::auditor`;
+  - `VsmBuilder::auditor_arc`;
+  - `VsmRuntime::system3`;
+  - `System3Handle::govern_resources`;
+  - `System3Handle::handle_resource_shortage`;
+  - `System3Handle::acknowledge_directives`;
+  - `System3Handle::audit_system1`;
+  - `System3Handle::audit_with_evidence`;
+  - `System3Handle::snapshot`.
+- Public behavior changed:
+  - System 3 no longer has JSON string-operation dispatch in the core path;
+  - the legacy System 3 supervisor starts no JSON control child;
+  - legacy targeted resource-bargain messages to System 3 now report
+    `TargetUnavailable`;
+  - resource and audit helper algorithms are labeled as defaults rather than
+    core System 3 semantics.
+- Tests added or updated:
+  - downstream-style System 3 governance/control and System 3* audit role
+    implementations compile without actor or JSON APIs;
+  - resource shortage handling produces typed allocations and allocation
+    acknowledgements;
+  - operational directives are delivered to System 1 units and failed
+    acknowledgements are recorded;
+  - System 3* audit uses an authorized audit request and independent System 1
+    evidence collection;
+  - unauthorized audit requests fail before auditor invocation;
+  - default System 3 roles deny resource requests explicitly and no-op audit;
+  - Phase 0 characterization now records that System 2 and System 3 JSON
+    dispatch have been removed while Systems 4-5 JSON service calls remain.
+- Documentation updated:
+  - README feature summary and System 3 usage notes;
+  - architecture module boundaries, supervision tree, System 3 section, and
+    current limitations;
+  - usage examples for typed System 3 governance and System 3* audit;
+  - developer guide layout and typed-runtime boundary;
+  - ADR index.
+
+**Decisions**
+
+- ADR-0006 records the accepted Option A decision: minimal framework-owned
+  System 3 records with `ResourceGovernance`, `OperationalControlPolicy`, and
+  `Auditor` roles over the existing `ViableSystem` associated types.
+- System 3* audit is a separate private actor path from System 3 control.
+- Former resource/audit algorithms are opt-in defaults/examples, not core
+  semantics.
+- Automatic routing from System 2 escalation records into System 3 governance
+  remains deferred.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+passed
+
+CARGO_INCREMENTAL=0 cargo check --all-targets --all-features --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo test --all-targets --all-features --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo clippy --all-targets --all-features --locked -- -D warnings
+passed
+
+CARGO_INCREMENTAL=0 cargo doc --all-features --no-deps --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo test --doc --all-features --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo run --example typed_runtime_builder --locked
+passed
+
+CARGO_INCREMENTAL=0 cargo run --example basic_usage --locked
+passed
+
+git diff --check
+passed
+```
+
+**Failures and warnings**
+
+- Clippy flagged a complex private System 3* audit snapshot reply type. The
+  reply result is now factored through a private type alias in
+  `kernel::system3`.
+- The legacy no-suitable-unit path still emits a resource-bargain channel
+  message to System 3, but the legacy System 3 subscriber is gone. The broker
+  records this as `TargetUnavailable`; typed shortage handling is available
+  through `VsmRuntime::system3()`.
+- System 2 escalation records are typed and addressed toward System 3, but
+  automatic escalation consumption remains deferred.
+
+**Next task**
+
+Wait for explicit user approval to begin Milestone 8: System 4 migration. Do
+not begin it automatically.

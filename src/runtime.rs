@@ -9,11 +9,17 @@ pub use crate::kernel::event_bus::{ObserverBusSnapshot, ObserverId, ObserverSubs
 use crate::kernel::registry::RuntimeDirectory;
 use crate::kernel::system1::System1Runtime;
 use crate::kernel::system2::System2Runtime;
+use crate::kernel::system3::System3Runtime;
 use crate::protocol::system1::{
-    Acknowledgement, CoordinationView, UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
+    Acknowledgement, AuditEvidence, AuditRequest, CoordinationView, ResourceShortageRequest,
+    UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
 };
 use crate::protocol::system2::{
     CoordinationAcknowledgement, CoordinationCycle, CoordinationIntervention, System2Snapshot,
+};
+use crate::protocol::system3::{
+    AuditResponse, DirectiveAcknowledgement, OperationalDirective, ResourceRequest,
+    System3AuditRequest, System3ControlCycle, System3Snapshot,
 };
 use crate::protocol::{
     RecursionPath, RuntimeEvent, RuntimeId, SnapshotKey, SnapshotVersion, SubsystemRole, VsmAddress,
@@ -21,9 +27,10 @@ use crate::protocol::{
 use crate::roles::RoleContext;
 use crate::roles::{
     AlertSink, Clock, EventSink, NoopAlertSink, NoopEventSink, NoopReportSink, NoopStateStore,
-    NoopTelemetrySink, ReportSink, SharedAlgedonicPolicy, SharedCoordinationPolicy,
-    SharedOperationalUnitFactory, SharedPerformanceModel, SharedUnitSelectionPolicy,
-    SharedVarietyModel, SharedWorkModel, StateStore, SystemClock, TelemetrySink, ViableSystem,
+    NoopTelemetrySink, ReportSink, SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy,
+    SharedOperationalControlPolicy, SharedOperationalUnitFactory, SharedPerformanceModel,
+    SharedResourceGovernance, SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel,
+    StateStore, SystemClock, TelemetrySink, ViableSystem,
 };
 
 /// Runtime lifecycle state visible through typed handles.
@@ -503,6 +510,62 @@ where
     }
 }
 
+/// Runtime-selected System 3 role objects.
+pub struct System3RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    resource_governance: SharedResourceGovernance<V>,
+    operational_control_policy: SharedOperationalControlPolicy<V>,
+    auditor: SharedAuditor<V>,
+}
+
+impl<V> Clone for System3RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            resource_governance: Arc::clone(&self.resource_governance),
+            operational_control_policy: Arc::clone(&self.operational_control_policy),
+            auditor: Arc::clone(&self.auditor),
+        }
+    }
+}
+
+impl<V> System3RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    /// Creates a runtime role bundle.
+    pub fn new(
+        resource_governance: SharedResourceGovernance<V>,
+        operational_control_policy: SharedOperationalControlPolicy<V>,
+        auditor: SharedAuditor<V>,
+    ) -> Self {
+        Self {
+            resource_governance,
+            operational_control_policy,
+            auditor,
+        }
+    }
+
+    /// Returns the configured resource governance object.
+    pub fn resource_governance(&self) -> SharedResourceGovernance<V> {
+        Arc::clone(&self.resource_governance)
+    }
+
+    /// Returns the configured operational control policy object.
+    pub fn operational_control_policy(&self) -> SharedOperationalControlPolicy<V> {
+        Arc::clone(&self.operational_control_policy)
+    }
+
+    /// Returns the configured System 3* auditor object.
+    pub fn auditor(&self) -> SharedAuditor<V> {
+        Arc::clone(&self.auditor)
+    }
+}
+
 /// Handle for the System 1 surface owned by a typed runtime.
 pub struct System1Handle<V>
 where
@@ -756,6 +819,193 @@ where
     }
 }
 
+/// Handle for the System 3 and System 3* surfaces owned by a typed runtime.
+pub struct System3Handle<V>
+where
+    V: ViableSystem,
+{
+    config: RuntimeConfig,
+    roles: System3RuntimeRoles<V>,
+    ports: RuntimePorts<V>,
+    runtime: Arc<System3Runtime<V>>,
+    system1_runtime: Arc<System1Runtime<V>>,
+}
+
+impl<V> Clone for System3Handle<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            roles: self.roles.clone(),
+            ports: self.ports.clone(),
+            runtime: Arc::clone(&self.runtime),
+            system1_runtime: Arc::clone(&self.system1_runtime),
+        }
+    }
+}
+
+impl<V> System3Handle<V>
+where
+    V: ViableSystem,
+{
+    fn new(
+        config: RuntimeConfig,
+        roles: System3RuntimeRoles<V>,
+        ports: RuntimePorts<V>,
+        runtime: Arc<System3Runtime<V>>,
+        system1_runtime: Arc<System1Runtime<V>>,
+    ) -> Self {
+        Self {
+            config,
+            roles,
+            ports,
+            runtime,
+            system1_runtime,
+        }
+    }
+
+    /// Returns the runtime instance identity.
+    pub fn runtime_id(&self) -> &RuntimeId {
+        &self.config.runtime_id
+    }
+
+    /// Returns the recursion path for this runtime instance.
+    pub fn recursion_path(&self) -> &RecursionPath {
+        &self.config.recursion_path
+    }
+
+    /// Returns the runtime-selected System 3 role bundle.
+    pub fn roles(&self) -> &System3RuntimeRoles<V> {
+        &self.roles
+    }
+
+    /// Builds a System 3 role context with runtime-scoped identity and ports.
+    pub fn role_context(&self) -> RoleContext<V> {
+        self.ports.role_context(
+            self.config.runtime_id.clone(),
+            self.config.recursion_path.clone(),
+            SubsystemRole::System3,
+        )
+    }
+
+    /// Builds a System 3* audit role context with runtime-scoped identity and ports.
+    pub fn audit_role_context(&self) -> RoleContext<V> {
+        self.ports.role_context(
+            self.config.runtime_id.clone(),
+            self.config.recursion_path.clone(),
+            SubsystemRole::System3Star,
+        )
+    }
+
+    /// Runs one resource-governance and operational-control cycle.
+    pub async fn govern_resources(
+        &self,
+        requests: Vec<ResourceRequest<V>>,
+        performance: Vec<crate::protocol::system1::PerformanceObservation<V>>,
+    ) -> Result<System3ControlCycle<V>, FrameworkError> {
+        let mut cycle = self.runtime.govern_resources(requests, performance).await?;
+        let acknowledgements = self.deliver_directives(cycle.directives.clone()).await;
+        let outcome = self
+            .runtime
+            .record_directive_acknowledgements(acknowledgements)
+            .await?;
+        cycle.directive_acknowledgements = outcome.directive_acknowledgements;
+        cycle.summaries.extend(outcome.summaries);
+        Ok(cycle)
+    }
+
+    /// Converts a System 1 resource-shortage event into a System 3 governance cycle.
+    pub async fn handle_resource_shortage(
+        &self,
+        shortage: ResourceShortageRequest<V>,
+    ) -> Result<System3ControlCycle<V>, FrameworkError> {
+        self.govern_resources(vec![ResourceRequest::from_shortage(shortage)], Vec::new())
+            .await
+    }
+
+    /// Records externally supplied directive acknowledgements.
+    pub async fn acknowledge_directives(
+        &self,
+        acknowledgements: Vec<DirectiveAcknowledgement<V>>,
+    ) -> Result<System3ControlCycle<V>, FrameworkError> {
+        self.runtime
+            .record_directive_acknowledgements(acknowledgements)
+            .await
+    }
+
+    /// Runs System 3* audit using evidence collected directly from System 1 units.
+    pub async fn audit_system1(
+        &self,
+        request: System3AuditRequest<V>,
+    ) -> Result<AuditResponse<V>, FrameworkError> {
+        let system1_request = AuditRequest {
+            metadata: request.metadata.child(),
+            scope: request.scope.clone(),
+        };
+        let evidence = self.system1_runtime.audit_evidence(system1_request).await?;
+        let evidence = apply_audit_boundary(&request, evidence);
+        self.runtime.perform_audit(request, evidence).await
+    }
+
+    /// Runs System 3* audit with evidence supplied by the caller.
+    pub async fn audit_with_evidence(
+        &self,
+        request: System3AuditRequest<V>,
+        evidence: Vec<AuditEvidence<V>>,
+    ) -> Result<AuditResponse<V>, FrameworkError> {
+        let evidence = apply_audit_boundary(&request, evidence);
+        self.runtime.perform_audit(request, evidence).await
+    }
+
+    /// Returns the current System 3 runtime snapshot.
+    pub async fn snapshot(&self) -> Result<System3Snapshot<V>, FrameworkError> {
+        self.runtime.snapshot().await
+    }
+
+    async fn deliver_directives(
+        &self,
+        directives: Vec<OperationalDirective<V>>,
+    ) -> Vec<DirectiveAcknowledgement<V>> {
+        let mut acknowledgements = Vec::new();
+
+        for directive in directives {
+            if !directive.requires_ack {
+                continue;
+            }
+
+            acknowledgements.extend(
+                self.system1_runtime
+                    .apply_operational_directive(directive)
+                    .await,
+            );
+        }
+
+        acknowledgements
+    }
+}
+
+fn apply_audit_boundary<V>(
+    request: &System3AuditRequest<V>,
+    mut evidence: Vec<AuditEvidence<V>>,
+) -> Vec<AuditEvidence<V>>
+where
+    V: ViableSystem,
+{
+    if !request.boundary.include_snapshots {
+        for item in &mut evidence {
+            item.snapshot = None;
+        }
+    }
+
+    if let Some(max_items) = request.boundary.max_evidence_items {
+        evidence.truncate(max_items);
+    }
+
+    evidence
+}
+
 /// Typed runtime handle returned by [`crate::VsmBuilder`].
 pub struct VsmRuntime<V>
 where
@@ -770,6 +1020,8 @@ where
     system1_runtime: Arc<System1Runtime<V>>,
     system2_roles: System2RuntimeRoles<V>,
     system2_runtime: Arc<System2Runtime<V>>,
+    system3_roles: System3RuntimeRoles<V>,
+    system3_runtime: Arc<System3Runtime<V>>,
     observer_bus: Arc<ObserverEventBus<V>>,
 }
 
@@ -782,6 +1034,7 @@ where
         ports: RuntimePorts<V>,
         system1_roles: System1RuntimeRoles<V>,
         system2_roles: System2RuntimeRoles<V>,
+        system3_roles: System3RuntimeRoles<V>,
     ) -> Result<Self, FrameworkError> {
         let observer_bus = Arc::new(ObserverEventBus::new(
             ports.event_sink(),
@@ -793,6 +1046,8 @@ where
             System1Runtime::start(config.clone(), system1_roles.clone(), ports.clone()).await?;
         let system2_runtime =
             System2Runtime::start(config.clone(), system2_roles.clone(), ports.clone()).await?;
+        let system3_runtime =
+            System3Runtime::start(config.clone(), system3_roles.clone(), ports.clone()).await?;
 
         let readiness = RuntimeReadiness::new(vec![
             ReadinessCheck::new(
@@ -803,12 +1058,12 @@ where
             ReadinessCheck::new(
                 ReadinessGate::SubsystemActors,
                 ReadinessStatus::Ready,
-                "typed System 1 and System 2 actor adapters started",
+                "typed System 1, System 2, and System 3 actor adapters started",
             ),
             ReadinessCheck::new(
                 ReadinessGate::RoleImplementations,
                 ReadinessStatus::Ready,
-                "required System 1 role objects validated and System 2 coordination policy configured",
+                "required System 1 role objects validated; System 2 and System 3 policies configured",
             ),
             ReadinessCheck::new(
                 ReadinessGate::Subscriptions,
@@ -835,6 +1090,8 @@ where
             system1_runtime,
             system2_roles,
             system2_runtime,
+            system3_roles,
+            system3_runtime,
             observer_bus,
         })
     }
@@ -899,6 +1156,17 @@ where
         )
     }
 
+    /// Returns a System 3 handle scoped to this runtime instance.
+    pub fn system3(&self) -> System3Handle<V> {
+        System3Handle::new(
+            self.config.clone(),
+            self.system3_roles.clone(),
+            self.ports.clone(),
+            Arc::clone(&self.system3_runtime),
+            Arc::clone(&self.system1_runtime),
+        )
+    }
+
     /// Builds a role context for any subsystem role.
     pub fn role_context(&self, role: SubsystemRole) -> RoleContext<V> {
         self.ports.role_context(
@@ -947,6 +1215,7 @@ where
         };
 
         if !already_shutdown {
+            self.system3_runtime.shutdown().await?;
             self.system2_runtime.shutdown().await?;
             self.system1_runtime.shutdown().await?;
             self.directory
@@ -992,6 +1261,27 @@ fn register_runtime_components(directory: &mut RuntimeDirectory, config: &Runtim
         recursion_path,
         SubsystemRole::System2,
         "coordination-actor",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::System3,
+        "role-bundle",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::System3,
+        "control-actor",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::System3Star,
+        "audit-actor",
         RuntimeComponentStatus::Ready,
     );
     directory.register(

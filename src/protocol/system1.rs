@@ -239,7 +239,7 @@ pub enum WorkDisposition {
 }
 
 /// Generic performance observation emitted by System 1.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PerformanceObservation<V>
 where
     V: ViableSystem,
@@ -248,6 +248,20 @@ where
     pub unit_id: V::UnitId,
     pub disposition: WorkDisposition,
     pub elapsed: Option<Duration>,
+}
+
+impl<V> Clone for PerformanceObservation<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            metadata: self.metadata.clone(),
+            unit_id: self.unit_id.clone(),
+            disposition: self.disposition,
+            elapsed: self.elapsed,
+        }
+    }
 }
 
 /// Request emitted when no registered unit can accept required capabilities.
@@ -271,13 +285,25 @@ pub enum AuditScope<U> {
 }
 
 /// Typed audit request for System 1.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct AuditRequest<V>
 where
     V: ViableSystem,
 {
     pub metadata: ProtocolMetadata,
     pub scope: AuditScope<V::UnitId>,
+}
+
+impl<V> Clone for AuditRequest<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            metadata: self.metadata.clone(),
+            scope: self.scope.clone(),
+        }
+    }
 }
 
 /// Evidence returned by an operational unit for an audit.

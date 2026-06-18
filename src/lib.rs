@@ -1,9 +1,9 @@
 //! Rust/ractor port of the Elixir `vsm-core` application.
 //!
 //! The crate models a Viable System Model runtime with a supervised actor tree,
-//! typed System 1 operations, typed System 2 coordination, brokered VSM
-//! messages, and JSON-backed service actors for the exploratory Systems 3-5
-//! APIs. All default actors use stable global names, so a process can run only
+//! typed System 1 operations, typed System 2 coordination, typed System 3
+//! control/audit, brokered VSM messages, and JSON-backed service actors for
+//! the exploratory Systems 4-5 APIs. All default actors use stable global names, so a process can run only
 //! one default application instance at a time. State is currently in memory and
 //! should be treated as restart volatile unless an embedding application adds
 //! persistence.
@@ -43,20 +43,21 @@ pub use config::RuntimeConfig;
 pub use error::{ApplicationFailure, FrameworkError, VsmError, VsmResult, WorkError};
 pub use protocol::{
     DeliveryMetrics, DeliveryStatus, RuntimeControlMessage, System1ControlMessage,
-    System2ControlMessage,
+    System2ControlMessage, System3ControlMessage,
 };
 pub use ractor::async_trait;
 pub use roles::{
-    AlgedonicPolicy, CoordinationPolicy, OperationalUnit, OperationalUnitFactory, PerformanceModel,
-    RoleContext, System1Roles, System2Roles, UnitRoleContext, UnitSelectionPolicy, VarietyModel,
-    ViableSystem, WorkModel,
+    AlgedonicPolicy, Auditor, CoordinationPolicy, OperationalControlPolicy, OperationalUnit,
+    OperationalUnitFactory, PerformanceModel, ResourceGovernance, RoleContext, System1Roles,
+    System2Roles, System3Roles, UnitRoleContext, UnitSelectionPolicy, VarietyModel, ViableSystem,
+    WorkModel,
 };
 pub use runtime::{
     ObserverBusSnapshot, ObserverId, ObserverSubscription, ReadinessCheck, ReadinessGate,
     ReadinessStatus, RegisteredUnit, RuntimeComponentSnapshot, RuntimeComponentStatus,
     RuntimeDirectorySnapshot, RuntimePorts, RuntimeReadiness, RuntimeState, ShutdownReport,
-    System1Handle, System1RuntimeRoles, System2Handle, System2RuntimeRoles, UnitAdmissionLimits,
-    UnitRegistration, UnitSnapshotConfig, VsmRuntime,
+    System1Handle, System1RuntimeRoles, System2Handle, System2RuntimeRoles, System3Handle,
+    System3RuntimeRoles, UnitAdmissionLimits, UnitRegistration, UnitSnapshotConfig, VsmRuntime,
 };
 pub use shared::message::{ChannelKind, MessageKind, SystemId, VsmMessage};
 

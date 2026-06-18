@@ -91,7 +91,7 @@ async fn startup_health_reports_root_supervisor_before_shutdown() {
 
 #[tokio::test]
 #[serial]
-async fn system1_no_suitable_unit_publishes_resource_request() {
+async fn system1_no_suitable_unit_records_resource_request_dead_letter() {
     let app = start_app().await;
 
     let result = vsm_rs::system1::process_transaction(Transaction::new(
@@ -105,19 +105,19 @@ async fn system1_no_suitable_unit_publishes_resource_request() {
     let no_suitable_unit = matches!(result, TransactionResult::NoSuitableUnit);
 
     sleep(Duration::from_millis(50)).await;
-    let history = channels::history(ChannelKind::ResourceBargain)
+    let dead_letters = channels::dead_letters(ChannelKind::ResourceBargain)
         .await
-        .expect("resource bargain history should return");
+        .expect("resource bargain dead letters should return");
 
-    let resource_request_seen = history.iter().any(|message| {
-        message.kind == MessageKind::UnitRequest
-            && message.payload["transaction_type"] == "phase0_missing_capability"
-            && message.payload["required_capabilities"] == json!(["phase0_missing"])
+    let resource_request_dead_letter_seen = dead_letters.iter().any(|entry| {
+        entry.message.kind == MessageKind::UnitRequest
+            && entry.message.payload["transaction_type"] == "phase0_missing_capability"
+            && entry.message.payload["required_capabilities"] == json!(["phase0_missing"])
     });
 
     stop_app(app).await;
     assert!(no_suitable_unit);
-    assert!(resource_request_seen);
+    assert!(resource_request_dead_letter_seen);
 }
 
 #[tokio::test]
@@ -231,13 +231,11 @@ async fn explicit_broadcast_rejects_targeted_message() {
 
 #[tokio::test]
 #[serial]
-async fn system2_json_service_dispatch_is_removed_and_systems_3_to_5_remain() {
+async fn system2_and_system3_json_service_dispatch_are_removed_and_systems_4_to_5_remain() {
     let app = start_app().await;
 
     let system2 = call_service(names::SYSTEM2_COORDINATION, "get_state", json!({})).await;
-    let system3 = call_service(names::SYSTEM3_CONTROL, "get_state", json!({}))
-        .await
-        .expect("system3 state should return");
+    let system3 = call_service(names::SYSTEM3_CONTROL, "get_state", json!({})).await;
     let system4 = call_service(
         names::SYSTEM4_INTELLIGENCE,
         "intelligence_report",
@@ -250,13 +248,13 @@ async fn system2_json_service_dispatch_is_removed_and_systems_3_to_5_remain() {
         .expect("system5 unknown operation should return JSON");
 
     let system2_unavailable = system2.is_err();
-    let system3_running = system3["state"]["status"] == "running";
+    let system3_unavailable = system3.is_err();
     let system4_report_shape = system4.get("scan").is_some() && system4.get("insights").is_some();
     let system5_unknown_operation = system5["status"] == "unknown_operation";
     stop_app(app).await;
 
     assert!(system2_unavailable);
-    assert!(system3_running);
+    assert!(system3_unavailable);
     assert!(system4_report_shape);
     assert!(system5_unknown_operation);
 }

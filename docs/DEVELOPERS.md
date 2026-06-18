@@ -55,16 +55,16 @@ src/
 ├── config.rs                 Typed runtime configuration
 ├── builder.rs                Typed runtime builder
 ├── runtime.rs                Typed runtime handles, readiness, observer subscriptions, shutdown, component snapshots
-├── kernel/                   Private runtime registry, observer bus, and typed System 1 actor adapters
+├── kernel/                   Private runtime registry, observer bus, and typed System 1-3 actor adapters
 ├── protocol/                 Typed migration protocols, delivery outcomes, and framework metadata
-├── roles/                    ViableSystem, role contexts, System 1 contracts, ports
+├── roles/                    ViableSystem, role contexts, System 1-3 contracts, ports
 ├── legacy/                   Temporary adapters from current JSON API to typed foundations
 ├── names.rs                  Stable global actor names
 ├── channels/                 Broker, channels, algedonic, temporal services
 ├── shared/                   Message, recursion, and variety utilities
 ├── system1/                  Typed Operations and Unit actors
 ├── system2/                  Typed coordination defaults and legacy supervisor placeholder
-├── system3/                  Control, resources, and audit
+├── system3/                  Typed defaults and legacy supervisor placeholder
 ├── system4/                  Intelligence, scanning, analytics, forecasting
 ├── system5/                  Policy, identity, values, decisions
 └── telemetry_reporter.rs     Supervised telemetry service
@@ -82,10 +82,13 @@ The typed builder/runtime modules are the public lifecycle surface for the
 migration path. They should remain independent of `ActorRef`, global actor
 names, and JSON application payloads. The typed System 1 path uses private
 actor adapters under `kernel::system1`; typed System 2 coordination uses
-`kernel::system2` and public `CoordinationPolicy` implementations. Later
-subsystem adapters should follow that boundary and keep actor references out of
-public handles. Observer subscriptions are exposed through `VsmRuntime`, while
-fan-out and bounded event retention remain private to `kernel::event_bus`.
+`kernel::system2` and public `CoordinationPolicy` implementations; typed System
+3 control and System 3* audit use `kernel::system3` and public
+`ResourceGovernance`, `OperationalControlPolicy`, and `Auditor`
+implementations. Later subsystem adapters should follow that boundary and keep
+actor references out of public handles. Observer subscriptions are exposed
+through `VsmRuntime`, while fan-out and bounded event retention remain private
+to `kernel::event_bus`.
 
 ## 4. Supervision and actor names
 
@@ -219,7 +222,7 @@ pub async fn get_state() -> VsmResult<ExampleSnapshot> {
 
 ### 5.2 JSON ServiceActor
 
-Systems 3–5 currently use `actor_support::ServiceActor`. It provides a common protocol:
+Systems 4–5 currently use `actor_support::ServiceActor`. It provides a common protocol:
 
 ```rust
 pub enum ServiceMsg {
@@ -540,7 +543,7 @@ The following areas are important candidates for future hardening:
 1. **Readiness:** replace startup sleeps with an explicit application-ready signal.
 2. **Subscription recovery:** re-register subscribers automatically when the broker restarts.
 3. **Unit reconciliation:** ensure System 1 Operations reconstructs its directory after unit or supervisor restarts.
-4. **Typed protocols:** migrate frequently used Systems 3–5 operations away from string/JSON dispatch.
+4. **Typed protocols:** migrate frequently used Systems 4–5 operations away from string/JSON dispatch.
 5. **Persistence:** define opt-in snapshots or event persistence without coupling the core to one database.
 6. **Backpressure:** add explicit mailbox and ingress controls for high-volume channel traffic.
 7. **Namespacing:** support more than one VSM runtime in a process through configurable actor-name prefixes.

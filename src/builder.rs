@@ -10,15 +10,21 @@ use crate::roles::system1::defaults::{
     LowestLoadSelectionPolicy, NoopAlgedonicPolicy, NoopPerformanceModel, NoopVarietyModel,
 };
 use crate::roles::system2::defaults::NoopCoordinationPolicy;
-use crate::roles::{
-    AlertSink, AlgedonicPolicy, Clock, CoordinationPolicy, EventSink, NoopAlertSink, NoopEventSink,
-    NoopReportSink, NoopStateStore, NoopTelemetrySink, OperationalUnitFactory, PerformanceModel,
-    ReportSink, SharedAlgedonicPolicy, SharedCoordinationPolicy, SharedOperationalUnitFactory,
-    SharedPerformanceModel, SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel,
-    StateStore, SystemClock, TelemetrySink, UnitSelectionPolicy, VarietyModel, ViableSystem,
-    WorkModel,
+use crate::roles::system3::defaults::{
+    DenyAllResourceGovernance, NoopAuditor, NoopOperationalControlPolicy,
 };
-use crate::runtime::{RuntimePorts, System1RuntimeRoles, System2RuntimeRoles, VsmRuntime};
+use crate::roles::{
+    AlertSink, AlgedonicPolicy, Auditor, Clock, CoordinationPolicy, EventSink, NoopAlertSink,
+    NoopEventSink, NoopReportSink, NoopStateStore, NoopTelemetrySink, OperationalControlPolicy,
+    OperationalUnitFactory, PerformanceModel, ReportSink, ResourceGovernance,
+    SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy, SharedOperationalControlPolicy,
+    SharedOperationalUnitFactory, SharedPerformanceModel, SharedResourceGovernance,
+    SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel, StateStore, SystemClock,
+    TelemetrySink, UnitSelectionPolicy, VarietyModel, ViableSystem, WorkModel,
+};
+use crate::runtime::{
+    RuntimePorts, System1RuntimeRoles, System2RuntimeRoles, System3RuntimeRoles, VsmRuntime,
+};
 
 /// Builder for one typed VSM runtime instance.
 ///
@@ -37,6 +43,9 @@ where
     variety_model: Option<SharedVarietyModel<V>>,
     algedonic_policy: Option<SharedAlgedonicPolicy<V>>,
     coordination_policy: Option<SharedCoordinationPolicy<V>>,
+    resource_governance: Option<SharedResourceGovernance<V>>,
+    operational_control_policy: Option<SharedOperationalControlPolicy<V>>,
+    auditor: Option<SharedAuditor<V>>,
     state_store: Arc<dyn StateStore<V>>,
     event_sink: Arc<dyn EventSink<V>>,
     report_sink: Arc<dyn ReportSink<V>>,
@@ -59,6 +68,9 @@ where
             variety_model: None,
             algedonic_policy: None,
             coordination_policy: None,
+            resource_governance: None,
+            operational_control_policy: None,
+            auditor: None,
             state_store: Arc::new(NoopStateStore::<V>::new()),
             event_sink: Arc::new(NoopEventSink::<V>::new()),
             report_sink: Arc::new(NoopReportSink::<V>::new()),
@@ -240,6 +252,54 @@ where
         self
     }
 
+    /// Sets the optional System 3 resource governance role.
+    pub fn resource_governance<G>(mut self, governance: G) -> Self
+    where
+        G: ResourceGovernance<V> + 'static,
+    {
+        self.resource_governance = Some(Arc::new(governance));
+        self
+    }
+
+    /// Sets the optional System 3 resource governance role from a shared trait object.
+    pub fn resource_governance_arc(mut self, governance: SharedResourceGovernance<V>) -> Self {
+        self.resource_governance = Some(governance);
+        self
+    }
+
+    /// Sets the optional System 3 operational control policy role.
+    pub fn operational_control_policy<P>(mut self, policy: P) -> Self
+    where
+        P: OperationalControlPolicy<V> + 'static,
+    {
+        self.operational_control_policy = Some(Arc::new(policy));
+        self
+    }
+
+    /// Sets the optional System 3 operational control policy from a shared trait object.
+    pub fn operational_control_policy_arc(
+        mut self,
+        policy: SharedOperationalControlPolicy<V>,
+    ) -> Self {
+        self.operational_control_policy = Some(policy);
+        self
+    }
+
+    /// Sets the optional System 3* auditor role.
+    pub fn auditor<A>(mut self, auditor: A) -> Self
+    where
+        A: Auditor<V> + 'static,
+    {
+        self.auditor = Some(Arc::new(auditor));
+        self
+    }
+
+    /// Sets the optional System 3* auditor role from a shared trait object.
+    pub fn auditor_arc(mut self, auditor: SharedAuditor<V>) -> Self {
+        self.auditor = Some(auditor);
+        self
+    }
+
     /// Sets the state store port. The default is [`NoopStateStore`].
     pub fn state_store<S>(mut self, state_store: S) -> Self
     where
@@ -344,6 +404,9 @@ where
             variety_model,
             algedonic_policy,
             coordination_policy,
+            resource_governance,
+            operational_control_policy,
+            auditor,
             state_store,
             event_sink,
             report_sink,
@@ -361,6 +424,7 @@ where
             algedonic_policy,
         )?;
         let system2_roles = system2_roles(coordination_policy);
+        let system3_roles = system3_roles(resource_governance, operational_control_policy, auditor);
         let ports = RuntimePorts::noop()
             .with_state_store(state_store)
             .with_event_sink(event_sink)
@@ -369,7 +433,7 @@ where
             .with_alert_sink(alert_sink)
             .with_clock(clock);
 
-        VsmRuntime::new(config, ports, roles, system2_roles).await
+        VsmRuntime::new(config, ports, roles, system2_roles, system3_roles).await
     }
 }
 
@@ -419,4 +483,21 @@ where
         coordination_policy.unwrap_or_else(|| Arc::new(NoopCoordinationPolicy::<V>::new()));
 
     System2RuntimeRoles::new(coordination_policy)
+}
+
+fn system3_roles<V>(
+    resource_governance: Option<SharedResourceGovernance<V>>,
+    operational_control_policy: Option<SharedOperationalControlPolicy<V>>,
+    auditor: Option<SharedAuditor<V>>,
+) -> System3RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    let resource_governance =
+        resource_governance.unwrap_or_else(|| Arc::new(DenyAllResourceGovernance::<V>::new()));
+    let operational_control_policy = operational_control_policy
+        .unwrap_or_else(|| Arc::new(NoopOperationalControlPolicy::<V>::new()));
+    let auditor = auditor.unwrap_or_else(|| Arc::new(NoopAuditor::<V>::new()));
+
+    System3RuntimeRoles::new(resource_governance, operational_control_policy, auditor)
 }

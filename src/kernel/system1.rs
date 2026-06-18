@@ -14,11 +14,14 @@ use crate::error::{FrameworkError, WorkError};
 use crate::protocol::events::{RuntimeEvent, RuntimeReport, System1Event, System1Report};
 use crate::protocol::snapshot::SnapshotRecord;
 use crate::protocol::system1::{
-    Acknowledgement, CapacitySnapshot, CoordinationView, PerformanceObservation,
-    ResourceShortageRequest, UnitDescriptor, WorkDisposition, WorkOptions, WorkRequest,
-    WorkResponse, WorkResult,
+    Acknowledgement, AuditEvidence, AuditRequest, CapacitySnapshot, CoordinationView,
+    PerformanceObservation, ResourceShortageRequest, UnitCommand, UnitCommandKind, UnitDescriptor,
+    WorkDisposition, WorkOptions, WorkRequest, WorkResponse, WorkResult,
 };
 use crate::protocol::system2::{CoordinationAcknowledgement, CoordinationIntervention};
+use crate::protocol::system3::{
+    DirectiveAcknowledgement, OperationalDirective, OperationalDirectiveKind,
+};
 use crate::protocol::SubsystemRole;
 use crate::roles::{BoxOperationalUnit, RoleContext, UnitCandidate, UnitRoleContext, ViableSystem};
 use crate::runtime::{
@@ -320,6 +323,81 @@ where
         acknowledgements
     }
 
+    pub(crate) async fn apply_operational_directive(
+        &self,
+        directive: OperationalDirective<V>,
+    ) -> Vec<DirectiveAcknowledgement<V>> {
+        let mut acknowledgements = Vec::with_capacity(directive.target_units.len());
+
+        for unit_id in directive.target_units.clone() {
+            let acknowledgement = match self.unit_entry(&unit_id) {
+                Ok(entry) => {
+                    let command = directive_command(&directive, unit_id.clone());
+                    call_t!(
+                        entry.actor,
+                        UnitActorMsg::Command,
+                        ACTOR_CALL_TIMEOUT_MS,
+                        Box::new(command)
+                    )
+                    .map_err(|err| FrameworkError::Runtime {
+                        reason: format!("failed to deliver typed System 3 directive: {err}"),
+                    })
+                    .and_then(|result| result)
+                    .map(|acknowledgement| {
+                        if acknowledgement.accepted {
+                            DirectiveAcknowledgement::accepted(&directive, unit_id.clone())
+                        } else {
+                            DirectiveAcknowledgement::rejected(
+                                &directive,
+                                unit_id.clone(),
+                                acknowledgement
+                                    .reason
+                                    .unwrap_or_else(|| "unit rejected directive".to_string()),
+                            )
+                        }
+                    })
+                    .unwrap_or_else(|error| {
+                        DirectiveAcknowledgement::failed(
+                            &directive,
+                            unit_id.clone(),
+                            error.to_string(),
+                        )
+                    })
+                }
+                Err(error) => {
+                    DirectiveAcknowledgement::failed(&directive, unit_id.clone(), error.to_string())
+                }
+            };
+            acknowledgements.push(acknowledgement);
+        }
+
+        acknowledgements
+    }
+
+    pub(crate) async fn audit_evidence(
+        &self,
+        request: AuditRequest<V>,
+    ) -> Result<Vec<AuditEvidence<V>>, FrameworkError> {
+        self.ensure_running()?;
+        let entries = self.audit_entries(&request)?;
+        let mut evidence = Vec::with_capacity(entries.len());
+
+        for entry in entries {
+            let item = call_t!(
+                entry.actor,
+                UnitActorMsg::AuditEvidence,
+                ACTOR_CALL_TIMEOUT_MS,
+                Box::new(request.clone())
+            )
+            .map_err(|err| FrameworkError::Runtime {
+                reason: format!("failed to collect typed System 1 audit evidence: {err}"),
+            })??;
+            evidence.push(item);
+        }
+
+        Ok(evidence)
+    }
+
     pub(crate) async fn shutdown(&self) -> Result<(), FrameworkError> {
         if self.shutdown.swap(true, Ordering::SeqCst) {
             return Ok(());
@@ -450,6 +528,20 @@ where
             .ok_or_else(|| FrameworkError::Unavailable {
                 target: format!("system1.unit {unit_id:?}"),
             })
+    }
+
+    fn audit_entries(
+        &self,
+        request: &AuditRequest<V>,
+    ) -> Result<Vec<UnitEntry<V>>, FrameworkError> {
+        match &request.scope {
+            crate::protocol::system1::AuditScope::AllUnits
+            | crate::protocol::system1::AuditScope::Custom(_) => self.unit_entries(),
+            crate::protocol::system1::AuditScope::Units(unit_ids) => unit_ids
+                .iter()
+                .map(|unit_id| self.unit_entry(unit_id))
+                .collect(),
+        }
     }
 
     fn reserve_unit(&self, unit_id: &V::UnitId) -> Option<UnitEntry<V>> {
@@ -711,6 +803,14 @@ where
         Box<CoordinationIntervention<V>>,
         RpcReplyPort<Result<CoordinationAcknowledgement<V>, FrameworkError>>,
     ),
+    Command(
+        Box<UnitCommand<V>>,
+        RpcReplyPort<Result<Acknowledgement, FrameworkError>>,
+    ),
+    AuditEvidence(
+        Box<AuditRequest<V>>,
+        RpcReplyPort<Result<AuditEvidence<V>, FrameworkError>>,
+    ),
     Drain(RpcReplyPort<Result<Acknowledgement, FrameworkError>>),
     CaptureSnapshot(RpcReplyPort<Result<(), FrameworkError>>),
 }
@@ -792,6 +892,14 @@ where
                     .unit
                     .handle_coordination_intervention(&state.context, *intervention)
                     .await;
+                let _ = reply.send(result);
+            }
+            UnitActorMsg::Command(command, reply) => {
+                let result = state.unit.handle_command(&state.context, *command).await;
+                let _ = reply.send(result);
+            }
+            UnitActorMsg::AuditEvidence(request, reply) => {
+                let result = state.unit.audit_evidence(&state.context, *request).await;
                 let _ = reply.send(result);
             }
             UnitActorMsg::Drain(reply) => {
@@ -910,6 +1018,29 @@ fn call_timeout_ms(deadline: Option<chrono::DateTime<Utc>>, default_timeout: Dur
         .and_then(|deadline| (deadline - Utc::now()).to_std().ok())
         .unwrap_or(default_timeout);
     timeout_ms(timeout.saturating_add(Duration::from_secs(1)))
+}
+
+fn directive_command<V>(directive: &OperationalDirective<V>, unit_id: V::UnitId) -> UnitCommand<V>
+where
+    V: ViableSystem,
+{
+    let kind = match &directive.kind {
+        OperationalDirectiveKind::Drain => UnitCommandKind::Drain,
+        OperationalDirectiveKind::Resume => UnitCommandKind::Resume,
+        OperationalDirectiveKind::Stop => UnitCommandKind::Stop,
+        OperationalDirectiveKind::Custom(kind) => UnitCommandKind::Custom(kind.clone()),
+        OperationalDirectiveKind::AllocateResources
+        | OperationalDirectiveKind::Constrain
+        | OperationalDirectiveKind::Remediate => {
+            UnitCommandKind::Custom(format!("system3:{:?}", directive.kind))
+        }
+    };
+
+    UnitCommand {
+        metadata: directive.metadata.child(),
+        unit_id,
+        kind,
+    }
 }
 
 fn poisoned_units<V>(

@@ -4,9 +4,10 @@
 //! `VsmMessage` values by `ChannelKind` and subscriber ID, and provides thin
 //! channel-specific facades. Legacy enqueue calls remain best effort, while
 //! outcome-returning calls report target-unavailable and validation failures
-//! explicitly. Systems 3-5 currently record channel events in service history,
+//! explicitly. Systems 4-5 currently record channel events in service history,
 //! while System 1 handles selected command, coordination, and audit messages.
-//! Typed System 2 coordination runs through `VsmRuntime::system2`.
+//! Typed System 2 coordination and System 3 control/audit run through
+//! `VsmRuntime` subsystem handles.
 
 pub mod algedonic;
 pub mod algedonic_channel;

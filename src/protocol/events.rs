@@ -11,6 +11,11 @@ use super::system2::{
     CoordinationAcknowledgement, CoordinationConflict, CoordinationEscalation,
     CoordinationIntervention,
 };
+use super::system3::{
+    AuditFinding, AuditResponse, DirectiveAcknowledgement, OperationalDirective,
+    OperationalSummary, RemediationAction, ResourceAllocation, ResourceAllocationAcknowledgement,
+    ResourceRequest,
+};
 
 /// Framework event record.
 #[derive(Clone)]
@@ -27,6 +32,7 @@ where
     Framework(Box<FrameworkEvent>),
     System1(Box<System1Event<V>>),
     System2(Box<System2Event<V>>),
+    System3(Box<System3Event<V>>),
 }
 
 impl<V> Clone for RuntimeEvent<V>
@@ -38,6 +44,7 @@ where
             Self::Framework(event) => Self::Framework(event.clone()),
             Self::System1(event) => Self::System1(Box::new((**event).clone())),
             Self::System2(event) => Self::System2(Box::new((**event).clone())),
+            Self::System3(event) => Self::System3(Box::new((**event).clone())),
         }
     }
 }
@@ -81,6 +88,7 @@ where
 {
     System1(Box<System1Report<V>>),
     System2(Box<System2Report<V>>),
+    System3(Box<System3Report<V>>),
 }
 
 /// System 1 report stream item.
@@ -138,4 +146,77 @@ where
     Intervention(Box<CoordinationIntervention<V>>),
     Acknowledgement(Box<CoordinationAcknowledgement<V>>),
     Escalation(Box<CoordinationEscalation<V>>),
+}
+
+/// System 3 event stream item.
+pub enum System3Event<V>
+where
+    V: ViableSystem,
+{
+    ResourceCycle {
+        request_count: usize,
+        allocation_count: usize,
+        directive_count: usize,
+    },
+    AllocationAcknowledged(Box<ResourceAllocationAcknowledgement<V>>),
+    DirectiveAcknowledged(Box<DirectiveAcknowledgement<V>>),
+    DirectiveAcknowledgementFailed(Box<DirectiveAcknowledgement<V>>),
+    AuditCompleted {
+        audit_id: String,
+        finding_count: usize,
+        remediation_count: usize,
+    },
+}
+
+impl<V> Clone for System3Event<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::ResourceCycle {
+                request_count,
+                allocation_count,
+                directive_count,
+            } => Self::ResourceCycle {
+                request_count: *request_count,
+                allocation_count: *allocation_count,
+                directive_count: *directive_count,
+            },
+            Self::AllocationAcknowledged(acknowledgement) => {
+                Self::AllocationAcknowledged(Box::new((**acknowledgement).clone()))
+            }
+            Self::DirectiveAcknowledged(acknowledgement) => {
+                Self::DirectiveAcknowledged(Box::new((**acknowledgement).clone()))
+            }
+            Self::DirectiveAcknowledgementFailed(acknowledgement) => {
+                Self::DirectiveAcknowledgementFailed(Box::new((**acknowledgement).clone()))
+            }
+            Self::AuditCompleted {
+                audit_id,
+                finding_count,
+                remediation_count,
+            } => Self::AuditCompleted {
+                audit_id: audit_id.clone(),
+                finding_count: *finding_count,
+                remediation_count: *remediation_count,
+            },
+        }
+    }
+}
+
+/// System 3 report stream item.
+pub enum System3Report<V>
+where
+    V: ViableSystem,
+{
+    ResourceRequest(Box<ResourceRequest<V>>),
+    Allocation(Box<ResourceAllocation<V>>),
+    AllocationAcknowledgement(Box<ResourceAllocationAcknowledgement<V>>),
+    Directive(Box<OperationalDirective<V>>),
+    DirectiveAcknowledgement(Box<DirectiveAcknowledgement<V>>),
+    OperationalSummary(Box<OperationalSummary<V>>),
+    AuditFinding(Box<AuditFinding<V>>),
+    Remediation(Box<RemediationAction<V>>),
+    AuditResponse(Box<AuditResponse<V>>),
 }

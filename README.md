@@ -36,14 +36,18 @@ The systems communicate through command, coordination, audit, resource-bargain, 
 - Pure functions for scheduling, resource allocation, auditing, forecasting, recursion, and variety engineering.
 - Typed System 2 coordination for the trait-driven runtime, with generic
   conflict, intervention, acknowledgement, and escalation records.
-- JSON-oriented service boundaries for Systems 3–5, making integration straightforward while the typed API continues to mature.
+- Typed System 3 control/resource governance and System 3* audit for the
+  trait-driven runtime, with framework-owned resource, directive, audit,
+  acknowledgement, and remediation records.
+- JSON-oriented service boundaries for Systems 4–5, making integration straightforward while the typed API continues to mature.
 - Trait-driven migration foundations including `ViableSystem`, instance-scoped
   protocol metadata, typed System 1 records, snapshot/store ports, event/report
-  sink traits, first-wave System 1 and System 2 role contracts, role contexts,
+  sink traits, first-wave System 1, System 2, and System 3 role contracts, role contexts,
   opt-in default policies, a typed runtime builder/handle with readiness and
   shutdown acknowledgement, actor-backed typed System 1 registration/work
-  processing, typed System 2 coordination, typed observer-event subscriptions,
-  typed bus delivery status records, and legacy JSON adapters.
+  processing, typed System 2 coordination, typed System 3 governance/audit,
+  typed observer-event subscriptions, typed bus delivery status records, and
+  legacy JSON adapters.
 
 ## Installation
 
@@ -124,7 +128,8 @@ required System 1 role objects, applies opt-in default policies, starts an
 instance-scoped runtime handle, reports readiness, and acknowledges shutdown.
 This path can register typed System 1 units, process typed work through private
 unit actor adapters, coordinate System 1 views through typed System 2 policy,
-and subscribe observers to typed runtime events.
+run typed System 3 resource governance/control and System 3* audit, and
+subscribe observers to typed runtime events.
 The legacy `start()` facade remains available for the current JSON transaction
 workflow.
 
@@ -212,9 +217,9 @@ The previous JSON `system2::coordination` service dispatch has been removed
 from the core path. The old schedule and balancing helpers remain under
 `system2::defaults` as opt-in example algorithms.
 
-### Systems 3–5
+### Systems 4–5
 
-Systems 3–5 expose convenience functions for common operations and a generic JSON service interface for extensibility:
+Systems 4–5 expose convenience functions for common operations and a generic JSON service interface for extensibility:
 
 ```rust
 use serde_json::json;
@@ -235,12 +240,15 @@ let report = call_service(
 
 Prefer the subsystem convenience functions where one exists, such as:
 
-- `system3::control::allocate_resources`
-- `system3::control::perform_audit`
 - `system4::intelligence::environmental_scan`
 - `system4::intelligence::get_intelligence_report`
 - `system5::policy::make_decision`
 - `system5::policy::set_policy_area`
+
+System 3 is available through `VsmRuntime::system3()` on the typed runtime
+handle. The old JSON `system3::control` service dispatch has been removed from
+the core path; old JSON resource and audit helpers live under
+`system3::defaults` as opt-in examples.
 
 ### Algedonic signals
 
@@ -266,8 +274,8 @@ The crate deliberately follows actor ownership and supervision rather than share
 - Every long-lived actor has a stable global name defined in `names.rs`.
 - Static actors run under `ractor_supervisor::Supervisor`; runtime System 1 units run under `DynamicSupervisor`.
 - The channel broker owns subscriptions and message history.
-- The typed runtime path uses actor-backed System 1 and System 2 protocols.
-  Systems 3–5 currently use a shared JSON service actor.
+- The typed runtime path uses actor-backed System 1, System 2, and System 3
+  protocols. Systems 4–5 currently use shared JSON service actors.
 
 Important operational constraints in the current release:
 

@@ -23,9 +23,6 @@ async fn full_vsm_flow_exercises_all_systems() {
     .expect("transaction call should succeed");
     assert!(matches!(result, TransactionResult::Ok(_)));
 
-    let s3 = vsm_rs::system3::control::get_state().await.unwrap();
-    assert_eq!(s3["status"], "running");
-
     let trend = vsm_rs::system4::analytics::analyze_trends(json!([1, 2, 3, 4]), "hour")
         .await
         .unwrap();

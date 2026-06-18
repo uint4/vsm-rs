@@ -1,6 +1,6 @@
 //! Shared JSON service actor used by the less-typed service boundaries.
 //!
-//! Systems 3-5 and telemetry currently use `ServiceActor` to expose string
+//! Systems 4-5 and telemetry currently use `ServiceActor` to expose string
 //! operation names with `serde_json::Value` payloads. The shell owns in-memory
 //! service state, records calls/casts/channel events in bounded history, and
 //! delegates domain work to each module's `actor_call` function. Unknown
@@ -21,7 +21,6 @@ use crate::shared::message::{ChannelKind, MessageKind, SystemId, VsmMessage};
 pub enum ServiceKind {
     Algedonic,
     TemporalVariety,
-    System3Control,
     System4Intelligence,
     System4Scanner,
     System4Analytics,
@@ -71,7 +70,6 @@ pub struct ServiceState {
 impl ServiceState {
     pub fn new(kind: ServiceKind, config: Value) -> Self {
         let id = match kind {
-            ServiceKind::System3Control => "system3",
             ServiceKind::System4Intelligence
             | ServiceKind::System4Scanner
             | ServiceKind::System4Analytics
@@ -108,11 +106,6 @@ impl Actor for ServiceActor {
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
         match self.kind {
-            ServiceKind::System3Control => {
-                subscribe(myself.clone(), ChannelKind::ResourceBargain, "system3").await?;
-                subscribe(myself.clone(), ChannelKind::Command, "system3").await?;
-                subscribe(myself.clone(), ChannelKind::Audit, "system3").await?;
-            }
             ServiceKind::System4Intelligence => {
                 subscribe(myself.clone(), ChannelKind::Command, "system4").await?
             }
@@ -232,9 +225,6 @@ pub async fn handle_service_call(
         ServiceKind::Algedonic => crate::channels::algedonic::actor_call(op, payload, state).await,
         ServiceKind::TemporalVariety => {
             crate::channels::temporal_variety::actor_call(op, payload, state).await
-        }
-        ServiceKind::System3Control => {
-            crate::system3::control::actor_call(op, payload, state).await
         }
         ServiceKind::System4Intelligence => {
             crate::system4::intelligence::actor_call(op, payload, state).await

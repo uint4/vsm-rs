@@ -1,9 +1,7 @@
-//! Resource allocation helpers for System 3.
+//! Resource allocation helper algorithms for System 3 defaults.
 //!
-//! These pure functions prioritize JSON resource requests, allocate from an
-//! available pool, calculate remaining capacity, optimize distributions, and
-//! validate constraints. Strategies are lightweight heuristics for the current
-//! port, not production optimization algorithms.
+//! These pure functions are examples retained from the JSON port. They are not
+//! core System 3 semantics.
 
 use std::collections::BTreeMap;
 
@@ -43,38 +41,44 @@ pub fn allocate(
                 .max(0.1),
             _ => 1.0,
         };
-        for (res, amount) in requested {
+        for (resource, amount) in requested {
             let want = amount * multiplier;
-            let avail = remaining.get(&res).cloned().unwrap_or(0.0);
-            let give = want.min(avail).max(0.0);
-            granted.insert(res.clone(), give);
-            *remaining.entry(res).or_insert(0.0) -= give;
+            let available = remaining.get(&resource).cloned().unwrap_or(0.0);
+            let give = want.min(available).max(0.0);
+            granted.insert(resource.clone(), give);
+            *remaining.entry(resource).or_insert(0.0) -= give;
         }
         allocations.insert(unit.to_string(), value_from_f64_map(&granted));
     }
     let allocations = apply_constraints(Value::Object(allocations), policies);
-    json!({"status":"ok", "strategy": strategy, "allocations": allocations, "remaining": value_from_f64_map(&remaining)})
+    json!({
+        "status": "ok",
+        "strategy": strategy,
+        "allocations": allocations,
+        "remaining": value_from_f64_map(&remaining)
+    })
 }
 
 pub fn calculate_available(pool: &Value, allocations: &Value) -> Value {
     let mut available = f64_map_from_value(pool);
-    for alloc in allocations.as_object().into_iter().flat_map(|m| m.values()) {
-        for (k, v) in f64_map_from_value(alloc) {
-            *available.entry(k).or_insert(0.0) -= v;
+    for allocation in allocations.as_object().into_iter().flat_map(|m| m.values()) {
+        for (key, value) in f64_map_from_value(allocation) {
+            *available.entry(key).or_insert(0.0) -= value;
         }
     }
-    for v in available.values_mut() {
-        *v = v.max(0.0);
+    for value in available.values_mut() {
+        *value = value.max(0.0);
     }
     value_from_f64_map(&available)
 }
 
 pub fn available(pool: &Value, requested: &Value) -> bool {
-    let p = f64_map_from_value(pool);
+    let pool = f64_map_from_value(pool);
     f64_map_from_value(requested)
         .iter()
-        .all(|(k, v)| p.get(k).cloned().unwrap_or(0.0) >= *v)
+        .all(|(key, value)| pool.get(key).cloned().unwrap_or(0.0) >= *value)
 }
+
 pub fn deduct(pool: &Value, to_deduct: &Value) -> Value {
     calculate_available(pool, &json!({"deduct": to_deduct}))
 }
@@ -86,50 +90,63 @@ pub fn optimize_distribution(current_allocations: &Value, total_resources: &Valu
         .map(|m| m.keys().cloned().collect())
         .unwrap_or_default();
     let share_count = units.len().max(1) as f64;
-    let mut obj = serde_json::Map::new();
+    let mut object = serde_json::Map::new();
     for unit in units {
         let allocation = total
             .iter()
-            .map(|(k, v)| (k.clone(), v / share_count))
+            .map(|(key, value)| (key.clone(), value / share_count))
             .collect::<BTreeMap<_, _>>();
-        obj.insert(unit, value_from_f64_map(&allocation));
+        object.insert(unit, value_from_f64_map(&allocation));
     }
-    json!({"optimized_allocations": Value::Object(obj), "efficiency": calculate_efficiency_scores(current_allocations)})
+    json!({
+        "optimized_allocations": Value::Object(object),
+        "efficiency": calculate_efficiency_scores(current_allocations)
+    })
 }
 
 pub fn predict_resource_needs(historical_data: &[Value], lookahead_minutes: i64) -> Value {
-    let mut by_res: BTreeMap<String, Vec<f64>> = BTreeMap::new();
+    let mut by_resource: BTreeMap<String, Vec<f64>> = BTreeMap::new();
     for item in historical_data {
-        for (k, v) in f64_map_from_value(item) {
-            by_res.entry(k).or_default().push(v);
+        for (key, value) in f64_map_from_value(item) {
+            by_resource.entry(key).or_default().push(value);
         }
     }
-    let mut pred = BTreeMap::new();
-    for (k, values) in by_res {
+    let mut predicted = BTreeMap::new();
+    for (key, values) in by_resource {
         let trend = if values.len() > 1 {
-            values.last().unwrap() - values.first().unwrap()
+            values.last().unwrap_or(&0.0) - values.first().unwrap_or(&0.0)
         } else {
             0.0
         };
-        pred.insert(k, mean(&values) + trend * (lookahead_minutes as f64 / 60.0));
+        predicted.insert(
+            key,
+            mean(&values) + trend * (lookahead_minutes as f64 / 60.0),
+        );
     }
-    json!({"lookahead_minutes": lookahead_minutes, "predicted_needs": value_from_f64_map(&pred)})
+    json!({
+        "lookahead_minutes": lookahead_minutes,
+        "predicted_needs": value_from_f64_map(&predicted)
+    })
 }
 
 pub fn validate_allocations(allocations: &Value, constraints: &[Value]) -> Value {
     let mut violations = Vec::new();
-    for c in constraints {
-        if c.get("type").and_then(Value::as_str) == Some("total_limit") {
-            let limit = f64_map_from_value(c.get("limit").unwrap_or(&Value::Null));
+    for constraint in constraints {
+        if constraint.get("type").and_then(Value::as_str) == Some("total_limit") {
+            let limit = f64_map_from_value(constraint.get("limit").unwrap_or(&Value::Null));
             let mut sum = BTreeMap::new();
-            for alloc in allocations.as_object().into_iter().flat_map(|m| m.values()) {
-                for (k, v) in f64_map_from_value(alloc) {
-                    *sum.entry(k).or_insert(0.0) += v;
+            for allocation in allocations.as_object().into_iter().flat_map(|m| m.values()) {
+                for (key, value) in f64_map_from_value(allocation) {
+                    *sum.entry(key).or_insert(0.0) += value;
                 }
             }
-            for (k, v) in sum {
-                if v > limit.get(&k).cloned().unwrap_or(f64::INFINITY) {
-                    violations.push(json!({"resource":k,"actual":v,"limit":limit.get(&k)}));
+            for (key, value) in sum {
+                if value > limit.get(&key).cloned().unwrap_or(f64::INFINITY) {
+                    violations.push(json!({
+                        "resource": key,
+                        "actual": value,
+                        "limit": limit.get(&key)
+                    }));
                 }
             }
         }
@@ -140,33 +157,41 @@ pub fn validate_allocations(allocations: &Value, constraints: &[Value]) -> Value
 fn determine_strategy(policies: &[Value]) -> String {
     policies
         .iter()
-        .find_map(|p| p.get("strategy").and_then(Value::as_str))
+        .find_map(|policy| policy.get("strategy").and_then(Value::as_str))
         .unwrap_or("adaptive")
         .to_string()
 }
-fn score_request(req: &Value, perf: &Value) -> f64 {
-    req.get("priority").and_then(Value::as_f64).unwrap_or(1.0)
+
+fn score_request(request: &Value, performance: &Value) -> f64 {
+    request
+        .get("priority")
+        .and_then(Value::as_f64)
+        .unwrap_or(1.0)
         * performance_multiplier(
-            req.get("unit_id").and_then(Value::as_str).unwrap_or(""),
-            perf,
+            request.get("unit_id").and_then(Value::as_str).unwrap_or(""),
+            performance,
         )
 }
-fn performance_multiplier(unit: &str, perf: &Value) -> f64 {
-    perf.get(unit)
-        .and_then(|v| v.get("score"))
+
+fn performance_multiplier(unit: &str, performance: &Value) -> f64 {
+    performance
+        .get(unit)
+        .and_then(|value| value.get("score"))
         .and_then(Value::as_f64)
         .unwrap_or(1.0)
         .max(0.1)
 }
+
 fn apply_constraints(allocations: Value, _policies: &[Value]) -> Value {
     allocations
 }
+
 fn calculate_efficiency_scores(allocations: &Value) -> Value {
-    let vals: Vec<f64> = allocations
+    let values: Vec<f64> = allocations
         .as_object()
         .into_iter()
-        .flat_map(|m| m.values())
-        .map(|v| f64_map_from_value(v).values().sum())
+        .flat_map(|map| map.values())
+        .map(|value| f64_map_from_value(value).values().sum())
         .collect();
-    json!({"mean":mean(&vals),"unit_count":vals.len()})
+    json!({"mean": mean(&values), "unit_count": values.len()})
 }

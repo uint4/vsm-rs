@@ -122,7 +122,7 @@ Use interfaces in this order:
 1. **Typed subsystem facade**, such as `system1::process_transaction`.
 2. **Typed dedicated service API**, such as `channels::temporal_variety::get_patterns`.
 3. **Channel facade**, when the interaction is an asynchronous VSM event.
-4. **`actor_support::call_service`**, when using a Systems 3–5 JSON service operation that has no typed wrapper.
+4. **`actor_support::call_service`**, when using a Systems 4–5 JSON service operation that has no typed wrapper.
 5. **Direct pure function**, when no actor state or supervision is needed.
 
 The typed facade gives the strongest compile-time guarantees. Generic service calls are intentionally flexible but operation and payload mistakes become runtime behavior.
@@ -141,9 +141,13 @@ The crate also exposes early trait-driven foundations for the approved migration
   `WorkModel`, `UnitSelectionPolicy`, `PerformanceModel`, `VarietyModel`,
   `AlgedonicPolicy`, and `System1Roles`.
 - `roles::system2` contracts for `CoordinationPolicy` and `System2Roles`.
+- `roles::system3` contracts for `ResourceGovernance`,
+  `OperationalControlPolicy`, `Auditor`, and `System3Roles`.
 - `roles::system1::defaults` for opt-in lowest-load selection and no-op
   performance, variety, and algedonic policies.
 - `roles::system2::defaults` for the no-op coordination policy.
+- `roles::system3::defaults` for deny-all resource governance, no-op
+  operational control, and no-op audit.
 - `roles::system1::testing` for downstream-style test fakes.
 - `roles::ports` for `StateStore`, `EventSink`, `ReportSink`, `TelemetrySink`,
   `AlertSink`, `Clock`, and `IdGenerator`.
@@ -155,10 +159,11 @@ The crate also exposes early trait-driven foundations for the approved migration
   subscriptions, and shutdown acknowledgement.
 
 These types are public so downstream-style code can compile against the future
-boundary. `VsmBuilder` now starts actor-backed typed System 1 and System 2 paths
-for unit registration, work processing, coordination, and observer-event
-delivery; the current global actor/JSON-backed runtime continues to serve the
-legacy transaction facade and Systems 3–5 service APIs.
+boundary. `VsmBuilder` now starts actor-backed typed System 1, System 2, and
+System 3 paths for unit registration, work processing, coordination,
+governance/audit, and observer-event delivery; the current global
+actor/JSON-backed runtime continues to serve the legacy transaction facade and
+Systems 4–5 service APIs.
 
 Application role implementations should import `vsm_rs::async_trait` when
 implementing async role methods. They should not need to import `ractor`,
@@ -774,7 +779,7 @@ Supervise long-lived subscribers rather than spawning detached actors. Re-subscr
 
 ## 10. JSON service calls
 
-Systems 3–5 use the shared service actor facade:
+Systems 4–5 use the shared service actor facade:
 
 ```rust
 use serde_json::json;
@@ -782,8 +787,8 @@ use vsm_rs::actor_support::{call_service, cast_service};
 use vsm_rs::names;
 
 let value = call_service(
-    names::SYSTEM3_CONTROL,
-    "allocate_resources",
+    names::SYSTEM4_INTELLIGENCE,
+    "intelligence_report",
     json!({ /* payload */ }),
 )
 .await?;
@@ -839,62 +844,42 @@ resource allocation.
 
 ## 12. System 3 usage
 
-### 12.1 Allocate resources
+System 3 is part of the typed runtime handle. It invokes application
+`ResourceGovernance`, `OperationalControlPolicy`, and `Auditor` roles over
+framework-owned typed records. The global JSON `system3::control` service is no
+longer started.
 
 ```rust
-use serde_json::json;
-use vsm_rs::system3::control;
+# async fn run<V: vsm_rs::ViableSystem>(
+#     runtime: vsm_rs::VsmRuntime<V>,
+#     shortage: vsm_rs::protocol::system1::ResourceShortageRequest<V>,
+# ) -> Result<(), vsm_rs::FrameworkError> {
+let cycle = runtime.system3().handle_resource_shortage(shortage).await?;
+let snapshot = runtime.system3().snapshot().await?;
 
-let result = control::allocate_resources(
-    vec![
-        json!({
-            "unit_id": "unit-a",
-            "resources": { "capacity": 25.0 },
-            "priority": 1.0
-        }),
-        json!({
-            "unit_id": "unit-b",
-            "resources": { "capacity": 20.0 },
-            "priority": 0.5
-        }),
-    ],
-    json!({ "capacity": 100.0 }),
-    json!({
-        "unit-a": { "score": 1.2 },
-        "unit-b": { "score": 0.8 }
-    }),
-    vec![json!({ "strategy": "performance" })],
-)
-.await?;
+println!("allocations: {}", cycle.allocations.len());
+println!("directives tracked: {}", snapshot.directives.len());
+# Ok(())
+# }
 ```
 
-Recognized strategy names are `performance`, `fair_share`, `priority`, and the default `adaptive` behavior.
-
-### 12.2 Perform an audit
+System 3* audit collects evidence through a separate System 1 audit path rather
+than by reading ordinary report history:
 
 ```rust
-let report = control::perform_audit(
-    vec!["unit-a".into(), "unit-b".into()],
-    "focused",
-    json!({
-        "units": {
-            "unit-a": { "load": 0.95, "errors": 2 },
-            "unit-b": { "load": 0.30, "errors": 0 }
-        }
-    }),
-)
-.await?;
+# async fn run<V: vsm_rs::ViableSystem>(
+#     runtime: vsm_rs::VsmRuntime<V>,
+#     request: vsm_rs::protocol::system3::System3AuditRequest<V>,
+# ) -> Result<(), vsm_rs::FrameworkError> {
+let response = runtime.system3().audit_system1(request).await?;
+println!("findings: {}", response.findings.len());
+# Ok(())
+# }
 ```
 
-### 12.3 System 3 operation reference
-
-| Operation | Payload | Result |
-|---|---|---|
-| `allocate_resources`, `allocate` | `{requests, available, performance_data, policies}` | Strategy, allocations, remaining resources |
-| `audit` | `{unit_ids, audit_type, system_state}` | Unit audit results and report |
-| `state`, `get_state` | `{}` | Service data and history length |
-
-System 3's ResourceBargain subscription currently records incoming unit requests. Call `allocate_resources` explicitly to perform allocation.
+The old JSON resource and audit helpers are retained under
+`system3::defaults::{resources, audit}` as explicit example algorithms. They
+are not part of the typed System 3 core path.
 
 ## 13. System 4 usage
 
@@ -1414,7 +1399,7 @@ Inspect `root_supervisor` rather than relying only on the top-level `status` str
 let status = vsm_rs::status().await?;
 ```
 
-`status()` combines health with best-effort state from Systems 3–5. Failed subsystem calls are omitted from the subsystem object rather than failing the whole operation.
+`status()` combines health with best-effort state from Systems 4–5. Failed subsystem calls are omitted from the subsystem object rather than failing the whole operation.
 
 ### 19.3 Tracing
 
@@ -1493,7 +1478,7 @@ acknowledgement before treating channels as a durable event bus.
 
 ## 22. Testing
 
-The included tests demonstrate startup, unit registration, transaction processing, typed System 2 coordination, System 3 state, System 4 analysis, System 5 decisions, and health.
+The included tests demonstrate startup, unit registration, transaction processing, typed System 2 coordination, typed System 3 governance/audit, System 4 analysis, System 5 decisions, and health.
 
 Run:
 
@@ -1530,7 +1515,8 @@ Typed application service layer
         |
         +-- System 1 typed facade
         +-- typed System 2 coordination
-        +-- typed wrappers around Systems 3–5 operations
+        +-- typed System 3 governance and audit
+        +-- typed wrappers around Systems 4–5 operations
         +-- validated VsmMessage publishing
         +-- domain-specific channel subscribers
         |
@@ -1542,7 +1528,7 @@ Recommended next steps before production use:
 
 1. Add a readiness actor or barrier.
 2. Wrap every string-based service operation in typed request/response structs.
-3. Convert channel events into domain actions for Systems 3–5.
+3. Convert channel events into domain actions for Systems 4–5.
 4. Add durable state or event sourcing for policies, decisions, units, and metrics.
 5. Reconcile subscriptions after broker restart.
 6. Reconcile System 1 unit state after Operations or unit-supervisor restart.
@@ -1562,7 +1548,7 @@ Recommended next steps before production use:
 | Missing targeted subscriber | `TargetUnavailable` outcome and dead-letter history |
 | Duplicate subscriber ID | Replaces previous subscription |
 | System 2 coordination | Typed runtime policy over System 1 coordination views |
-| Systems 3–5 channel reactions | Record history only |
+| Systems 4–5 channel reactions | Record history only |
 | System 1 channel reactions | Execute command, coordinate, audit |
 | Advanced algedonic routing | Records route; does not deliver it |
 | Temporal scheduled analysis | Not scheduled; queries calculate on demand |
