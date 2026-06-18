@@ -1,3 +1,11 @@
+//! System 1 operational execution.
+//!
+//! System 1 is the main typed subsystem in the current port. `Operations` owns
+//! the unit directory, metrics, and operational-variety history; supervised
+//! `Unit` actors own local unit state and process demo transactions. The public
+//! facade in this module is the preferred API for registration, transaction
+//! routing, metrics, variety, and algedonic escalation from operations.
+
 pub mod metrics;
 pub mod operations;
 pub mod supervisor;

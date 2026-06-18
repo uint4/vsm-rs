@@ -1,3 +1,9 @@
+//! Pattern detection helpers for temporal-variety timescales.
+//!
+//! The module derives simple cycle, trend, seasonality, and anomaly summaries
+//! from numeric values in each timescale buffer. The calculations are
+//! lightweight heuristics intended to describe current in-memory state.
+
 use serde_json::{json, Value};
 
 use super::timescales::Timescales;

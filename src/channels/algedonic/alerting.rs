@@ -1,3 +1,9 @@
+//! Process-local alert history for the algedonic processor.
+//!
+//! Alert records combine a typed signal, the calculated route, and an alert
+//! level. History is stored in a process-global mutex, so it survives actor
+//! restart but is lost on process exit and is not a durable event log.
+
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};

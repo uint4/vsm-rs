@@ -1,3 +1,9 @@
+//! Broker facade for command-channel messages.
+//!
+//! Command messages model direction from policy, intelligence, or control
+//! toward lower-level operations. In the current runtime System 1 handles
+//! `Execute` commands by forwarding the payload to all registered units.
+
 use ractor::DerivedActorRef;
 use crate::channels::broker::VsmActorMsg;
 use crate::error::VsmResult;

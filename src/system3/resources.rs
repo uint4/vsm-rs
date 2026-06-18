@@ -1,3 +1,10 @@
+//! Resource allocation helpers for System 3.
+//!
+//! These pure functions prioritize JSON resource requests, allocate from an
+//! available pool, calculate remaining capacity, optimize distributions, and
+//! validate constraints. Strategies are lightweight heuristics for the current
+//! port, not production optimization algorithms.
+
 use std::collections::BTreeMap;
 
 use serde_json::{json, Value};

@@ -1,3 +1,9 @@
+//! System 3 control service operations and typed wrappers.
+//!
+//! The control service accepts JSON operations for resource allocation, audit,
+//! and state inspection. It delegates calculations to pure modules and stores
+//! service data/history in memory through `ServiceActor`.
+
 use serde_json::{json, Value};
 
 use crate::actor_support::ServiceState;

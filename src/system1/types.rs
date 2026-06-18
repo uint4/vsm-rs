@@ -1,3 +1,9 @@
+//! Shared System 1 configuration, snapshot, and coordination types.
+//!
+//! These types describe unit registration, operational-variety measurements,
+//! metrics snapshots, unit summaries, and the tagged coordination requests that
+//! System 1 accepts over the coordination channel.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

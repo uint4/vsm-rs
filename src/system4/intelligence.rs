@@ -1,3 +1,10 @@
+//! Aggregate intelligence service for System 4.
+//!
+//! The Intelligence actor exposes environmental scan, analysis, forecast, and
+//! report operations. Report generation calls the scanner and analytics module
+//! functions directly rather than sending RPCs to the separately supervised
+//! Scanner and Analytics actors.
+
 use serde_json::{json, Value};
 
 use crate::actor_support::ServiceState;

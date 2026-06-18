@@ -1,3 +1,10 @@
+//! Analytics helpers and service operations for System 4.
+//!
+//! Analytics supports summary, trend, correlation, anomaly, and insight-style
+//! analysis over JSON/numeric data. The functions are lightweight heuristics;
+//! `analyze_data` calls the Analytics actor, while `analyze_trends` is a direct
+//! helper that does not use actor state.
+
 use serde_json::{json, Value};
 
 use crate::prelude::now_json;

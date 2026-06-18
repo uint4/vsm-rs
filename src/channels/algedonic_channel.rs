@@ -1,3 +1,10 @@
+//! Broker facade for VSM algedonic messages.
+//!
+//! This module publishes `VsmMessage` values on the broker's algedonic channel,
+//! targeting System 5 by default. It is distinct from `channels::algedonic`,
+//! which is a separate typed signal processor that records descriptive routes
+//! but does not deliver those routes through the broker.
+
 use ractor::DerivedActorRef;
 use crate::channels::broker::VsmActorMsg;
 use crate::error::VsmResult;

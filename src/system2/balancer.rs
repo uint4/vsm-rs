@@ -1,3 +1,10 @@
+//! Resource balancing helpers for System 2.
+//!
+//! The balancer ranks JSON resource requests, derives or reuses total capacity,
+//! allocates resources by priority, and reports simple efficiency and imbalance
+//! summaries. It is a pure helper module and does not mutate actor state by
+//! itself.
+
 use std::collections::BTreeMap;
 
 use serde_json::{json, Value};

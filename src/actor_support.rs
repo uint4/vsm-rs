@@ -1,3 +1,12 @@
+//! Shared JSON service actor used by the less-typed service boundaries.
+//!
+//! Systems 2-5 and telemetry currently use `ServiceActor` to expose string
+//! operation names with `serde_json::Value` payloads. The shell owns in-memory
+//! service state, records calls/casts/channel events in bounded history, and
+//! delegates domain work to each module's `actor_call` function. Unknown
+//! operations return an `unknown_operation` JSON value instead of a
+//! `VsmError`, so callers using this layer must inspect responses.
+
 use ractor::{call_t, Actor, ActorCell, ActorProcessingErr, ActorRef, RpcReplyPort, SpawnErr};
 use ractor::concurrency::Duration;
 use ractor_supervisor::{ChildSpec, Restart, SpawnFn, Supervisor};

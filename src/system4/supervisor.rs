@@ -1,3 +1,10 @@
+//! Supervisor specification for System 4.
+//!
+//! The supervisor starts Intelligence, Scanner, Analytics, and Forecasting as
+//! independent permanent `ServiceActor` children. Each actor owns separate
+//! in-memory data and history even when the Intelligence actor calls shared
+//! module functions directly.
+
 use ractor::concurrency::Duration;
 use ractor_supervisor::{SupervisorArguments, SupervisorOptions, SupervisorStrategy};
 use serde_json::json;

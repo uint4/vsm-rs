@@ -1,3 +1,10 @@
+//! Supervised telemetry reporter facade.
+//!
+//! The current telemetry reporter is a `ServiceActor` child that answers a
+//! health-style service call and exposes a nominal reporting interval. It does
+//! not yet export metrics, schedule periodic reports, or expose restart/queue
+//! telemetry; those are documented as future hardening work.
+
 use ractor::concurrency::Duration;
 use ractor_supervisor::ChildSpec;
 use serde_json::json;

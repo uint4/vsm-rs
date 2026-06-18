@@ -1,3 +1,10 @@
+//! Identity state and alignment helpers for System 5.
+//!
+//! Identity is represented as JSON and updated with deep-merge semantics.
+//! Alignment and relevant-aspect checks use keyword extraction heuristics rather
+//! than semantic models. When called through the standalone Identity actor,
+//! changes do not update the Policy actor's identity.
+
 use serde_json::{json, Value};
 
 use crate::actor_support::ServiceState;

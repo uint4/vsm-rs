@@ -1,3 +1,9 @@
+//! Lightweight correlation helpers for algedonic signals.
+//!
+//! These pure functions summarize signal clusters, compare priorities, and
+//! detect priority outliers for metrics output. The calculations are heuristic
+//! starter implementations rather than statistical guarantees.
+
 use serde_json::{json, Value};
 
 use super::signals::AlgedonicSignal;

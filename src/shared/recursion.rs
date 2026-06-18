@@ -1,3 +1,10 @@
+//! Pure value model for recursive viable-system structures.
+//!
+//! A `RecursionStructure` stores nested VSM levels, the current focus, and JSON
+//! context/config per level. Functions generally consume and return the whole
+//! structure, making navigation, context updates, pruning, merging, and metrics
+//! easy to test without actors.
+
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};

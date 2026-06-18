@@ -1,3 +1,9 @@
+//! Supervisor specification for System 5.
+//!
+//! The supervisor starts Policy, Identity, Values, and Decisions as independent
+//! permanent `ServiceActor` children. Restarting any child loses that child's
+//! in-memory JSON state and bounded history.
+
 use ractor::concurrency::Duration;
 use ractor_supervisor::{SupervisorArguments, SupervisorOptions, SupervisorStrategy};
 use serde_json::json;

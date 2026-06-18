@@ -1,3 +1,10 @@
+//! Supervisor specification for channel infrastructure.
+//!
+//! The channel supervisor starts the broker plus the dedicated algedonic and
+//! temporal-variety actors under a one-for-one strategy. Broker restart loses
+//! subscriptions and retained channel history; subscribers do not currently
+//! re-register automatically.
+
 use ractor::{ActorCell, SpawnErr};
 use ractor::concurrency::Duration;
 use ractor_supervisor::{ChildSpec, Restart, SpawnFn, Supervisor, SupervisorArguments, SupervisorOptions, SupervisorStrategy};

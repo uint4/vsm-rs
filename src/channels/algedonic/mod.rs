@@ -1,3 +1,11 @@
+//! Dedicated algedonic signal processor.
+//!
+//! This actor accepts typed pain and pleasure signals, applies configurable
+//! filters, calculates descriptive routes, records alert history, and exposes
+//! active-signal and metrics queries. It does not publish calculated routes to
+//! the broker or invoke System 3/System 5 actors; callers that need actor
+//! delivery should also publish a `VsmMessage`.
+
 pub mod alerting;
 pub mod correlation;
 pub mod filtering;

@@ -1,3 +1,9 @@
+//! Aggregation helpers for temporal-variety state.
+//!
+//! The functions produce simple JSON summaries over actor state, timescale
+//! names, buffers, and time ranges. They intentionally avoid persistence or
+//! durable rollups.
+
 use serde_json::{json, Value};
 
 use super::timescales::Timescales;

@@ -1,3 +1,11 @@
+//! Transaction input and result types for System 1.
+//!
+//! Transactions are serializable JSON-backed work requests with a string kind
+//! and required capabilities. The demo validation currently rejects only an
+//! empty kind. Domain failures such as invalid transactions, missing units, and
+//! unit errors are returned as `TransactionResult` values rather than transport
+//! errors.
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;

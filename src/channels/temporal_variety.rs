@@ -1,3 +1,11 @@
+//! Dedicated temporal-variety actor and facade.
+//!
+//! The actor records JSON measurements into in-memory raw and per-timescale
+//! buffers, then computes variety, patterns, forecasts, causality, summaries,
+//! and visualization data on demand. Internal maintenance messages exist, but
+//! no timer currently schedules them, and the broker's `TemporalVariety`
+//! channel is separate from this typed actor.
+
 use chrono::Utc;
 use ractor::{call_t, Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 use serde_json::{json, Value};

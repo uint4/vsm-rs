@@ -1,3 +1,9 @@
+//! Forecasting helpers and service operations for System 4.
+//!
+//! Forecasts are generated from JSON history with simple linear, mean, or naive
+//! models. Scenario generation and validation operate on JSON forecast shapes.
+//! The service's model list is held in the actor's in-memory JSON state.
+
 use serde_json::{json, Value};
 
 use crate::util::{as_f64, mean};

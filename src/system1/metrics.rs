@@ -1,3 +1,10 @@
+//! In-memory metrics for System 1 transaction outcomes.
+//!
+//! `MetricsStore` is owned by the Operations actor and summarizes transaction
+//! totals, successes, failures, invalid inputs, and no-suitable-unit outcomes.
+//! Metrics reset when the Operations actor restarts because there is no durable
+//! metrics store in the current crate.
+
 use crate::system1::transaction::TransactionResult;
 use crate::system1::types::MetricsSnapshot;
 

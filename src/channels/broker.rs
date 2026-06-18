@@ -1,3 +1,11 @@
+//! In-memory channel broker actor.
+//!
+//! `ChannelBroker` owns subscriber maps and newest-first message history for
+//! every `ChannelKind`. Targeted publish validates VSM flow rules, routes to
+//! the destination subscriber ID, falls back to broadcast when no target is
+//! present, and retains the message. Explicit broadcast sends to every current
+//! subscriber and currently bypasses the targeted publish validation path.
+
 use std::collections::HashMap;
 
 use ractor::{Actor, ActorProcessingErr, ActorRef, DerivedActorRef, RpcReplyPort};

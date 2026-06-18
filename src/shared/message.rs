@@ -1,3 +1,10 @@
+//! Convenience constructors and serialization helpers for VSM messages.
+//!
+//! The helpers wrap `VsmMessage` construction, validation, reply generation,
+//! JSON serialization, and broker publication. `send` publishes asynchronously
+//! through the broker and returns the message that was enqueued, not proof that
+//! a subscriber processed it.
+
 use serde_json::Value;
 
 use crate::channels;

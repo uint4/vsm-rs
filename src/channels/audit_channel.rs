@@ -1,3 +1,10 @@
+//! Broker facade for audit-channel messages.
+//!
+//! Audit traffic connects System 1 with System 3 or System 3*. System 1 handles
+//! audit requests by publishing a response containing unit IDs, metrics,
+//! operational variety, timestamp, and its startup config. Delivery still uses
+//! the broker's best-effort semantics.
+
 use ractor::DerivedActorRef;
 use crate::channels::broker::VsmActorMsg;
 use crate::error::VsmResult;

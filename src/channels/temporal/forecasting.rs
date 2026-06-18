@@ -1,3 +1,9 @@
+//! Forecast helpers for temporal-variety timescales.
+//!
+//! Forecasts are computed from numeric values already present in timescale
+//! buffers using mean and simple trend extrapolation. They are evaluated on
+//! demand by the actor facade rather than maintained by a scheduled task.
+
 use serde_json::{json, Value};
 
 use super::patterns;

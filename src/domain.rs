@@ -1,3 +1,12 @@
+//! Core VSM message, channel, and subsystem vocabulary.
+//!
+//! `VsmMessage` is the brokered inter-system envelope used by channel facades
+//! and actors. The domain model preserves the Elixir-compatible serialized
+//! `type` field for message kind and enforces the current internal flow matrix
+//! for command, coordination, audit, resource-bargain, algedonic, and temporal
+//! variety messages. External messages and broadcasts are intentionally more
+//! permissive.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

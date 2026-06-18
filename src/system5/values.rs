@@ -1,3 +1,10 @@
+//! Values state and alignment helpers for System 5.
+//!
+//! Values are JSON definitions with priorities and indicator words. Evaluation
+//! checks indicator overlap against extracted subject keywords and returns a
+//! weighted alignment score. Standalone Values actor calls do not update Policy
+//! actor state.
+
 use serde_json::{json, Value};
 
 use crate::actor_support::ServiceState;

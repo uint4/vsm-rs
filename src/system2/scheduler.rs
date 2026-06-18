@@ -1,3 +1,10 @@
+//! Schedule coordination helpers for System 2.
+//!
+//! The scheduler combines existing and new JSON schedule entries, detects
+//! temporal/resource/dependency conflicts, and produces a simple sequential
+//! optimized schedule. The optimizer is intentionally lightweight and starts
+//! its output schedule at the current time.
+
 use chrono::{DateTime, Duration, Utc};
 use serde_json::{json, Value};
 

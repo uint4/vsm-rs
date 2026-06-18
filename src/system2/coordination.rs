@@ -1,3 +1,10 @@
+//! System 2 service operations and typed convenience wrappers.
+//!
+//! The coordination service delegates to pure scheduler and balancer helpers
+//! for `coordinate`, `balance`, and conflict-detection operations. Calls are
+//! JSON payload based through `ServiceActor`; unknown operation names return an
+//! `unknown_operation` JSON response.
+
 use serde_json::{json, Value};
 
 use crate::actor_support::ServiceState;

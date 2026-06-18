@@ -1,3 +1,10 @@
+//! Error and result types shared by the public API.
+//!
+//! `VsmError` maps actor lookup failures, channel failures, validation errors,
+//! serialization errors, and supervisor/runtime failures into one serializable
+//! enum. Some domain outcomes are not errors; for example System 1 transaction
+//! failures such as `NoSuitableUnit` are represented by `TransactionResult`.
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

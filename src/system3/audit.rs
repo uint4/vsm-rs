@@ -1,3 +1,10 @@
+//! Audit calculations for System 3.
+//!
+//! The module audits JSON-described units, schedules audit frequency from risk
+//! scores, summarizes audit patterns, and generates simple reports. It is a
+//! pure helper used by the System 3 control service and does not query System 1
+//! actors directly.
+
 use serde_json::{json, Value};
 
 use crate::prelude::now_json;

@@ -1,3 +1,10 @@
+//! Broker facade for coordination-channel messages.
+//!
+//! Coordination traffic is valid between System 1 and System 2. System 1
+//! currently handles typed coordination payloads for state synchronization and
+//! load balancing; System 2 records incoming channel messages in service
+//! history unless called through its explicit service API.
+
 use ractor::DerivedActorRef;
 use crate::channels::broker::VsmActorMsg;
 use crate::error::VsmResult;

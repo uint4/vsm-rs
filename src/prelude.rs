@@ -1,4 +1,8 @@
-//! Small helpers shared by the generated Rust port.
+//! Small JSON and time helpers shared across modules.
+//!
+//! These functions keep common timestamp generation, keyword extraction, and
+//! permissive JSON field access in one place. They are intentionally lightweight
+//! utilities, not a public prelude that applications are expected to glob-import.
 
 use std::collections::BTreeSet;
 

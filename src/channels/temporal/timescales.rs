@@ -1,3 +1,9 @@
+//! Timescale buffers for temporal-variety measurements.
+//!
+//! `Timescales` stores bounded newest-first windows for configured scale names.
+//! The default runtime uses `instant`, `minute`, `hour`, and `day`; custom
+//! names are supported only when the actor is started with custom config.
+
 use std::collections::{BTreeMap, VecDeque};
 
 use chrono::{DateTime, Utc};

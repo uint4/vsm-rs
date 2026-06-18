@@ -1,3 +1,10 @@
+//! High-level lifecycle, health, and smoke-test facade.
+//!
+//! This module wraps `app` startup/shutdown and aggregates runtime inspection
+//! from channels, telemetry, and Systems 2-5. Health and status calls are
+//! best-effort snapshots over in-memory actor state; they are not readiness
+//! barriers and may omit subsystem state when a service call fails.
+
 use ractor::ActorRef;
 use ractor_supervisor::SupervisorMsg;
 use serde_json::{json, Value};

@@ -1,3 +1,9 @@
+//! Decision scoring and history helpers for System 5.
+//!
+//! Decisions are made from JSON options and criteria by multiplying named
+//! option fields by criterion weights and choosing the highest score. The
+//! selected decision is stored in the owning actor's in-memory `ServiceState`.
+
 use serde_json::{json, Value};
 use uuid::Uuid;
 

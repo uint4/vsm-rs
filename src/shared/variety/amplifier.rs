@@ -1,3 +1,9 @@
+//! Amplification helpers for variety engineering.
+//!
+//! These functions return JSON descriptions of delegation, empowerment,
+//! multiplication, distribution, or parallelization strategies. They describe
+//! possible interventions but do not allocate resources or execute work.
+
 use serde_json::{json, Value};
 
 pub fn suggest_methods(variety_ratio: f64) -> Vec<&'static str> {

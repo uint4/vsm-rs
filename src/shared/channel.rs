@@ -1,3 +1,9 @@
+//! Compatibility facade over the channel broker API.
+//!
+//! This module forwards subscription, publish, stats, and channel-list calls to
+//! `channels` while preserving a smaller shared API surface. It does not add
+//! delivery guarantees beyond the broker's asynchronous best-effort behavior.
+
 use ractor::DerivedActorRef;
 
 use crate::channels;

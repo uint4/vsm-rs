@@ -1,3 +1,10 @@
+//! Stable global actor names for the default runtime.
+//!
+//! The crate uses ractor's global registry instead of a separate process
+//! registry. These names are therefore part of the runtime compatibility
+//! surface: changing them can break actor lookup, channel subscription targets,
+//! examples, and tests. Dynamic System 1 units are named with `system1_unit`.
+
 pub const ROOT_SUPERVISOR: &str = "vsm.root_supervisor";
 pub const DYNAMIC_SUPERVISOR: &str = "vsm.dynamic_supervisor";
 pub const TELEMETRY_REPORTER: &str = "vsm.telemetry_reporter";

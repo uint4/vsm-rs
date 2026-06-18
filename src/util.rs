@@ -1,3 +1,11 @@
+//! Numeric and JSON helpers used by pure algorithms.
+//!
+//! The helper functions convert permissive JSON inputs into numeric values,
+//! summarize small numeric slices, and deep-merge JSON objects for policy and
+//! identity state updates. They favor predictable fallback values over strict
+//! schema enforcement because callers validate schemas at higher-level API
+//! boundaries.
+
 use std::collections::BTreeMap;
 
 use serde_json::{Map, Value};

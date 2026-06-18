@@ -1,3 +1,11 @@
+//! Demo operational unit actor.
+//!
+//! A unit owns its config, status, current load, processed count, and arbitrary
+//! local JSON state. The built-in implementation validates capability coverage,
+//! returns a JSON success envelope for processed transactions, and responds to a
+//! simple `status` command. Real applications should replace or extend this
+//! actor with domain-specific work.
+
 use ractor::{Actor, ActorProcessingErr, ActorRef, RpcReplyPort};
 use serde_json::{json, Value};
 

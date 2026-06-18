@@ -1,3 +1,9 @@
+//! Attenuation helpers for variety engineering.
+//!
+//! The module filters, aggregates, or summarizes JSON items to reduce variety.
+//! Strategies are intentionally simple and deterministic so they can serve as
+//! starter implementations and examples.
+
 use serde_json::{json, Value};
 use crate::util::{as_f64, mean};
 

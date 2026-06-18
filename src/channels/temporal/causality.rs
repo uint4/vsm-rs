@@ -1,3 +1,9 @@
+//! Lightweight causality and correlation helpers for temporal data.
+//!
+//! These routines expose placeholder-style causal graph, correlation, Granger,
+//! and transfer-entropy outputs over JSON/numeric buffers. They are useful for
+//! shape-compatible demos and tests, not production causal inference.
+
 use serde_json::{json, Value};
 
 use super::timescales::Timescales;

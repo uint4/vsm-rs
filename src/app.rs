@@ -1,3 +1,11 @@
+//! Application startup and root supervision tree construction.
+//!
+//! This module creates the default globally named VSM runtime. The root
+//! supervisor starts channel infrastructure before Systems 1-5 so actors can
+//! subscribe during startup, and it uses one-for-one restart policies throughout
+//! the static tree. Starting the default application twice in the same process
+//! collides with names from `names`.
+
 use ractor::{ActorCell, ActorRef, SpawnErr};
 use ractor::concurrency::{Duration, JoinHandle};
 use ractor_supervisor::{

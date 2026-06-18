@@ -1,3 +1,12 @@
+//! Brokered channels for inter- and intra-subsystem communication.
+//!
+//! The channel layer stores in-memory subscriptions and message history, routes
+//! `VsmMessage` values by `ChannelKind` and subscriber ID, and provides thin
+//! channel-specific facades. Delivery is asynchronous, best effort, and not
+//! acknowledged by receivers. Systems 2-5 currently record channel events in
+//! service history, while System 1 handles selected command, coordination, and
+//! audit messages.
+
 pub mod algedonic;
 pub mod algedonic_channel;
 pub mod audit_channel;

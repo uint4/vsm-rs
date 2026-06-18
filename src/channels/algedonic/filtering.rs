@@ -1,3 +1,9 @@
+//! Filter definitions and evaluation for algedonic signals.
+//!
+//! Filters are JSON-configured predicates over priority, severity, source,
+//! signal kind, or a placeholder predicate kind. The actor applies all enabled
+//! filters before recording a signal or alert route.
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 

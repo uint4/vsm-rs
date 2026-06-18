@@ -1,3 +1,9 @@
+//! Variety measurement helpers.
+//!
+//! The calculator extracts numeric values from JSON, computes count, entropy,
+//! variance/range-style measures, and compares input/output variety. Its
+//! recommendation field drives the higher-level variety engineering facade.
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 

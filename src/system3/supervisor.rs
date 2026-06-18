@@ -1,3 +1,9 @@
+//! Supervisor specification for System 3.
+//!
+//! The supervisor starts one permanent control `ServiceActor` under a
+//! one-for-one strategy. Restarting the actor restores the service shell but
+//! loses in-memory state and event history.
+
 use ractor::concurrency::Duration;
 use ractor_supervisor::{SupervisorArguments, SupervisorOptions, SupervisorStrategy};
 use serde_json::json;

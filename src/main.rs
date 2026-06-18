@@ -1,3 +1,11 @@
+//! Demonstration binary for starting the default VSM actor tree.
+//!
+//! The binary mirrors the quick-start flow from `docs/USAGE.md`: start the
+//! globally named supervision tree, register a demo System 1 unit, process one
+//! transaction, print status, and stop the root supervisor. It is not a
+//! production entry point and intentionally uses a short startup delay because
+//! the library does not yet expose a formal readiness barrier.
+
 use serde_json::json;
 use tokio::time::{sleep, Duration};
 use tracing_subscriber::EnvFilter;

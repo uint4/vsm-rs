@@ -1,3 +1,9 @@
+//! Descriptive routing rules for algedonic signals.
+//!
+//! Routing selects a destination string and path description from signal
+//! priority and emergency status. The result is recorded with alerts but is not
+//! itself actor delivery; broker publication is a separate step.
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 

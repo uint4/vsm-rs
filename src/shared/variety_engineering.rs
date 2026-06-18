@@ -1,3 +1,10 @@
+//! High-level variety engineering recommendations.
+//!
+//! This module compares input and output variety, then selects simple
+//! attenuation or amplification methods from the lower-level variety helpers.
+//! The recommendations are heuristic starter outputs and should be validated
+//! against a real operational domain before control use.
+
 use serde_json::{json, Value};
 
 use super::variety::{amplifier, attenuator, calculator};

@@ -1,3 +1,10 @@
+//! Typed algedonic signal model and helpers.
+//!
+//! Signals capture pain, pleasure, anomaly, opportunity, and emergency events
+//! with source, severity, urgency, priority, timestamp, and arbitrary JSON
+//! context. Priority is a lightweight score derived from severity, urgency, and
+//! signal kind for filtering and routing decisions.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};

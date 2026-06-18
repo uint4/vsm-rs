@@ -1,3 +1,11 @@
+//! Aggregate policy service operations for System 5.
+//!
+//! The Policy actor is the recommended boundary for coherent organizational
+//! state: it stores policy, identity, values, and decisions in its own
+//! `ServiceState` and delegates calculations to sibling modules using that
+//! state. Algedonic channel messages are recorded by the service shell; crisis
+//! handling runs only when `handle_crisis` is called explicitly.
+
 use serde_json::{json, Value};
 
 use crate::actor_support::ServiceState;

@@ -1,3 +1,12 @@
+//! System 1 Operations actor and typed facade.
+//!
+//! Operations registers supervised units, selects the lowest-load capable unit
+//! for each transaction, records metrics and operational variety, and publishes
+//! coordination/resource-bargain/algedonic messages as needed. It actively
+//! handles command execution, coordination requests, and audit requests from
+//! brokered channels. Unit directory and metrics state are in memory and are
+//! lost if this actor restarts.
+
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};

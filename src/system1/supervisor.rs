@@ -1,3 +1,10 @@
+//! Supervisor specification for System 1.
+//!
+//! System 1 starts a dynamic unit supervisor before the Operations actor so
+//! Operations can resolve it during startup. Registered units are spawned under
+//! that dynamic supervisor with either permanent or temporary restart behavior
+//! based on `UnitConfig::auto_restart`.
+
 use ractor::{ActorCell, SpawnErr};
 use ractor::concurrency::Duration;
 use ractor_supervisor::{

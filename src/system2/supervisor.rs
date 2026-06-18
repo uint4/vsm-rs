@@ -1,3 +1,9 @@
+//! Supervisor specification for System 2.
+//!
+//! The supervisor starts one permanent coordination `ServiceActor` under a
+//! one-for-one strategy. The service owns only in-memory JSON data and bounded
+//! call/channel history.
+
 use ractor::concurrency::Duration;
 use ractor_supervisor::{SupervisorArguments, SupervisorOptions, SupervisorStrategy};
 use serde_json::json;

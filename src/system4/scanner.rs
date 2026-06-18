@@ -1,3 +1,10 @@
+//! Environmental scanning helpers and service operations for System 4.
+//!
+//! The scanner extracts signals from JSON sources, classifies opportunities,
+//! threats, and weak signals, detects field-level changes, and summarizes value
+//! trends. Classification thresholds are simple numeric heuristics from the
+//! usage guide.
+
 use serde_json::{json, Value};
 
 use crate::prelude::now_json;
