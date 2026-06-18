@@ -26,3 +26,4 @@ implementation milestone by itself.
 | [0004](0004-protocol-boundaries-and-deferred-decisions.md) | Accepted | Protocol boundaries and explicitly deferred choices |
 | [0005](0005-system2-coordination-policy.md) | Accepted | Minimal view-centric System 2 coordination policy |
 | [0006](0006-system3-role-boundary.md) | Accepted | System 3 control and System 3* audit role boundary |
+| [0007](0007-system4-intelligence-boundary.md) | Accepted | System 4 environmental-intelligence role boundary |

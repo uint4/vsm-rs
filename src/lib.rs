@@ -2,8 +2,8 @@
 //!
 //! The crate models a Viable System Model runtime with a supervised actor tree,
 //! typed System 1 operations, typed System 2 coordination, typed System 3
-//! control/audit, brokered VSM messages, and JSON-backed service actors for
-//! the exploratory Systems 4-5 APIs. All default actors use stable global names, so a process can run only
+//! control/audit, typed System 4 intelligence, brokered VSM messages, and
+//! JSON-backed service actors for the exploratory System 5 API. All default actors use stable global names, so a process can run only
 //! one default application instance at a time. State is currently in memory and
 //! should be treated as restart volatile unless an embedding application adds
 //! persistence.
@@ -43,21 +43,23 @@ pub use config::RuntimeConfig;
 pub use error::{ApplicationFailure, FrameworkError, VsmError, VsmResult, WorkError};
 pub use protocol::{
     DeliveryMetrics, DeliveryStatus, RuntimeControlMessage, System1ControlMessage,
-    System2ControlMessage, System3ControlMessage,
+    System2ControlMessage, System3ControlMessage, System4ControlMessage,
 };
 pub use ractor::async_trait;
 pub use roles::{
-    AlgedonicPolicy, Auditor, CoordinationPolicy, OperationalControlPolicy, OperationalUnit,
-    OperationalUnitFactory, PerformanceModel, ResourceGovernance, RoleContext, System1Roles,
-    System2Roles, System3Roles, UnitRoleContext, UnitSelectionPolicy, VarietyModel, ViableSystem,
-    WorkModel,
+    AlgedonicPolicy, Auditor, CoordinationPolicy, EnvironmentalSource, EnvironmentalSourceFactory,
+    Forecaster, IntelligenceModel, OperationalControlPolicy, OperationalUnit,
+    OperationalUnitFactory, PerformanceModel, ResourceGovernance, RoleContext, SignalInterpreter,
+    System1Roles, System2Roles, System3Roles, System4Roles, UnitRoleContext, UnitSelectionPolicy,
+    VarietyModel, ViableSystem, WorkModel,
 };
 pub use runtime::{
     ObserverBusSnapshot, ObserverId, ObserverSubscription, ReadinessCheck, ReadinessGate,
     ReadinessStatus, RegisteredUnit, RuntimeComponentSnapshot, RuntimeComponentStatus,
     RuntimeDirectorySnapshot, RuntimePorts, RuntimeReadiness, RuntimeState, ShutdownReport,
     System1Handle, System1RuntimeRoles, System2Handle, System2RuntimeRoles, System3Handle,
-    System3RuntimeRoles, UnitAdmissionLimits, UnitRegistration, UnitSnapshotConfig, VsmRuntime,
+    System3RuntimeRoles, System4Handle, System4RuntimeRoles, UnitAdmissionLimits, UnitRegistration,
+    UnitSnapshotConfig, VsmRuntime,
 };
 pub use shared::message::{ChannelKind, MessageKind, SystemId, VsmMessage};
 

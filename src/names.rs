@@ -26,10 +26,6 @@ pub const SYSTEM3_SUPERVISOR: &str = "vsm.system3.supervisor";
 pub const SYSTEM3_CONTROL: &str = "vsm.system3.control";
 
 pub const SYSTEM4_SUPERVISOR: &str = "vsm.system4.supervisor";
-pub const SYSTEM4_INTELLIGENCE: &str = "vsm.system4.intelligence";
-pub const SYSTEM4_SCANNER: &str = "vsm.system4.scanner";
-pub const SYSTEM4_ANALYTICS: &str = "vsm.system4.analytics";
-pub const SYSTEM4_FORECASTING: &str = "vsm.system4.forecasting";
 
 pub const SYSTEM5_SUPERVISOR: &str = "vsm.system5.supervisor";
 pub const SYSTEM5_POLICY: &str = "vsm.system5.policy";

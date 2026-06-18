@@ -4,7 +4,6 @@ use tracing_subscriber::EnvFilter;
 
 use vsm_rs::actor_support::call_service;
 use vsm_rs::channels::algedonic::signals::Severity;
-use vsm_rs::names;
 use vsm_rs::system1::{self, Transaction, UnitConfig};
 
 #[tokio::main]
@@ -30,15 +29,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Severity::High,
     )?;
 
-    let intelligence_report = call_service(
-        names::SYSTEM4_INTELLIGENCE,
-        "intelligence_report",
-        json!({"sources":[{"id":"market", "value":0.72}]}),
+    let intelligence_report = vsm_rs::system4::defaults::scan_environment(
+        &[json!({"id":"market", "value":0.72})],
+        &json!({}),
+    );
+
+    let organizational_state = call_service(
+        vsm_rs::names::SYSTEM5_POLICY,
+        "get_organizational_state",
+        json!({}),
     )
     .await?;
-
-    let organizational_state =
-        call_service(names::SYSTEM5_POLICY, "get_organizational_state", json!({})).await?;
 
     println!(
         "{}",

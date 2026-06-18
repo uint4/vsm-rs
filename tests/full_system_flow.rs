@@ -23,7 +23,7 @@ async fn full_vsm_flow_exercises_all_systems() {
     .expect("transaction call should succeed");
     assert!(matches!(result, TransactionResult::Ok(_)));
 
-    let trend = vsm_rs::system4::analytics::analyze_trends(json!([1, 2, 3, 4]), "hour")
+    let trend = vsm_rs::system4::defaults::analyze_trends(json!([1, 2, 3, 4]), "hour")
         .await
         .unwrap();
     assert_eq!(trend["direction"], "increasing");

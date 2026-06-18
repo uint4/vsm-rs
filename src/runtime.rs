@@ -10,6 +10,7 @@ use crate::kernel::registry::RuntimeDirectory;
 use crate::kernel::system1::System1Runtime;
 use crate::kernel::system2::System2Runtime;
 use crate::kernel::system3::System3Runtime;
+use crate::kernel::system4::System4Runtime;
 use crate::protocol::system1::{
     Acknowledgement, AuditEvidence, AuditRequest, CoordinationView, ResourceShortageRequest,
     UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
@@ -21,6 +22,10 @@ use crate::protocol::system3::{
     AuditResponse, DirectiveAcknowledgement, OperationalDirective, ResourceRequest,
     System3AuditRequest, System3ControlCycle, System3Snapshot,
 };
+use crate::protocol::system4::{
+    EnvironmentSourceDescriptor, EnvironmentSourceStatus, EnvironmentalObservation,
+    ForecastCalibration, System4IntelligenceCycle, System4Snapshot,
+};
 use crate::protocol::{
     RecursionPath, RuntimeEvent, RuntimeId, SnapshotKey, SnapshotVersion, SubsystemRole, VsmAddress,
 };
@@ -28,9 +33,10 @@ use crate::roles::RoleContext;
 use crate::roles::{
     AlertSink, Clock, EventSink, NoopAlertSink, NoopEventSink, NoopReportSink, NoopStateStore,
     NoopTelemetrySink, ReportSink, SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy,
+    SharedEnvironmentalSourceFactory, SharedForecaster, SharedIntelligenceModel,
     SharedOperationalControlPolicy, SharedOperationalUnitFactory, SharedPerformanceModel,
-    SharedResourceGovernance, SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel,
-    StateStore, SystemClock, TelemetrySink, ViableSystem,
+    SharedResourceGovernance, SharedSignalInterpreter, SharedUnitSelectionPolicy,
+    SharedVarietyModel, SharedWorkModel, StateStore, SystemClock, TelemetrySink, ViableSystem,
 };
 
 /// Runtime lifecycle state visible through typed handles.
@@ -566,6 +572,71 @@ where
     }
 }
 
+/// Runtime-selected System 4 role objects.
+pub struct System4RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    environmental_source_factory: SharedEnvironmentalSourceFactory<V>,
+    signal_interpreter: SharedSignalInterpreter<V>,
+    intelligence_model: SharedIntelligenceModel<V>,
+    forecaster: SharedForecaster<V>,
+}
+
+impl<V> Clone for System4RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            environmental_source_factory: Arc::clone(&self.environmental_source_factory),
+            signal_interpreter: Arc::clone(&self.signal_interpreter),
+            intelligence_model: Arc::clone(&self.intelligence_model),
+            forecaster: Arc::clone(&self.forecaster),
+        }
+    }
+}
+
+impl<V> System4RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    /// Creates a runtime role bundle.
+    pub fn new(
+        environmental_source_factory: SharedEnvironmentalSourceFactory<V>,
+        signal_interpreter: SharedSignalInterpreter<V>,
+        intelligence_model: SharedIntelligenceModel<V>,
+        forecaster: SharedForecaster<V>,
+    ) -> Self {
+        Self {
+            environmental_source_factory,
+            signal_interpreter,
+            intelligence_model,
+            forecaster,
+        }
+    }
+
+    /// Returns the configured environmental source factory object.
+    pub fn environmental_source_factory(&self) -> SharedEnvironmentalSourceFactory<V> {
+        Arc::clone(&self.environmental_source_factory)
+    }
+
+    /// Returns the configured signal-interpreter object.
+    pub fn signal_interpreter(&self) -> SharedSignalInterpreter<V> {
+        Arc::clone(&self.signal_interpreter)
+    }
+
+    /// Returns the configured intelligence-model object.
+    pub fn intelligence_model(&self) -> SharedIntelligenceModel<V> {
+        Arc::clone(&self.intelligence_model)
+    }
+
+    /// Returns the configured forecaster object.
+    pub fn forecaster(&self) -> SharedForecaster<V> {
+        Arc::clone(&self.forecaster)
+    }
+}
+
 /// Handle for the System 1 surface owned by a typed runtime.
 pub struct System1Handle<V>
 where
@@ -986,6 +1057,155 @@ where
     }
 }
 
+/// Handle for the System 4 environmental intelligence surface.
+pub struct System4Handle<V>
+where
+    V: ViableSystem,
+{
+    config: RuntimeConfig,
+    roles: System4RuntimeRoles<V>,
+    ports: RuntimePorts<V>,
+    runtime: Arc<System4Runtime<V>>,
+    system3_runtime: Arc<System3Runtime<V>>,
+}
+
+impl<V> Clone for System4Handle<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            roles: self.roles.clone(),
+            ports: self.ports.clone(),
+            runtime: Arc::clone(&self.runtime),
+            system3_runtime: Arc::clone(&self.system3_runtime),
+        }
+    }
+}
+
+impl<V> System4Handle<V>
+where
+    V: ViableSystem,
+{
+    fn new(
+        config: RuntimeConfig,
+        roles: System4RuntimeRoles<V>,
+        ports: RuntimePorts<V>,
+        runtime: Arc<System4Runtime<V>>,
+        system3_runtime: Arc<System3Runtime<V>>,
+    ) -> Self {
+        Self {
+            config,
+            roles,
+            ports,
+            runtime,
+            system3_runtime,
+        }
+    }
+
+    /// Returns the runtime instance identity.
+    pub fn runtime_id(&self) -> &RuntimeId {
+        &self.config.runtime_id
+    }
+
+    /// Returns the recursion path for this runtime instance.
+    pub fn recursion_path(&self) -> &RecursionPath {
+        &self.config.recursion_path
+    }
+
+    /// Returns the runtime-selected System 4 role bundle.
+    pub fn roles(&self) -> &System4RuntimeRoles<V> {
+        &self.roles
+    }
+
+    /// Builds a System 4 role context with runtime-scoped identity and ports.
+    pub fn role_context(&self) -> RoleContext<V> {
+        self.ports.role_context(
+            self.config.runtime_id.clone(),
+            self.config.recursion_path.clone(),
+            SubsystemRole::System4,
+        )
+    }
+
+    /// Registers one environmental source for the typed intelligence pipeline.
+    pub async fn register_source(
+        &self,
+        descriptor: EnvironmentSourceDescriptor,
+    ) -> Result<EnvironmentSourceStatus, FrameworkError> {
+        self.runtime.register_source(descriptor).await
+    }
+
+    /// Lists registered environmental sources.
+    pub async fn list_sources(&self) -> Result<Vec<EnvironmentSourceStatus>, FrameworkError> {
+        self.runtime.list_sources().await
+    }
+
+    /// Polls all registered sources and returns normalized observations.
+    pub async fn collect_observations(
+        &self,
+    ) -> Result<Vec<EnvironmentalObservation>, FrameworkError> {
+        self.runtime.collect_observations().await
+    }
+
+    /// Runs one intelligence cycle and annotates proposals with System 3 feasibility context.
+    pub async fn run_intelligence_cycle(&self) -> Result<System4IntelligenceCycle, FrameworkError> {
+        let mut cycle = self.runtime.run_cycle().await?;
+        self.attach_system3_feasibility(&mut cycle).await;
+        self.runtime
+            .record_proposals(cycle.proposals.clone())
+            .await?;
+        Ok(cycle)
+    }
+
+    /// Compares forecasts with actual observations for calibration.
+    pub async fn calibrate_forecasts(
+        &self,
+        actuals: Vec<EnvironmentalObservation>,
+    ) -> Result<Vec<ForecastCalibration>, FrameworkError> {
+        self.runtime.calibrate(actuals).await
+    }
+
+    /// Returns the current typed System 4 runtime snapshot.
+    pub async fn snapshot(&self) -> Result<System4Snapshot, FrameworkError> {
+        self.runtime.snapshot().await
+    }
+
+    async fn attach_system3_feasibility(&self, cycle: &mut System4IntelligenceCycle) {
+        if cycle.proposals.is_empty() {
+            return;
+        }
+
+        let context = self.role_context();
+        let feasibility = match self.system3_runtime.snapshot().await {
+            Ok(snapshot) => crate::kernel::system4::feasibility_from_system3_snapshot(
+                &context,
+                Some(&snapshot),
+                None,
+            ),
+            Err(err) => crate::kernel::system4::feasibility_from_system3_snapshot(
+                &context,
+                None,
+                Some(format!("System 3 feasibility unavailable: {err}")),
+            ),
+        };
+        let destination = VsmAddress::new(
+            self.config.runtime_id.clone(),
+            self.config.recursion_path.clone(),
+            SubsystemRole::System5,
+        );
+
+        for proposal in &mut cycle.proposals {
+            if proposal.feasibility.is_none() {
+                proposal.feasibility = Some(feasibility.clone());
+            }
+            if proposal.destination.is_none() {
+                proposal.destination = Some(destination.clone());
+            }
+        }
+    }
+}
+
 fn apply_audit_boundary<V>(
     request: &System3AuditRequest<V>,
     mut evidence: Vec<AuditEvidence<V>>,
@@ -1022,6 +1242,8 @@ where
     system2_runtime: Arc<System2Runtime<V>>,
     system3_roles: System3RuntimeRoles<V>,
     system3_runtime: Arc<System3Runtime<V>>,
+    system4_roles: System4RuntimeRoles<V>,
+    system4_runtime: Arc<System4Runtime<V>>,
     observer_bus: Arc<ObserverEventBus<V>>,
 }
 
@@ -1035,6 +1257,7 @@ where
         system1_roles: System1RuntimeRoles<V>,
         system2_roles: System2RuntimeRoles<V>,
         system3_roles: System3RuntimeRoles<V>,
+        system4_roles: System4RuntimeRoles<V>,
     ) -> Result<Self, FrameworkError> {
         let observer_bus = Arc::new(ObserverEventBus::new(
             ports.event_sink(),
@@ -1048,6 +1271,8 @@ where
             System2Runtime::start(config.clone(), system2_roles.clone(), ports.clone()).await?;
         let system3_runtime =
             System3Runtime::start(config.clone(), system3_roles.clone(), ports.clone()).await?;
+        let system4_runtime =
+            System4Runtime::start(config.clone(), system4_roles.clone(), ports.clone()).await?;
 
         let readiness = RuntimeReadiness::new(vec![
             ReadinessCheck::new(
@@ -1058,12 +1283,12 @@ where
             ReadinessCheck::new(
                 ReadinessGate::SubsystemActors,
                 ReadinessStatus::Ready,
-                "typed System 1, System 2, and System 3 actor adapters started",
+                "typed System 1, System 2, System 3, and System 4 actor adapters started",
             ),
             ReadinessCheck::new(
                 ReadinessGate::RoleImplementations,
                 ReadinessStatus::Ready,
-                "required System 1 role objects validated; System 2 and System 3 policies configured",
+                "required System 1 role objects validated; System 2, System 3, and System 4 policies configured",
             ),
             ReadinessCheck::new(
                 ReadinessGate::Subscriptions,
@@ -1092,6 +1317,8 @@ where
             system2_runtime,
             system3_roles,
             system3_runtime,
+            system4_roles,
+            system4_runtime,
             observer_bus,
         })
     }
@@ -1167,6 +1394,17 @@ where
         )
     }
 
+    /// Returns a System 4 handle scoped to this runtime instance.
+    pub fn system4(&self) -> System4Handle<V> {
+        System4Handle::new(
+            self.config.clone(),
+            self.system4_roles.clone(),
+            self.ports.clone(),
+            Arc::clone(&self.system4_runtime),
+            Arc::clone(&self.system3_runtime),
+        )
+    }
+
     /// Builds a role context for any subsystem role.
     pub fn role_context(&self, role: SubsystemRole) -> RoleContext<V> {
         self.ports.role_context(
@@ -1215,6 +1453,7 @@ where
         };
 
         if !already_shutdown {
+            self.system4_runtime.shutdown().await?;
             self.system3_runtime.shutdown().await?;
             self.system2_runtime.shutdown().await?;
             self.system1_runtime.shutdown().await?;
@@ -1282,6 +1521,27 @@ fn register_runtime_components(directory: &mut RuntimeDirectory, config: &Runtim
         recursion_path,
         SubsystemRole::System3Star,
         "audit-actor",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::System4,
+        "role-bundle",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::System4,
+        "intelligence-actor",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::System4,
+        "source-registry",
         RuntimeComponentStatus::Ready,
     );
     directory.register(

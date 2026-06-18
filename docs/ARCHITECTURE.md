@@ -20,7 +20,7 @@ The five VSM systems map to the code as follows:
 | System 1 | Operational units, transaction routing, operational metrics, operational variety | `src/system1/` |
 | System 2 | Coordination, schedule conflict handling, load/resource balancing | `src/system2/` |
 | System 3 | Resource allocation, control state, audit calculations | `src/system3/` |
-| System 4 | Environmental scanning, analytics, intelligence, forecasting | `src/system4/` |
+| System 4 | Typed environmental sources, intelligence, forecasting, scenarios, proposals | `src/system4/`, `src/protocol/system4.rs`, `src/roles/system4.rs`, `src/kernel/system4.rs` |
 | System 5 | Policy, identity, values, decisions, crisis response | `src/system5/` |
 
 Cross-cutting services live under `src/channels/` and `src/shared/`.
@@ -40,9 +40,9 @@ src/
 ├── config.rs                 Typed runtime configuration
 ├── builder.rs                Typed runtime builder
 ├── runtime.rs                Typed runtime handles, readiness, shutdown, component snapshots
-├── kernel/                   Private runtime registry, observer bus, and typed System 1-3 actor adapters
-├── protocol/                 Typed migration foundations: addresses, metadata, snapshots, bus outcomes, events, System 1-3 records
-├── roles/                    ViableSystem type family, role contexts, System 1-3 contracts, runtime ports
+├── kernel/                   Private runtime registry, observer bus, and typed System 1-4 actor adapters
+├── protocol/                 Typed foundations: addresses, metadata, snapshots, bus outcomes, events, System 1-4 records
+├── roles/                    ViableSystem type family, role contexts, System 1-4 contracts, runtime ports
 ├── legacy/                   Temporary adapters from current JSON/System 1 API to typed foundations
 ├── names.rs                  Stable global actor names
 ├── prelude.rs                Small JSON/time helpers
@@ -64,7 +64,7 @@ src/
 ├── system1/                  Typed Operations and Unit actors
 ├── system2/                  Typed coordination defaults and legacy supervisor placeholder
 ├── system3/                  Typed defaults and legacy supervisor placeholder
-├── system4/                  Intelligence service family
+├── system4/                  System 4 prototype defaults and legacy supervisor placeholder
 └── system5/                  Policy service family
 ```
 
@@ -100,10 +100,16 @@ These modules are intentionally alongside the current runtime:
 - `protocol::system3` defines typed System 3 resource requests, allocation
   decisions, operational directives, acknowledgements, operational summaries,
   System 3* audit requests, findings, remediations, responses, and snapshots.
+- `protocol::system4` defines typed System 4 source descriptors, observations,
+  interpreted signals, intelligence assessments, forecasts, scenarios,
+  calibration records, adaptation proposals, and runtime snapshots.
 - `roles::system2` defines the view-centric `CoordinationPolicy` role plus the
   no-op default policy.
 - `roles::system3` defines `ResourceGovernance`, `OperationalControlPolicy`,
   and `Auditor` roles plus explicit defaults.
+- `roles::system4` defines environmental source factory/source, signal
+  interpretation, intelligence model, and forecasting/scenario/proposal roles
+  plus no-op defaults.
 - `roles::ports` defines `StateStore`, `EventSink`, and `ReportSink`, plus
   no-op implementations. It also defines early `TelemetrySink`, `AlertSink`,
   `Clock`, and `IdGenerator` ports for role contexts and future adapters.
@@ -131,6 +137,11 @@ These modules are intentionally alongside the current runtime:
   directives through private System 1 unit adapters. Audit invokes the
   application `Auditor` with evidence collected through a separate System 1
   audit path.
+- `kernel::system4` contains the private typed System 4 intelligence actor and
+  source actors. It dynamically registers environmental sources, normalizes
+  observations with provenance/confidence/freshness metadata, restarts failing
+  source roles, invokes intelligence/forecasting roles, records calibration
+  results, and annotates adaptation proposals with System 3 feasibility context.
 - `kernel::event_bus` contains the private observer event bus used by typed
   runtime handles. It implements the `EventSink` port, fans out runtime events
   to subscribers without blocking the control path, retains a bounded
@@ -149,10 +160,10 @@ unit ID, or snapshot payloads to implement serde.
 objects, reports readiness deterministically, exposes scoped role contexts,
 permits multiple runtime handles in one process, registers typed operational
 units, dispatches typed work through private unit actors, supports typed System
-2 coordination, supports typed System 3 governance/audit, supports typed
-observer-event subscriptions, and acknowledges shutdown. The existing global
-actor runtime still serves the legacy `Transaction`/JSON facade and Systems 4–5
-JSON services.
+2 coordination, supports typed System 3 governance/audit, supports typed System
+4 environmental intelligence, supports typed observer-event subscriptions, and
+acknowledges shutdown. The existing global actor runtime still serves the
+legacy `Transaction`/JSON facade and System 5 JSON services.
 
 ## 3. Supervision tree
 
@@ -176,10 +187,7 @@ vsm.root_supervisor
 ├── vsm.system3.supervisor
 │   └── no legacy JSON children; typed System 3 runs under VsmRuntime
 ├── vsm.system4.supervisor
-│   ├── vsm.system4.intelligence
-│   ├── vsm.system4.scanner
-│   ├── vsm.system4.analytics
-│   └── vsm.system4.forecasting
+│   └── no legacy JSON children; typed System 4 runs under VsmRuntime
 ├── vsm.system5.supervisor
 │   ├── vsm.system5.policy
 │   ├── vsm.system5.identity
@@ -256,7 +264,8 @@ This style gives compile-time message checking and is the preferred model for be
 
 ### 5.2 Shared JSON `ServiceActor`
 
-Systems 4–5 and telemetry use `actor_support::ServiceActor`.
+System 5 and telemetry use `actor_support::ServiceActor`. System 4 has moved
+to typed runtime actors and no longer uses this JSON service shell.
 
 ```rust
 pub enum ServiceMsg {
@@ -270,7 +279,6 @@ pub enum ServiceMsg {
 Each instance has a `ServiceKind`, and calls are delegated to a module-specific `actor_call` function:
 
 ```text
-ServiceKind::System4Analytics     -> system4::analytics::actor_call
 ServiceKind::System5Policy        -> system5::policy::actor_call
 ...
 ```
@@ -287,10 +295,10 @@ The initial `data` value has this shape:
 
 ```json
 {
-  "id": "system4",
+  "id": "system5",
   "config": {
-    "subsystem": "system4",
-    "role": "analytics"
+    "subsystem": "system5",
+    "role": "policy"
   },
   "started_at": "...",
   "status": "running"
@@ -432,12 +440,11 @@ The following subscriptions are created during actor startup:
 | Actor | Subscriber ID | Channels |
 |---|---|---|
 | System 1 Operations | `system1` | Command, Coordination, Audit |
-| System 4 Intelligence | `system4` | Command |
 | System 5 Policy | `system5` | Algedonic |
 
 The dedicated algedonic processor and temporal-variety actor are accessed through their typed APIs; they do not subscribe to the broker in the current supervision tree.
 
-A major current distinction is that `ServiceActor` channel handling records the received message in `history`, but does not dispatch it into the module's domain operations. System 1 has explicit channel behavior; Systems 4–5 currently treat channel messages as observable events unless application code makes a separate service call.
+A major current distinction is that `ServiceActor` channel handling records the received message in `history`, but does not dispatch it into the module's domain operations. System 1 has explicit channel behavior; System 5 currently treats channel messages as observable events unless application code makes a separate service call.
 
 ## 10. System 1: operational execution
 
@@ -559,23 +566,28 @@ global supervisor. Former JSON resource and audit helper algorithms live under
 
 ## 13. System 4: intelligence
 
-System 4 contains four separately supervised `ServiceActor` instances:
+System 4 is available through `VsmRuntime::system4()`. It is a typed
+environmental-intelligence pipeline rather than a JSON service family.
 
-- `vsm.system4.intelligence`
-- `vsm.system4.scanner`
-- `vsm.system4.analytics`
-- `vsm.system4.forecasting`
+The public boundary includes:
 
-The modules provide:
+- `protocol::system4` framework-owned source, observation, signal, assessment,
+  forecast, scenario, calibration, proposal, and snapshot records.
+- `roles::system4` environmental source factory/source, signal interpreter,
+  intelligence model, and forecaster contracts.
+- `runtime::System4Handle` methods for source registration, source listing,
+  observation collection, intelligence cycles, forecast calibration, and
+  snapshots.
 
-- environmental source scanning and signal classification
-- change and trend detection
-- summary, trend, correlation, anomaly, and insight analysis
-- linear/mean/naive forecasting, scenarios, and validation
+The private `kernel::system4` adapter owns one intelligence actor plus source
+actors created from the configured source factory. A source observation failure
+recreates that source role instance and records the error without stopping the
+whole System 4 runtime. Observations carry provenance, confidence, timestamps,
+and freshness status. Intelligence cycles emit typed events/reports and route
+adaptation proposals toward System 5 with System 3 feasibility context.
 
-The Intelligence service can orchestrate the pure scanner, analytics, and forecasting functions. It does not send RPCs to the other three service actors when doing so; it calls their module functions directly. The independently supervised scanner, analytics, and forecasting actors remain useful as separate API/state boundaries.
-
-Only the Intelligence actor subscribes to Command messages, and current `ServiceActor` behavior records those messages without invoking an intelligence operation.
+The old scanner, analytics, and forecasting heuristics are retained only as
+opt-in prototype helpers under `system4::defaults`.
 
 ## 14. System 5: policy and identity
 
@@ -829,8 +841,8 @@ The most important current limitations are:
 
 - The crate is still in baseline hardening; see `CODEX.md` for the latest
   validation evidence.
-- Most Systems 4–5 APIs use string operation names and `serde_json::Value`.
-- Channel events for Systems 4–5 are recorded, not converted into domain actions.
+- System 5 APIs use string operation names and `serde_json::Value`.
+- Channel events for System 5 are recorded, not converted into domain actions.
 - Broker restart loses registrations and history for the legacy global actor
   facade. The typed runtime handle's observer subscriptions are owned by the
   handle, not the legacy broker.

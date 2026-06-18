@@ -1,12 +1,8 @@
-//! System 4 intelligence, scanning, analytics, and forecasting.
+//! System 4 environmental intelligence support.
 //!
-//! System 4 runs four supervised JSON service actors. The Intelligence actor can
-//! aggregate scanner, analytics, and forecasting module functions directly, but
-//! the Scanner, Analytics, and Forecasting actors also remain independently
-//! callable service/state boundaries.
+//! The public typed runtime surface lives in [`crate::runtime::System4Handle`],
+//! [`crate::roles::system4`], and [`crate::protocol::system4`]. This module
+//! keeps opt-in prototype helpers and the legacy default supervisor boundary.
 
-pub mod analytics;
-pub mod forecasting;
-pub mod intelligence;
-pub mod scanner;
+pub mod defaults;
 pub mod supervisor;

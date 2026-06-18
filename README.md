@@ -17,7 +17,7 @@ The Viable System Model describes the functions a system needs in order to remai
 | **System 1 — Operations** | Performs the primary work | Dynamic operational units, transaction routing, metrics, and operational-variety tracking |
 | **System 2 — Coordination** | Dampens oscillation between operational units | Schedule coordination, conflict detection, balancing, and anti-oscillation services |
 | **System 3 — Control** | Manages internal resources and operational control | Resource allocation, control state, and System 3* audit functions |
-| **System 4 — Intelligence** | Observes the environment and looks forward | Environmental scanning, analytics, forecasting, and intelligence reports |
+| **System 4 — Intelligence** | Observes the environment and looks forward | Typed environmental sources, signals, forecasts, scenarios, and adaptation proposals |
 | **System 5 — Policy** | Maintains identity, values, and direction | Identity, values, policy, strategic decisions, and crisis response |
 
 The systems communicate through command, coordination, audit, resource-bargain, algedonic, and temporal-variety channels. Algedonic signals provide an emergency path to System 5 that bypasses the normal hierarchy.
@@ -39,7 +39,7 @@ The systems communicate through command, coordination, audit, resource-bargain, 
 - Typed System 3 control/resource governance and System 3* audit for the
   trait-driven runtime, with framework-owned resource, directive, audit,
   acknowledgement, and remediation records.
-- JSON-oriented service boundaries for Systems 4–5, making integration straightforward while the typed API continues to mature.
+- Typed System 4 environmental intelligence plus the remaining JSON-oriented System 5 policy service boundary.
 - Trait-driven migration foundations including `ViableSystem`, instance-scoped
   protocol metadata, typed System 1 records, snapshot/store ports, event/report
   sink traits, first-wave System 1, System 2, and System 3 role contracts, role contexts,
@@ -217,31 +217,28 @@ The previous JSON `system2::coordination` service dispatch has been removed
 from the core path. The old schedule and balancing helpers remain under
 `system2::defaults` as opt-in example algorithms.
 
-### Systems 4–5
+### System 4 Typed Intelligence and System 5 Policy
 
-Systems 4–5 expose convenience functions for common operations and a generic JSON service interface for extensibility:
+System 4 is available through the typed runtime handle. Applications register
+environmental sources and provide optional role implementations for signal
+interpretation, intelligence modeling, forecasting, scenarios, and adaptation
+proposals:
 
 ```rust
-use serde_json::json;
-use vsm_rs::{actor_support::call_service, names};
+use vsm_rs::protocol::system4::EnvironmentSourceDescriptor;
 
-let report = call_service(
-    names::SYSTEM4_INTELLIGENCE,
-    "intelligence_report",
-    json!({
-        "sources": [
-            {"id": "market", "value": 0.72},
-            {"id": "operations", "value": 0.61}
-        ]
-    }),
-)
-.await?;
+runtime
+    .system4()
+    .register_source(EnvironmentSourceDescriptor::new("market"))
+    .await?;
+let cycle = runtime.system4().run_intelligence_cycle().await?;
 ```
 
-Prefer the subsystem convenience functions where one exists, such as:
+Prototype JSON helper algorithms are still available under
+`system4::defaults`, but the old System 4 JSON service actors are no longer
+started. System 5 still exposes the legacy JSON policy service and convenience
+functions, such as:
 
-- `system4::intelligence::environmental_scan`
-- `system4::intelligence::get_intelligence_report`
 - `system5::policy::make_decision`
 - `system5::policy::set_policy_area`
 
@@ -274,8 +271,8 @@ The crate deliberately follows actor ownership and supervision rather than share
 - Every long-lived actor has a stable global name defined in `names.rs`.
 - Static actors run under `ractor_supervisor::Supervisor`; runtime System 1 units run under `DynamicSupervisor`.
 - The channel broker owns subscriptions and message history.
-- The typed runtime path uses actor-backed System 1, System 2, and System 3
-  protocols. Systems 4–5 currently use shared JSON service actors.
+- The typed runtime path uses actor-backed System 1, System 2, System 3, and
+  System 4 protocols. System 5 currently uses shared JSON service actors.
 
 Important operational constraints in the current release:
 

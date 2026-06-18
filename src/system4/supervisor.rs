@@ -1,41 +1,16 @@
-//! Supervisor specification for System 4.
+//! Legacy supervisor boundary for System 4.
 //!
-//! The supervisor starts Intelligence, Scanner, Analytics, and Forecasting as
-//! independent permanent `ServiceActor` children. Each actor owns separate
-//! in-memory data and history even when the Intelligence actor calls shared
-//! module functions directly.
+//! System 4 has moved to the typed runtime surface. The legacy default
+//! application still starts this supervisor so the static actor tree shape does
+//! not churn during the migration, but it intentionally has no JSON service
+//! children.
 
 use ractor::concurrency::Duration;
 use ractor_supervisor::{SupervisorArguments, SupervisorOptions, SupervisorStrategy};
-use serde_json::json;
-
-use crate::actor_support::{service_child, ServiceKind};
-use crate::names;
 
 pub fn supervisor_args() -> SupervisorArguments {
     SupervisorArguments {
-        child_specs: vec![
-            service_child(
-                names::SYSTEM4_INTELLIGENCE,
-                ServiceKind::System4Intelligence,
-                json!({"subsystem":"system4", "role":"intelligence"}),
-            ),
-            service_child(
-                names::SYSTEM4_SCANNER,
-                ServiceKind::System4Scanner,
-                json!({"subsystem":"system4", "role":"scanner"}),
-            ),
-            service_child(
-                names::SYSTEM4_ANALYTICS,
-                ServiceKind::System4Analytics,
-                json!({"subsystem":"system4", "role":"analytics"}),
-            ),
-            service_child(
-                names::SYSTEM4_FORECASTING,
-                ServiceKind::System4Forecasting,
-                json!({"subsystem":"system4", "role":"forecasting"}),
-            ),
-        ],
+        child_specs: Vec::new(),
         options: SupervisorOptions {
             strategy: SupervisorStrategy::OneForOne,
             max_restarts: 5,

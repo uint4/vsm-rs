@@ -13,17 +13,23 @@ use crate::roles::system2::defaults::NoopCoordinationPolicy;
 use crate::roles::system3::defaults::{
     DenyAllResourceGovernance, NoopAuditor, NoopOperationalControlPolicy,
 };
+use crate::roles::system4::defaults::{
+    NoopEnvironmentalSourceFactory, NoopForecaster, NoopIntelligenceModel, NoopSignalInterpreter,
+};
 use crate::roles::{
-    AlertSink, AlgedonicPolicy, Auditor, Clock, CoordinationPolicy, EventSink, NoopAlertSink,
-    NoopEventSink, NoopReportSink, NoopStateStore, NoopTelemetrySink, OperationalControlPolicy,
-    OperationalUnitFactory, PerformanceModel, ReportSink, ResourceGovernance,
-    SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy, SharedOperationalControlPolicy,
-    SharedOperationalUnitFactory, SharedPerformanceModel, SharedResourceGovernance,
-    SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel, StateStore, SystemClock,
-    TelemetrySink, UnitSelectionPolicy, VarietyModel, ViableSystem, WorkModel,
+    AlertSink, AlgedonicPolicy, Auditor, Clock, CoordinationPolicy, EnvironmentalSourceFactory,
+    EventSink, Forecaster, IntelligenceModel, NoopAlertSink, NoopEventSink, NoopReportSink,
+    NoopStateStore, NoopTelemetrySink, OperationalControlPolicy, OperationalUnitFactory,
+    PerformanceModel, ReportSink, ResourceGovernance, SharedAlgedonicPolicy, SharedAuditor,
+    SharedCoordinationPolicy, SharedEnvironmentalSourceFactory, SharedForecaster,
+    SharedIntelligenceModel, SharedOperationalControlPolicy, SharedOperationalUnitFactory,
+    SharedPerformanceModel, SharedResourceGovernance, SharedSignalInterpreter,
+    SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel, SignalInterpreter, StateStore,
+    SystemClock, TelemetrySink, UnitSelectionPolicy, VarietyModel, ViableSystem, WorkModel,
 };
 use crate::runtime::{
-    RuntimePorts, System1RuntimeRoles, System2RuntimeRoles, System3RuntimeRoles, VsmRuntime,
+    RuntimePorts, System1RuntimeRoles, System2RuntimeRoles, System3RuntimeRoles,
+    System4RuntimeRoles, VsmRuntime,
 };
 
 /// Builder for one typed VSM runtime instance.
@@ -46,6 +52,10 @@ where
     resource_governance: Option<SharedResourceGovernance<V>>,
     operational_control_policy: Option<SharedOperationalControlPolicy<V>>,
     auditor: Option<SharedAuditor<V>>,
+    environmental_source_factory: Option<SharedEnvironmentalSourceFactory<V>>,
+    signal_interpreter: Option<SharedSignalInterpreter<V>>,
+    intelligence_model: Option<SharedIntelligenceModel<V>>,
+    forecaster: Option<SharedForecaster<V>>,
     state_store: Arc<dyn StateStore<V>>,
     event_sink: Arc<dyn EventSink<V>>,
     report_sink: Arc<dyn ReportSink<V>>,
@@ -71,6 +81,10 @@ where
             resource_governance: None,
             operational_control_policy: None,
             auditor: None,
+            environmental_source_factory: None,
+            signal_interpreter: None,
+            intelligence_model: None,
+            forecaster: None,
             state_store: Arc::new(NoopStateStore::<V>::new()),
             event_sink: Arc::new(NoopEventSink::<V>::new()),
             report_sink: Arc::new(NoopReportSink::<V>::new()),
@@ -300,6 +314,69 @@ where
         self
     }
 
+    /// Sets the optional System 4 environmental source factory role.
+    pub fn environmental_source_factory<F>(mut self, factory: F) -> Self
+    where
+        F: EnvironmentalSourceFactory<V> + 'static,
+    {
+        self.environmental_source_factory = Some(Arc::new(factory));
+        self
+    }
+
+    /// Sets the optional System 4 environmental source factory from a shared trait object.
+    pub fn environmental_source_factory_arc(
+        mut self,
+        factory: SharedEnvironmentalSourceFactory<V>,
+    ) -> Self {
+        self.environmental_source_factory = Some(factory);
+        self
+    }
+
+    /// Sets the optional System 4 signal interpreter role.
+    pub fn signal_interpreter<I>(mut self, interpreter: I) -> Self
+    where
+        I: SignalInterpreter<V> + 'static,
+    {
+        self.signal_interpreter = Some(Arc::new(interpreter));
+        self
+    }
+
+    /// Sets the optional System 4 signal interpreter from a shared trait object.
+    pub fn signal_interpreter_arc(mut self, interpreter: SharedSignalInterpreter<V>) -> Self {
+        self.signal_interpreter = Some(interpreter);
+        self
+    }
+
+    /// Sets the optional System 4 intelligence model role.
+    pub fn intelligence_model<M>(mut self, model: M) -> Self
+    where
+        M: IntelligenceModel<V> + 'static,
+    {
+        self.intelligence_model = Some(Arc::new(model));
+        self
+    }
+
+    /// Sets the optional System 4 intelligence model from a shared trait object.
+    pub fn intelligence_model_arc(mut self, model: SharedIntelligenceModel<V>) -> Self {
+        self.intelligence_model = Some(model);
+        self
+    }
+
+    /// Sets the optional System 4 forecaster role.
+    pub fn forecaster<F>(mut self, forecaster: F) -> Self
+    where
+        F: Forecaster<V> + 'static,
+    {
+        self.forecaster = Some(Arc::new(forecaster));
+        self
+    }
+
+    /// Sets the optional System 4 forecaster from a shared trait object.
+    pub fn forecaster_arc(mut self, forecaster: SharedForecaster<V>) -> Self {
+        self.forecaster = Some(forecaster);
+        self
+    }
+
     /// Sets the state store port. The default is [`NoopStateStore`].
     pub fn state_store<S>(mut self, state_store: S) -> Self
     where
@@ -407,6 +484,10 @@ where
             resource_governance,
             operational_control_policy,
             auditor,
+            environmental_source_factory,
+            signal_interpreter,
+            intelligence_model,
+            forecaster,
             state_store,
             event_sink,
             report_sink,
@@ -425,6 +506,12 @@ where
         )?;
         let system2_roles = system2_roles(coordination_policy);
         let system3_roles = system3_roles(resource_governance, operational_control_policy, auditor);
+        let system4_roles = system4_roles(
+            environmental_source_factory,
+            signal_interpreter,
+            intelligence_model,
+            forecaster,
+        );
         let ports = RuntimePorts::noop()
             .with_state_store(state_store)
             .with_event_sink(event_sink)
@@ -433,7 +520,15 @@ where
             .with_alert_sink(alert_sink)
             .with_clock(clock);
 
-        VsmRuntime::new(config, ports, roles, system2_roles, system3_roles).await
+        VsmRuntime::new(
+            config,
+            ports,
+            roles,
+            system2_roles,
+            system3_roles,
+            system4_roles,
+        )
+        .await
     }
 }
 
@@ -500,4 +595,29 @@ where
     let auditor = auditor.unwrap_or_else(|| Arc::new(NoopAuditor::<V>::new()));
 
     System3RuntimeRoles::new(resource_governance, operational_control_policy, auditor)
+}
+
+fn system4_roles<V>(
+    environmental_source_factory: Option<SharedEnvironmentalSourceFactory<V>>,
+    signal_interpreter: Option<SharedSignalInterpreter<V>>,
+    intelligence_model: Option<SharedIntelligenceModel<V>>,
+    forecaster: Option<SharedForecaster<V>>,
+) -> System4RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    let environmental_source_factory = environmental_source_factory
+        .unwrap_or_else(|| Arc::new(NoopEnvironmentalSourceFactory::<V>::new()));
+    let signal_interpreter =
+        signal_interpreter.unwrap_or_else(|| Arc::new(NoopSignalInterpreter::<V>::new()));
+    let intelligence_model =
+        intelligence_model.unwrap_or_else(|| Arc::new(NoopIntelligenceModel::<V>::new()));
+    let forecaster = forecaster.unwrap_or_else(|| Arc::new(NoopForecaster::<V>::new()));
+
+    System4RuntimeRoles::new(
+        environmental_source_factory,
+        signal_interpreter,
+        intelligence_model,
+        forecaster,
+    )
 }

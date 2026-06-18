@@ -1,6 +1,6 @@
 //! Shared JSON service actor used by the less-typed service boundaries.
 //!
-//! Systems 4-5 and telemetry currently use `ServiceActor` to expose string
+//! System 5 and telemetry currently use `ServiceActor` to expose string
 //! operation names with `serde_json::Value` payloads. The shell owns in-memory
 //! service state, records calls/casts/channel events in bounded history, and
 //! delegates domain work to each module's `actor_call` function. Unknown
@@ -21,10 +21,6 @@ use crate::shared::message::{ChannelKind, MessageKind, SystemId, VsmMessage};
 pub enum ServiceKind {
     Algedonic,
     TemporalVariety,
-    System4Intelligence,
-    System4Scanner,
-    System4Analytics,
-    System4Forecasting,
     System5Policy,
     System5Identity,
     System5Values,
@@ -70,10 +66,6 @@ pub struct ServiceState {
 impl ServiceState {
     pub fn new(kind: ServiceKind, config: Value) -> Self {
         let id = match kind {
-            ServiceKind::System4Intelligence
-            | ServiceKind::System4Scanner
-            | ServiceKind::System4Analytics
-            | ServiceKind::System4Forecasting => "system4",
             ServiceKind::System5Policy
             | ServiceKind::System5Identity
             | ServiceKind::System5Values
@@ -106,9 +98,6 @@ impl Actor for ServiceActor {
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
         match self.kind {
-            ServiceKind::System4Intelligence => {
-                subscribe(myself.clone(), ChannelKind::Command, "system4").await?
-            }
             ServiceKind::System5Policy => {
                 subscribe(myself.clone(), ChannelKind::Algedonic, "system5").await?
             }
@@ -226,18 +215,6 @@ pub async fn handle_service_call(
         ServiceKind::TemporalVariety => {
             crate::channels::temporal_variety::actor_call(op, payload, state).await
         }
-        ServiceKind::System4Intelligence => {
-            crate::system4::intelligence::actor_call(op, payload, state).await
-        }
-        ServiceKind::System4Scanner => {
-            crate::system4::scanner::actor_call(op, payload, state).await
-        }
-        ServiceKind::System4Analytics => {
-            crate::system4::analytics::actor_call(op, payload, state).await
-        }
-        ServiceKind::System4Forecasting => {
-            crate::system4::forecasting::actor_call(op, payload, state).await
-        }
         ServiceKind::System5Policy => crate::system5::policy::actor_call(op, payload, state).await,
         ServiceKind::System5Identity => {
             crate::system5::identity::actor_call(op, payload, state).await
@@ -270,10 +247,6 @@ pub async fn handle_service_cast(
                 MessageKind::Alert,
                 payload,
             ))?;
-            Ok(())
-        }
-        ServiceKind::System4Forecasting if op == "update_models" => {
-            state.data["last_model_update"] = now_json();
             Ok(())
         }
         _ => Ok(()),

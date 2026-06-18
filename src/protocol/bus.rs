@@ -7,6 +7,10 @@ use crate::roles::ViableSystem;
 use super::system1::{AuditRequest, UnitCommand, WorkRequest};
 use super::system2::{CoordinationAcknowledgement, CoordinationViewRecord};
 use super::system3::{DirectiveAcknowledgement, ResourceRequest, System3AuditRequest};
+use super::system4::{
+    AdaptationProposal, EnvironmentSourceDescriptor, EnvironmentalObservation,
+    System4IntelligenceCycle,
+};
 
 /// Delivery result for a typed control-path message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,6 +64,7 @@ where
     System1(Box<System1ControlMessage<V>>),
     System2(Box<System2ControlMessage<V>>),
     System3(Box<System3ControlMessage<V>>),
+    System4(Box<System4ControlMessage>),
 }
 
 /// Typed System 1 control messages.
@@ -89,4 +94,12 @@ where
     ResourceRequests(Vec<ResourceRequest<V>>),
     DirectiveAcknowledgement(Box<DirectiveAcknowledgement<V>>),
     AuditRequest(Box<System3AuditRequest<V>>),
+}
+
+/// Typed System 4 control messages.
+pub enum System4ControlMessage {
+    RegisterSource(EnvironmentSourceDescriptor),
+    Observations(Vec<EnvironmentalObservation>),
+    IntelligenceCycle(Box<System4IntelligenceCycle>),
+    AdaptationProposal(Box<AdaptationProposal>),
 }

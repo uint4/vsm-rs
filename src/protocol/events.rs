@@ -16,6 +16,10 @@ use super::system3::{
     OperationalSummary, RemediationAction, ResourceAllocation, ResourceAllocationAcknowledgement,
     ResourceRequest,
 };
+use super::system4::{
+    AdaptationProposal, EnvironmentSourceStatus, EnvironmentalObservation, Forecast,
+    ForecastCalibration, IntelligenceAssessment, InterpretedSignal, Scenario,
+};
 
 /// Framework event record.
 #[derive(Clone)]
@@ -33,6 +37,7 @@ where
     System1(Box<System1Event<V>>),
     System2(Box<System2Event<V>>),
     System3(Box<System3Event<V>>),
+    System4(Box<System4Event>),
 }
 
 impl<V> Clone for RuntimeEvent<V>
@@ -45,6 +50,7 @@ where
             Self::System1(event) => Self::System1(Box::new((**event).clone())),
             Self::System2(event) => Self::System2(Box::new((**event).clone())),
             Self::System3(event) => Self::System3(Box::new((**event).clone())),
+            Self::System4(event) => Self::System4(event.clone()),
         }
     }
 }
@@ -89,6 +95,7 @@ where
     System1(Box<System1Report<V>>),
     System2(Box<System2Report<V>>),
     System3(Box<System3Report<V>>),
+    System4(Box<System4Report>),
 }
 
 /// System 1 report stream item.
@@ -219,4 +226,38 @@ where
     AuditFinding(Box<AuditFinding<V>>),
     Remediation(Box<RemediationAction<V>>),
     AuditResponse(Box<AuditResponse<V>>),
+}
+
+/// System 4 event stream item.
+#[derive(Clone)]
+pub enum System4Event {
+    SourceRegistered(Box<EnvironmentSourceStatus>),
+    SourceObservationFailed(Box<EnvironmentSourceStatus>),
+    ObservationsCollected {
+        observation_count: usize,
+        stale_source_count: usize,
+    },
+    IntelligenceCycle {
+        observation_count: usize,
+        signal_count: usize,
+        forecast_count: usize,
+        scenario_count: usize,
+        proposal_count: usize,
+    },
+    ForecastCalibrated {
+        calibration_count: usize,
+    },
+    AdaptationProposed(Box<AdaptationProposal>),
+}
+
+/// System 4 report stream item.
+pub enum System4Report {
+    SourceStatus(Box<EnvironmentSourceStatus>),
+    Observation(Box<EnvironmentalObservation>),
+    Signal(Box<InterpretedSignal>),
+    Assessment(Box<IntelligenceAssessment>),
+    Forecast(Box<Forecast>),
+    Scenario(Box<Scenario>),
+    Proposal(Box<AdaptationProposal>),
+    Calibration(Box<ForecastCalibration>),
 }

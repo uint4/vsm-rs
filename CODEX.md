@@ -14,16 +14,15 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Milestone 7 — System 3 and System 3* migration
-- Approved scope: Replace System 3's JSON `ServiceActor` core path with typed
-  control/resource governance and a distinct System 3* audit actor, consume
-  typed performance/resource inputs, invoke application-owned governance,
-  control, and audit roles, track authority/version/acknowledgement/expiry,
-  keep audit access separate from normal System 1 reporting, move current
-  resource/audit algorithms under defaults/examples or remove them, and update
-  tests/documentation.
-- Approved architectural decisions: Recorded in ADR-0001 through ADR-0006
-- Pending decisions: None for the approved Milestone 7 scope
+- Approved milestone: Milestone 8 — System 4 migration, completed at review gate
+- Approved scope: Convert System 4 from JSON `ServiceActor` services into a
+  typed, supervised environmental-intelligence pipeline with dynamic source
+  registration, observation freshness/provenance/confidence, application-owned
+  interpretation/modeling/forecasting behavior, typed adaptation proposals,
+  System 3 feasibility integration, defaults relocation, tests, and
+  documentation.
+- Approved architectural decisions: Recorded in ADR-0001 through ADR-0007
+- Pending decisions: Awaiting explicit approval before Milestone 9
 - Permission to begin next milestone: No
 
 ## Pending user decisions
@@ -32,34 +31,31 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 |---|---|---|---|---|---|
 | S2-001 | Public `CoordinationPolicy` role shape | A. Minimal view-centric policy over typed System 1 coordination views, generic conflict/intervention/ack records, no new `ViableSystem` associated types; B. System 2 extension type family with app-owned conflict/intervention payload types; C. Keep System 2 policy private for this slice and defer public replacement | A | Milestone 6 | Approved 2026-06-18; recorded in ADR-0005 |
 | S3-001 | Public System 3/System 3* role boundary | A. Minimal framework-owned records with `ResourceGovernance`, `OperationalControlPolicy`, and `Auditor` roles over existing `ViableSystem` types; B. Add a System 3 extension type family for app-owned resource/directive/audit payloads; C. Convert control/resource governance now and defer System 3* audit | A | Milestone 7 | Approved 2026-06-18; recorded in ADR-0006 |
+| S4-001 | Public System 4 intelligence role boundary | A. Minimal framework-owned pipeline records with environmental source factories, signal interpretation, intelligence modeling, and forecasting/scenario roles over existing `ViableSystem` types; B. Add a System 4 extension type family with app-owned observation/signal/forecast/scenario/proposal payloads; C. Convert observation collection and interpretation now, defer forecasting/scenarios/proposals | A | Milestone 8 | Approved 2026-06-18; recorded in ADR-0007 |
 
 ## Current status
 
-- Overall state: Milestone 7 complete; review gate reached
-- Current phase: Review gate after Milestone 7 — System 3 and System 3*
-  migration
-- Current milestone: Typed System 3 control/resource governance and System 3*
-  audit
+- Overall state: Milestone 8 complete; stopped for review
+- Current phase: Review gate after Milestone 8 — System 4 migration
+- Current milestone: Typed System 4 environmental-intelligence pipeline complete
 - Last updated: 2026-06-18
 - Last updated by: Codex
-- Baseline commit: `1e1aed5`
+- Baseline commit: `f66cf44`
 - Working branch: `master`
-- Repository clean at start: No; earlier migration changes remained
-  uncommitted in the working tree.
-- Repository status now: Milestone 7 implementation complete with uncommitted
-  changes; validation passed and review gate is reached.
+- Repository clean at start: Yes.
+- Repository status now: Milestone 8 implementation, tests, docs, and
+  validation complete; working tree contains Milestone 8 changes pending user
+  review.
 
 ## Current objective
 
-Milestone 7 has been implemented with the approved Option A role boundary:
-typed System 3 resource governance/control and distinct System 3* audit roles
-over framework-owned records without adding new `ViableSystem` associated
-types.
+Stop at the Milestone 8 review gate after completing the approved Option A
+typed System 4 environmental-intelligence migration.
 
 ## Next action
 
-Stop at the Milestone 7 review gate. Present validation evidence and wait for
-explicit user approval before beginning Milestone 8: System 4 migration.
+Wait for explicit user review and approval before beginning Milestone 9
+(`System 5 migration`).
 
 ---
 
@@ -68,7 +64,7 @@ explicit user approval before beginning Milestone 8: System 4 migration.
 | Phase | Milestone | Status | Evidence |
 |---|---|---:|---|
 | 0 | Repository baseline | Complete | Formatting, check, tests, Clippy, docs, doctests, and example validation pass. |
-| 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, explicit delivery outcomes, removed targeted fallback, broadcast validation, removed System 2/System 3 JSON dispatch, and remaining Systems 4-5 JSON service calls. Existing System 1 and full-system tests still pass. |
+| 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, explicit delivery outcomes, removed targeted fallback, broadcast validation, removed System 2/System 3/System 4 JSON dispatch, and remaining System 5 JSON service calls. Existing System 1 and full-system tests still pass. |
 | 0 | ADR setup | Complete | `docs/adr/README.md`, template, and ADR-0001 through ADR-0004 added. |
 | 1 | Application type family | Complete | `src/roles/types.rs` defines `ViableSystem`; `tests/foundational_types.rs` proves non-serde application work, outcome, and snapshot payloads compile. |
 | 1 | Typed core envelopes | Complete | `src/protocol/*`, `src/error.rs`, `src/cancellation.rs`, `src/roles/ports.rs`, and `src/legacy/*` added with tests, docs, and full validation passing. |
@@ -78,7 +74,7 @@ explicit user approval before beginning Milestone 8: System 4 migration.
 | 4 | Typed protocol bus | Complete | `src/protocol/bus.rs`, `src/kernel/event_bus.rs`, expanded `src/channels/broker.rs`, runtime observer APIs, tests, docs, and full validation pass. |
 | 5 | System 2 migration | Complete | `src/protocol/system2.rs`, `src/roles/system2.rs`, `src/kernel/system2.rs`, expanded runtime handles, updated System 1 coordination hooks, defaults relocation, docs, and `tests/system2_typed_runtime.rs`; full validation passes. |
 | 6 | System 3 and System 3* migration | Complete | ADR-0006 accepted as Option A; `src/protocol/system3.rs`, `src/roles/system3.rs`, `src/kernel/system3.rs`, `System3Handle`, builder hooks, docs, and `tests/system3_typed_runtime.rs` added; full validation passes. |
-| 7 | System 4 migration | Not started | Awaiting user approval. |
+| 7 | System 4 migration | Complete | ADR-0007 accepted as Option A; typed System 4 protocols, roles, private runtime actors, builder/handle APIs, defaults relocation, docs, and `tests/system4_typed_runtime.rs` added; full validation passes. |
 | 8 | System 5 migration | Not started | Awaiting user approval. |
 | 9 | Variety and algedonic migration | Not started | Awaiting user approval. |
 | 10 | Temporal processing | Not started | Awaiting user approval. |
@@ -103,14 +99,14 @@ documentation are complete.
 
 | Command | Result | Last run | Notes |
 |---|---:|---|---|
-| `cargo fmt --all -- --check` | Passed | 2026-06-18 | No formatting drift. |
-| `CARGO_INCREMENTAL=0 cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. |
-| `CARGO_INCREMENTAL=0 cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 54 integration tests across foundational, full-system, Phase 0, role-contract, runtime-builder, typed-System-1, typed-System-2, and typed-System-3 suites; example test targets have 0 tests. |
-| `CARGO_INCREMENTAL=0 cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings after factoring the private System 3 audit snapshot reply alias. |
-| `CARGO_INCREMENTAL=0 cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
-| `CARGO_INCREMENTAL=0 cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
-| `CARGO_INCREMENTAL=0 cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-18 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
-| `CARGO_INCREMENTAL=0 cargo run --example basic_usage --locked` | Passed | 2026-06-18 | Example starts runtime, registers `payments`, processes a transaction, prints status, records System 2 target unavailability on the legacy coordination channel, and exits. |
+| `cargo fmt --all -- --check` | Passed | 2026-06-18 | No formatting drift after Milestone 8. |
+| `cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. |
+| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 57 integration tests across foundational, full-system, Phase 0, role-contract, runtime-builder, typed-System-1, typed-System-2, typed-System-3, and typed-System-4 suites; example test targets have 0 tests. |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings. |
+| `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
+| `cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
+| `cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-18 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
+| `cargo run --example basic_usage --locked` | Passed | 2026-06-18 | Example starts runtime, registers `payments`, processes a transaction, uses `system4::defaults` for prototype intelligence output, reads System 5 policy state, prints status, records System 2 target unavailability on the legacy coordination channel, and exits. |
 | `git diff --check` | Passed | 2026-06-18 | No whitespace errors. |
 
 Do not replace failing results with “not run.” Preserve the most recent failure
@@ -315,17 +311,52 @@ until a subsequent run succeeds.
 - Added `tests/system3_typed_runtime.rs` for downstream-style governance,
   directive delivery/acknowledgement, System 3* audit authorization and
   evidence collection, and default/no-op behavior.
-- Updated Phase 0 and full-flow tests for removed System 3 JSON dispatch and
-  retained Systems 4-5 JSON services.
+- Updated Phase 0 and full-flow tests for removed System 3 JSON dispatch and,
+  at that point, retained Systems 4-5 JSON services.
 - Updated README, architecture, usage, and developer docs for typed System 3,
-  remaining Systems 4-5 JSON boundaries, and the moved defaults.
+  the then-remaining Systems 4-5 JSON boundaries, and the moved defaults.
+- Completed the typed System 4 migration:
+  - accepted ADR-0007 as Option A and kept `ViableSystem` unchanged;
+  - added `src/protocol/system4.rs` for framework-owned source descriptors,
+    source statuses, observations, interpreted signals, assessments, forecasts,
+    scenarios, calibration records, adaptation proposals, intelligence cycles,
+    and snapshots;
+  - added `src/roles/system4.rs` with `EnvironmentalSource`,
+    `EnvironmentalSourceFactory`, `SignalInterpreter`, `IntelligenceModel`,
+    `Forecaster`, `System4Roles`, shared object aliases, and no-op defaults;
+  - added private `src/kernel/system4.rs` with the typed intelligence actor,
+    per-source actors, dynamic source registration, observation normalization,
+    source role restart on observation failure, stale-source detection,
+    calibration recording, event/report emission, snapshots, and System 3
+    feasibility annotation for adaptation proposals;
+  - extended `VsmBuilder`, `VsmRuntime`, and crate-root exports with System 4
+    role injection, runtime role bundles, and `System4Handle`;
+  - extended typed bus/events/reports with System 4 records;
+  - removed the old compiled System 4 JSON `ServiceActor` services and their
+    public actor-name constants;
+  - changed the legacy System 4 supervisor to a placeholder with no JSON
+    children;
+  - moved old scanner/analytics/forecasting JSON heuristics under
+    `src/system4/defaults.rs` as opt-in prototype helpers;
+  - updated `vsm_core::subsystem_state()` so status no longer probes removed
+    System 4 services.
+- Added `tests/system4_typed_runtime.rs` covering downstream-style source,
+  interpreter, intelligence, and forecaster roles; source registration/listing;
+  intelligence cycle execution; proposal routing to System 5 with System 3
+  feasibility context; stale observation/source detection; forecast
+  calibration; and source restart after observation failure.
+- Updated characterization, full-flow, and basic-usage example paths for the
+  removed System 4 JSON service boundary and retained prototype defaults.
+- Updated README, architecture, usage, developer docs, ADR index, and ADR-0007
+  status for the completed System 4 migration.
 
 ---
 
 ## Work in progress
 
-No implementation is currently in progress. Milestone 7 is complete under
-ADR-0006 Option A and is paused at the review gate.
+No active implementation work. Milestone 8 is complete under ADR-0007 Option A,
+and Codex is stopped at the review gate pending explicit approval for Milestone
+9.
 
 ---
 
@@ -336,8 +367,9 @@ The user approved the Phase 0-only scope, approved Milestone 1 after the Phase
 approved Milestone 3 after the Milestone 2 review gate, approved Milestone 4
 after the Milestone 3 review gate, approved Milestone 5 after the Milestone 4
 review gate, approved Milestone 6 after the Milestone 5 review gate, and
-approved Milestone 7 after the Milestone 6 review gate. Accepted migration
-decisions are recorded as ADRs.
+approved Milestone 7 after the Milestone 6 review gate, and approved Milestone
+8 after the Milestone 7 review gate. Accepted migration decisions are recorded
+as ADRs.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -347,6 +379,7 @@ decisions are recorded as ADRs.
 | [ADR-0004](docs/adr/0004-protocol-boundaries-and-deferred-decisions.md) | Protocol boundaries and explicitly deferred choices | Accepted |
 | [ADR-0005](docs/adr/0005-system2-coordination-policy.md) | Minimal view-centric System 2 coordination policy | Accepted |
 | [ADR-0006](docs/adr/0006-system3-role-boundary.md) | Minimal System 3/System 3* role boundary | Accepted |
+| [ADR-0007](docs/adr/0007-system4-intelligence-boundary.md) | Minimal System 4 environmental-intelligence role boundary | Accepted |
 
 Milestone 1 introduced no new ADR-level architectural decisions. Implementation
 notes:
@@ -543,10 +576,11 @@ Removed characterized bug behavior:
   and the typed System 1 path uses private actor adapters.
 - State, metrics, channel history, dead-letter history, observer event history,
   and most service data remain in memory and restart-volatile.
-- Systems 4-5 still use string operation names and `serde_json::Value`.
+- System 5 still uses string operation names and `serde_json::Value`.
 - The typed runtime path now processes System 1 work, System 2 coordination,
-  and System 3 governance/audit through private actor adapters. Systems 4-5
-  and the legacy `start()` facade still use the current actor/JSON runtime.
+  System 3 governance/audit, and System 4 environmental intelligence through
+  private actor adapters. System 5 and the legacy `start()` facade still use
+  the current actor/JSON runtime.
 - The legacy global System 2 and System 3 supervisors no longer start JSON
   service children; callers using the old targeted coordination or
   resource-bargain channels receive `TargetUnavailable`.
@@ -576,7 +610,7 @@ resolved, and record the resolution in the development history.
 |---|---|---|---|---|
 | System 1 restart/reconciliation | Automatic unit restart, Operations restart directory reconstruction, and unit-supervisor reconciliation are outside the first actor-backed typed slice. | Typed unit actors stop cleanly on unregister/shutdown, but crash recovery is not complete. | Typed System 1 registration/work path. | System 1 hardening |
 | Durable `StateStore` implementations | Persistence contract is accepted, but durable adapters are outside Phase 0. | Current stores are in-memory or no-op only. | StateStore core contract and persistence milestone approval. | Persistence and recovery |
-| Systems 4-5 typed role catalogs and migrations | Later subsystem semantics require separate review gates. | Systems 4-5 continue to use string/JSON service calls. | System 1/System 2/System 3 patterns and owning milestone approval. | Systems 4-5 migrations |
+| System 5 typed role catalog and migration | System 5 policy/identity/value/decision semantics require a separate review gate. | System 5 continues to use string/JSON service calls. | System 1-System 4 patterns and owning milestone approval. | System 5 migration |
 | Full event replay and durability | Requires event model and store semantics not approved for Phase 0. | Events and channel history remain non-durable. | Typed bus/event bus and persistence decisions. | Persistence and recovery |
 | Automatic work retries | User chose no automatic work retries in first System 1 slice. | Work retry behavior remains caller/application responsibility. | Failure classification and retry policy review. | Backpressure/execution hardening |
 | Richer defaults | Defaults must be opt-in and non-normative. | Initial defaults remain minimal. | Role contracts and default namespaces. | System 1 and later default milestones |
@@ -1738,3 +1772,167 @@ passed
 
 Wait for explicit user approval to begin Milestone 8: System 4 migration. Do
 not begin it automatically.
+
+#### 2026-06-18 — Milestone 8 Start
+
+**Objective**
+
+Begin the System 4 migration after the user completed the Milestone 7 review
+gate, and stop before implementation because the System 4 role boundary is a
+material public API decision.
+
+**Changes**
+
+- Updated this journal to record Milestone 8 approval, baseline commit, clean
+  starting tree, scope, and pending decision S4-001.
+- Added proposed ADR-0007 for the public System 4 environmental-intelligence
+  role boundary.
+- Updated the ADR index with ADR-0007 as `Proposed`.
+- No Milestone 8 Rust public API or runtime implementation changes have begun.
+
+**Decisions**
+
+- User explicitly approved proceeding after the Milestone 7 review gate.
+- S4-001 is pending because the System 4 role boundary decides public role
+  traits, protocol records, and whether new application associated types are
+  required.
+
+**Validation**
+
+Most recent full validation remains the Milestone 7 gate suite, all passing on
+2026-06-18. These Milestone 8 start edits are documentation-only.
+
+```text
+git diff --check
+passed
+```
+
+**Next task**
+
+Wait for the user to choose S4-001. If Option A is approved, accept ADR-0007,
+implement the typed System 4 migration slice, and stop at the Milestone 8
+review gate.
+
+#### 2026-06-18 — Milestone 8 Complete
+
+**Objective**
+
+Implement the approved Option A System 4 migration and stop at the review gate.
+
+**Files changed**
+
+- Added `src/protocol/system4.rs`, `src/roles/system4.rs`,
+  `src/kernel/system4.rs`, `src/system4/defaults.rs`, and
+  `tests/system4_typed_runtime.rs`.
+- Updated `src/builder.rs`, `src/runtime.rs`, `src/lib.rs`,
+  `src/protocol/{mod.rs,bus.rs,events.rs}`, `src/roles/mod.rs`,
+  `src/kernel/mod.rs`, `src/system4/{mod.rs,supervisor.rs}`,
+  `src/actor_support.rs`, `src/names.rs`, `src/vsm_core.rs`, and
+  `src/channels/mod.rs`.
+- Deleted the compiled legacy System 4 service modules:
+  `src/system4/intelligence.rs`, `src/system4/scanner.rs`,
+  `src/system4/analytics.rs`, and `src/system4/forecasting.rs`.
+- Updated README, architecture, usage, developer docs, ADR-0007, ADR index,
+  `examples/basic_usage.rs`, `tests/full_system_flow.rs`, and
+  `tests/phase0_characterization.rs`.
+
+**Public APIs added**
+
+- `protocol::system4` records:
+  `EnvironmentSourceDescriptor`, `EnvironmentSourceStatus`,
+  `EnvironmentalObservation`, `EnvironmentalMeasurement`, `FreshnessStatus`,
+  `SignalKind`, `InterpretedSignal`, `IntelligenceAssessment`, `Forecast`,
+  `ForecastPoint`, `Scenario`, `OperationalFeasibilityInfo`,
+  `AdaptationProposal`, `ForecastCalibration`, `System4IntelligenceCycle`, and
+  `System4Snapshot`.
+- `roles::system4` traits and aliases:
+  `EnvironmentalSource`, `EnvironmentalSourceFactory`, `SignalInterpreter`,
+  `IntelligenceModel`, `Forecaster`, `System4Roles`, boxed/shared aliases, and
+  no-op defaults.
+- `runtime::System4RuntimeRoles` and `runtime::System4Handle`.
+- `VsmBuilder` methods:
+  `environmental_source_factory`, `environmental_source_factory_arc`,
+  `signal_interpreter`, `signal_interpreter_arc`, `intelligence_model`,
+  `intelligence_model_arc`, `forecaster`, and `forecaster_arc`.
+- `VsmRuntime::system4()`.
+- `RuntimeControlMessage::System4`, `System4ControlMessage`,
+  `RuntimeEvent::System4`, `System4Event`, `RuntimeReport::System4`, and
+  `System4Report`.
+
+**Public APIs removed or relocated**
+
+- Removed the compiled System 4 JSON service modules and service dispatch:
+  `system4::intelligence`, `system4::scanner`, `system4::analytics`,
+  `system4::forecasting`, and `ServiceKind::System4*`.
+- Removed public names for the deleted service actors:
+  `names::SYSTEM4_INTELLIGENCE`, `names::SYSTEM4_SCANNER`,
+  `names::SYSTEM4_ANALYTICS`, and `names::SYSTEM4_FORECASTING`.
+- Relocated prototype JSON helper algorithms under `system4::defaults`.
+
+**Decisions**
+
+- ADR-0007 is accepted as Option A: System 4 uses minimal framework-owned
+  pipeline records and public role traits over the existing `ViableSystem`
+  family. No new `ViableSystem` associated types were added.
+- System 4 proposal delivery to System 5 is represented as typed routing
+  metadata and reports/events in this milestone; actual System 5 typed
+  consumption remains the Milestone 9 concern.
+- Source failure isolation is implemented by recreating the failing source role
+  instance inside its source actor and recording the failure; the intelligence
+  actor remains alive.
+
+**Tests added or updated**
+
+- `tests/system4_typed_runtime.rs` covers source registration/listing,
+  observation collection, typed intelligence cycles, System 3 feasibility
+  context, proposal routing to System 5, stale-source detection, calibration,
+  and contained source restart.
+- Phase 0 characterization now records that System 2, System 3, and System 4
+  JSON service dispatch have been removed while System 5 remains.
+- Full-system and basic-usage paths use `system4::defaults` for prototype
+  System 4 JSON helper behavior.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+passed
+
+cargo check --all-targets --all-features --locked
+passed
+
+cargo test --all-targets --all-features --locked
+passed
+
+cargo clippy --all-targets --all-features --locked -- -D warnings
+passed
+
+cargo doc --all-features --no-deps --locked
+passed
+
+cargo test --doc --all-features --locked
+passed
+
+cargo run --example typed_runtime_builder --locked
+passed
+
+cargo run --example basic_usage --locked
+passed
+
+git diff --check
+passed
+```
+
+**Failures and warnings**
+
+- No validation failures remain.
+- Typed System 4 creates and routes adaptation proposals with metadata,
+  uncertainty, provenance, and System 3 feasibility context, but System 5 does
+  not yet consume them through a typed role boundary.
+- System 4 default helper algorithms remain prototype helpers under
+  `system4::defaults`; they are not core semantics.
+
+**Next task**
+
+Wait for explicit user review and approval before beginning Milestone 9:
+System 5 migration.

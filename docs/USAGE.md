@@ -122,7 +122,7 @@ Use interfaces in this order:
 1. **Typed subsystem facade**, such as `system1::process_transaction`.
 2. **Typed dedicated service API**, such as `channels::temporal_variety::get_patterns`.
 3. **Channel facade**, when the interaction is an asynchronous VSM event.
-4. **`actor_support::call_service`**, when using a Systems 4–5 JSON service operation that has no typed wrapper.
+4. **`actor_support::call_service`**, when using a System 5 JSON service operation that has no typed wrapper.
 5. **Direct pure function**, when no actor state or supervision is needed.
 
 The typed facade gives the strongest compile-time guarantees. Generic service calls are intentionally flexible but operation and payload mistakes become runtime behavior.
@@ -143,11 +143,15 @@ The crate also exposes early trait-driven foundations for the approved migration
 - `roles::system2` contracts for `CoordinationPolicy` and `System2Roles`.
 - `roles::system3` contracts for `ResourceGovernance`,
   `OperationalControlPolicy`, `Auditor`, and `System3Roles`.
+- `roles::system4` contracts for environmental sources, signal
+  interpretation, intelligence modeling, forecasting/scenario planning, and
+  adaptation proposal roles.
 - `roles::system1::defaults` for opt-in lowest-load selection and no-op
   performance, variety, and algedonic policies.
 - `roles::system2::defaults` for the no-op coordination policy.
 - `roles::system3::defaults` for deny-all resource governance, no-op
   operational control, and no-op audit.
+- `roles::system4::defaults` for no-op System 4 roles.
 - `roles::system1::testing` for downstream-style test fakes.
 - `roles::ports` for `StateStore`, `EventSink`, `ReportSink`, `TelemetrySink`,
   `AlertSink`, `Clock`, and `IdGenerator`.
@@ -159,11 +163,11 @@ The crate also exposes early trait-driven foundations for the approved migration
   subscriptions, and shutdown acknowledgement.
 
 These types are public so downstream-style code can compile against the future
-boundary. `VsmBuilder` now starts actor-backed typed System 1, System 2, and
-System 3 paths for unit registration, work processing, coordination,
-governance/audit, and observer-event delivery; the current global
-actor/JSON-backed runtime continues to serve the legacy transaction facade and
-Systems 4–5 service APIs.
+boundary. `VsmBuilder` now starts actor-backed typed System 1, System 2,
+System 3, and System 4 paths for unit registration, work processing,
+coordination, governance/audit, environmental intelligence, and observer-event
+delivery; the current global actor/JSON-backed runtime continues to serve the
+legacy transaction facade and System 5 service APIs.
 
 Application role implementations should import `vsm_rs::async_trait` when
 implementing async role methods. They should not need to import `ractor`,
@@ -779,28 +783,24 @@ Supervise long-lived subscribers rather than spawning detached actors. Re-subscr
 
 ## 10. JSON service calls
 
-Systems 4–5 use the shared service actor facade:
+System 5 and telemetry use the shared service actor facade. System 4 has moved
+to the typed runtime handle and no longer starts JSON service actors.
 
 ```rust
 use serde_json::json;
-use vsm_rs::actor_support::{call_service, cast_service};
+use vsm_rs::actor_support::call_service;
 use vsm_rs::names;
 
 let value = call_service(
-    names::SYSTEM4_INTELLIGENCE,
-    "intelligence_report",
+    names::SYSTEM5_POLICY,
+    "get_organizational_state",
     json!({ /* payload */ }),
 )
 .await?;
-
-cast_service(
-    names::SYSTEM4_FORECASTING,
-    "update_models",
-    json!({ "reason": "new data" }),
-)?;
 ```
 
-`call_service` uses a fixed five-second timeout. `cast_service` is non-blocking.
+`call_service` uses a fixed five-second timeout. `cast_service` is still
+available for legacy service actors that support non-blocking operations.
 
 Unknown operations return:
 
@@ -883,126 +883,51 @@ are not part of the typed System 3 core path.
 
 ## 13. System 4 usage
 
-System 4 offers an aggregate Intelligence actor and separate Scanner, Analytics, and Forecasting actors.
+System 4 is part of the typed runtime handle. It registers environmental
+sources dynamically, polls them through source actors, invokes application-owned
+signal interpretation, intelligence, forecasting, scenario, and adaptation
+proposal roles, and annotates proposals with System 3 feasibility context.
 
-### 13.1 Environmental scan
+```rust
+# async fn run<V: vsm_rs::ViableSystem>(
+#     runtime: vsm_rs::VsmRuntime<V>,
+# ) -> Result<(), vsm_rs::FrameworkError> {
+use vsm_rs::protocol::system4::EnvironmentSourceDescriptor;
+
+runtime
+    .system4()
+    .register_source(EnvironmentSourceDescriptor::new("market"))
+    .await?;
+
+let cycle = runtime.system4().run_intelligence_cycle().await?;
+let snapshot = runtime.system4().snapshot().await?;
+
+println!("observations: {}", cycle.observations.len());
+println!("proposals: {}", snapshot.proposals.len());
+# Ok(())
+# }
+```
+
+Provide custom roles with:
+
+- `VsmBuilder::environmental_source_factory`
+- `VsmBuilder::signal_interpreter`
+- `VsmBuilder::intelligence_model`
+- `VsmBuilder::forecaster`
+
+If omitted, the typed runtime uses no-op System 4 defaults. The old System 4
+JSON service dispatch has been removed from the core path. Prototype JSON
+helper algorithms are retained under `system4::defaults` for use inside custom
+roles or examples:
 
 ```rust
 use serde_json::json;
-use vsm_rs::system4::intelligence;
 
-let scan = intelligence::environmental_scan(
-    vec![
-        json!({ "id": "market", "value": 0.72 }),
-        json!({ "id": "regulation", "value": -0.50 }),
-    ],
-    json!({ "region": "global" }),
-)
-.await?;
+let scan = vsm_rs::system4::defaults::scan_environment(
+    &[json!({ "id": "market", "value": 0.72 })],
+    &json!({}),
+);
 ```
-
-Signals above `0.65` are classified as opportunities, below `-0.35` as threats, and the remainder as weak signals.
-
-### 13.2 Intelligence report with custom sources
-
-`get_intelligence_report()` uses an empty source list. For real input, call the service directly:
-
-```rust
-use vsm_rs::actor_support::call_service;
-use vsm_rs::names;
-
-let report = call_service(
-    names::SYSTEM4_INTELLIGENCE,
-    "intelligence_report",
-    json!({
-        "sources": [
-            { "id": "market", "value": 0.72 },
-            { "id": "supply", "value": -0.40 }
-        ],
-        "z_threshold": 2.0
-    }),
-)
-.await?;
-```
-
-### 13.3 Analyze data
-
-```rust
-use vsm_rs::system4::analytics;
-
-let analysis = analytics::analyze_data(
-    json!([1.0, 1.2, 1.3, 4.8]),
-    "anomaly",
-)
-.await?;
-
-let trend = analytics::analyze_trends(
-    json!([1, 2, 3, 4]),
-    "hour",
-)
-.await?;
-```
-
-`analyze_data` calls the Analytics actor. `analyze_trends` is a direct helper and does not use actor state.
-
-### 13.4 Forecast
-
-```rust
-let forecast = call_service(
-    names::SYSTEM4_FORECASTING,
-    "forecast",
-    json!({
-        "history": [10.0, 12.0, 13.0, 15.0],
-        "horizon": 5,
-        "model": "linear"
-    }),
-)
-.await?;
-```
-
-Models recognized by the current function are:
-
-- `linear` or any unrecognized value: trend projection
-- `mean`: historical mean
-- `naive`: last observed value
-
-### 13.5 System 4 operation reference
-
-#### Intelligence actor
-
-| Operation | Payload |
-|---|---|
-| `environmental_scan`, `scan` | `{sources: [...], ...options}` |
-| `analyze` | Analytics payload |
-| `forecast` | Forecasting payload |
-| `intelligence_report` | `{sources: [...], ...options}` |
-
-#### Scanner actor
-
-| Operation | Payload |
-|---|---|
-| `scan`, `scan_environment` | `{sources: [...]}` |
-| `detect_changes` | `{current: {...}, previous: {...}}` |
-| `classify` | JSON array of signals |
-| `trends` | JSON array of values/signals |
-
-#### Analytics actor
-
-| Operation | Payload |
-|---|---|
-| `analyze` | `{data: [...], analysis_type: "summary|trend|correlation|anomaly|insight", ...options}` |
-| `correlate` | `{data: [{x, y}, ...]}` |
-| `detect_anomalies` | `{data: [...], z_threshold: 2.0}` |
-| `generate_insights` | `{data: [...], ...options}` |
-
-#### Forecasting actor
-
-| Operation | Payload |
-|---|---|
-| `forecast` | `{history: [...], horizon: 10, model: "linear"}` |
-| `scenarios` | `{base_forecast: {...}, scenario_delta: 0.15}` |
-| `validate` | `{forecast: {...}, actuals: [...]}` |
-| `models` | `{}` |
 
 ## 14. System 5 usage
 
@@ -1399,7 +1324,7 @@ Inspect `root_supervisor` rather than relying only on the top-level `status` str
 let status = vsm_rs::status().await?;
 ```
 
-`status()` combines health with best-effort state from Systems 4–5. Failed subsystem calls are omitted from the subsystem object rather than failing the whole operation.
+`status()` combines health with best-effort legacy System 5 state. Failed subsystem calls are omitted from the subsystem object rather than failing the whole operation.
 
 ### 19.3 Tracing
 
@@ -1478,7 +1403,7 @@ acknowledgement before treating channels as a durable event bus.
 
 ## 22. Testing
 
-The included tests demonstrate startup, unit registration, transaction processing, typed System 2 coordination, typed System 3 governance/audit, System 4 analysis, System 5 decisions, and health.
+The included tests demonstrate startup, unit registration, transaction processing, typed System 2 coordination, typed System 3 governance/audit, typed System 4 source/intelligence cycles, System 5 decisions, and health.
 
 Run:
 
@@ -1516,7 +1441,8 @@ Typed application service layer
         +-- System 1 typed facade
         +-- typed System 2 coordination
         +-- typed System 3 governance and audit
-        +-- typed wrappers around Systems 4–5 operations
+        +-- typed System 4 intelligence
+        +-- typed wrappers around remaining System 5 operations
         +-- validated VsmMessage publishing
         +-- domain-specific channel subscribers
         |
@@ -1528,7 +1454,7 @@ Recommended next steps before production use:
 
 1. Add a readiness actor or barrier.
 2. Wrap every string-based service operation in typed request/response structs.
-3. Convert channel events into domain actions for Systems 4–5.
+3. Convert channel events into domain actions for System 5 and future typed subsystem bridges.
 4. Add durable state or event sourcing for policies, decisions, units, and metrics.
 5. Reconcile subscriptions after broker restart.
 6. Reconcile System 1 unit state after Operations or unit-supervisor restart.
@@ -1548,7 +1474,8 @@ Recommended next steps before production use:
 | Missing targeted subscriber | `TargetUnavailable` outcome and dead-letter history |
 | Duplicate subscriber ID | Replaces previous subscription |
 | System 2 coordination | Typed runtime policy over System 1 coordination views |
-| Systems 4–5 channel reactions | Record history only |
+| System 4 intelligence | Typed runtime source/intelligence cycle |
+| System 5 channel reactions | Record history only |
 | System 1 channel reactions | Execute command, coordinate, audit |
 | Advanced algedonic routing | Records route; does not deliver it |
 | Temporal scheduled analysis | Not scheduled; queries calculate on demand |

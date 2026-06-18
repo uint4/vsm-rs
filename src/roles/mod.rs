@@ -5,6 +5,7 @@ pub mod ports;
 pub mod system1;
 pub mod system2;
 pub mod system3;
+pub mod system4;
 pub mod types;
 
 pub use context::{RoleContext, UnitRoleContext};
@@ -24,5 +25,10 @@ pub use system2::{CoordinationPolicy, SharedCoordinationPolicy, System2Roles};
 pub use system3::{
     Auditor, OperationalControlPolicy, ResourceGovernance, SharedAuditor,
     SharedOperationalControlPolicy, SharedResourceGovernance, System3Roles,
+};
+pub use system4::{
+    BoxEnvironmentalSource, EnvironmentalSource, EnvironmentalSourceFactory, Forecaster,
+    IntelligenceModel, SharedEnvironmentalSourceFactory, SharedForecaster, SharedIntelligenceModel,
+    SharedSignalInterpreter, SignalInterpreter, System4Roles,
 };
 pub use types::ViableSystem;

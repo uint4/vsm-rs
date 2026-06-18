@@ -231,30 +231,29 @@ async fn explicit_broadcast_rejects_targeted_message() {
 
 #[tokio::test]
 #[serial]
-async fn system2_and_system3_json_service_dispatch_are_removed_and_systems_4_to_5_remain() {
+async fn system2_to_system4_json_service_dispatch_are_removed_and_system5_remains() {
     let app = start_app().await;
 
     let system2 = call_service(names::SYSTEM2_COORDINATION, "get_state", json!({})).await;
     let system3 = call_service(names::SYSTEM3_CONTROL, "get_state", json!({})).await;
     let system4 = call_service(
-        names::SYSTEM4_INTELLIGENCE,
+        "vsm.system4.intelligence",
         "intelligence_report",
         json!({"sources": []}),
     )
-    .await
-    .expect("system4 report should return");
+    .await;
     let system5 = call_service(names::SYSTEM5_POLICY, "definitely_unknown", json!({}))
         .await
         .expect("system5 unknown operation should return JSON");
 
     let system2_unavailable = system2.is_err();
     let system3_unavailable = system3.is_err();
-    let system4_report_shape = system4.get("scan").is_some() && system4.get("insights").is_some();
+    let system4_unavailable = system4.is_err();
     let system5_unknown_operation = system5["status"] == "unknown_operation";
     stop_app(app).await;
 
     assert!(system2_unavailable);
     assert!(system3_unavailable);
-    assert!(system4_report_shape);
+    assert!(system4_unavailable);
     assert!(system5_unknown_operation);
 }
