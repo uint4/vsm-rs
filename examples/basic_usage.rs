@@ -2,10 +2,10 @@ use serde_json::json;
 use tokio::time::{sleep, Duration};
 use tracing_subscriber::EnvFilter;
 
-use vsm_ractor_full::actor_support::call_service;
-use vsm_ractor_full::channels::algedonic::signals::Severity;
-use vsm_ractor_full::names;
-use vsm_ractor_full::system1::{self, Transaction, UnitConfig};
+use vsm_rs::actor_support::call_service;
+use vsm_rs::channels::algedonic::signals::Severity;
+use vsm_rs::names;
+use vsm_rs::system1::{self, Transaction, UnitConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_env_filter(EnvFilter::from_default_env().add_directive("info".parse()?))
         .init();
 
-    let (root, root_handle) = vsm_ractor_full::app::start_vsm_core().await?;
+    let (root, root_handle) = vsm_rs::app::start_vsm_core().await?;
     sleep(Duration::from_millis(100)).await;
 
     system1::register_unit(UnitConfig::new("payments", ["payment", "io"])).await?;
@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ))
     .await?;
 
-    vsm_ractor_full::channels::algedonic::send_pain_signal(
+    vsm_rs::channels::algedonic::send_pain_signal(
         "payments",
         json!({"message":"latency spike", "urgency":0.8}),
         Severity::High,
@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{}", serde_json::to_string_pretty(&json!({
         "transaction": processed,
-        "status": vsm_ractor_full::vsm_core::status().await?,
+        "status": vsm_rs::vsm_core::status().await?,
         "intelligence_report": intelligence_report,
         "organizational_state": organizational_state,
     }))?);

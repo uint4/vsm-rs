@@ -1,8 +1,8 @@
 # Usage
 
-This guide explains how to embed, start, call, observe, extend, and shut down the current `vsm-ractor-full` library.
+This guide explains how to embed, start, call, observe, extend, and shut down the current `vsm-rs` library.
 
-The package name is `vsm-ractor-full`; Rust imports use the crate name `vsm_ractor_full`.
+The package name is `vsm-rs`; Rust imports use the crate name `vsm_rs`.
 
 > **Build status:** the original generation environment did not contain `cargo` or `rustc`, so run `cargo check` and `cargo test` locally before treating this port as production-ready.
 
@@ -12,7 +12,7 @@ For a local path dependency:
 
 ```toml
 [dependencies]
-vsm-ractor-full = { path = "../vsm_core_ractor_full_port" }
+vsm-rs = { path = "../vsm_core_ractor_full_port" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
 serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }
@@ -43,14 +43,14 @@ The application is a singleton within one process because all actors use global 
 
 ```rust
 use tracing_subscriber::EnvFilter;
-use vsm_ractor_full::{start, VsmApplication};
+use vsm_rs::{start, VsmApplication};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::from_default_env()
-                .add_directive("vsm_ractor_full=info".parse()?),
+                .add_directive("vsm_rs=info".parse()?),
         )
         .init();
 
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 `vsm_core::stop()` is also available:
 
 ```rust
-vsm_ractor_full::stop().await?;
+vsm_rs::stop().await?;
 ```
 
 It sends a stop request to the root supervisor but does not wait for shutdown. Retain the `join_handle` returned at startup when graceful completion matters.
@@ -90,14 +90,14 @@ A polling helper is safer:
 ```rust
 use std::time::Instant;
 use tokio::time::{sleep, Duration};
-use vsm_ractor_full::{VsmError, VsmResult};
+use vsm_rs::{VsmError, VsmResult};
 
 async fn wait_until_ready() -> VsmResult<()> {
     let deadline = Instant::now() + Duration::from_secs(5);
 
     loop {
-        let broker_ready = vsm_ractor_full::channels::broker_ref().is_ok();
-        let operations_ready = vsm_ractor_full::system1::operations_ref().is_ok();
+        let broker_ready = vsm_rs::channels::broker_ref().is_ok();
+        let operations_ready = vsm_rs::system1::operations_ref().is_ok();
 
         if broker_ready && operations_ready {
             return Ok(());
@@ -133,8 +133,8 @@ The typed facade gives the strongest compile-time guarantees. Generic service ca
 ```rust
 use serde_json::json;
 use tokio::time::{sleep, Duration};
-use vsm_ractor_full::system1::{self, Transaction, TransactionResult, UnitConfig};
-use vsm_ractor_full::VsmApplication;
+use vsm_rs::system1::{self, Transaction, TransactionResult, UnitConfig};
+use vsm_rs::VsmApplication;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -143,7 +143,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let VsmApplication {
         supervisor,
         join_handle,
-    } = vsm_ractor_full::start().await?;
+    } = vsm_rs::start().await?;
 
     // Replace with the readiness helper in long-running applications.
     sleep(Duration::from_millis(100)).await;
@@ -172,7 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("metrics: {:#?}", system1::get_metrics().await?);
     println!("variety: {:#?}", system1::get_variety().await?);
-    println!("status: {:#}", vsm_ractor_full::status().await?);
+    println!("status: {:#}", vsm_rs::status().await?);
 
     supervisor.stop(Some("done".to_string()));
     let _ = join_handle.await;
@@ -188,7 +188,7 @@ System 1 is the primary typed operational API.
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::system1::{self, UnitConfig};
+use vsm_rs::system1::{self, UnitConfig};
 
 let mut config = UnitConfig::new(
     "payments-eu",
@@ -234,7 +234,7 @@ Among eligible units, Operations asks each unit for its load and selects the low
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::system1::{self, Transaction, TransactionResult};
+use vsm_rs::system1::{self, Transaction, TransactionResult};
 
 let tx = Transaction::new(
     "capture_payment",
@@ -335,8 +335,8 @@ The demo Unit recognizes a `status` field:
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::channels::command_channel;
-use vsm_ractor_full::{MessageKind, SystemId};
+use vsm_rs::channels::command_channel;
+use vsm_rs::{MessageKind, SystemId};
 
 command_channel::send_message(
     SystemId::System3,
@@ -354,8 +354,8 @@ System 1 forwards the command to every registered unit.
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::channels::coordination_channel;
-use vsm_ractor_full::{MessageKind, SystemId};
+use vsm_rs::channels::coordination_channel;
+use vsm_rs::{MessageKind, SystemId};
 
 coordination_channel::send_message(
     SystemId::System2,
@@ -389,7 +389,7 @@ Loads more than 20% above average receive `MigrateWork::Out`; loads more than 20
 ### 7.4 Request a System 1 audit
 
 ```rust
-use vsm_ractor_full::channels::audit_channel;
+use vsm_rs::channels::audit_channel;
 
 audit_channel::send_message(
     SystemId::System3Star,
@@ -407,8 +407,8 @@ System 1 publishes an `AuditResponse` containing unit IDs, metrics, variety, tim
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::channels;
-use vsm_ractor_full::{ChannelKind, MessageKind, SystemId, VsmMessage};
+use vsm_rs::channels;
+use vsm_rs::{ChannelKind, MessageKind, SystemId, VsmMessage};
 
 let message = VsmMessage::new(
     SystemId::System4,
@@ -421,7 +421,7 @@ let message = VsmMessage::new(
 // Validate synchronously when rejection must be visible to the caller.
 message
     .validate()
-    .map_err(vsm_ractor_full::VsmError::Validation)?;
+    .map_err(vsm_rs::VsmError::Validation)?;
 
 channels::publish(message)?;
 ```
@@ -431,7 +431,7 @@ channels::publish(message)?;
 ### 8.2 Message convenience facade
 
 ```rust
-use vsm_ractor_full::shared::message;
+use vsm_rs::shared::message;
 
 let sent = message::send(
     SystemId::System1,
@@ -514,9 +514,9 @@ A custom actor can expose only the channel portion of its protocol through a `De
 
 ```rust
 use ractor::{Actor, ActorProcessingErr, ActorRef};
-use vsm_ractor_full::channels;
-use vsm_ractor_full::channels::broker::VsmActorMsg;
-use vsm_ractor_full::ChannelKind;
+use vsm_rs::channels;
+use vsm_rs::channels::broker::VsmActorMsg;
+use vsm_rs::ChannelKind;
 
 pub enum ListenerMsg {
     Channel(VsmActorMsg),
@@ -601,8 +601,8 @@ Systems 2–5 use the shared service actor facade:
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::actor_support::{call_service, cast_service};
-use vsm_ractor_full::names;
+use vsm_rs::actor_support::{call_service, cast_service};
+use vsm_rs::names;
 
 let value = call_service(
     names::SYSTEM3_CONTROL,
@@ -638,7 +638,7 @@ They are not returned as an error, so inspect the response when invoking dynamic
 ```rust
 use chrono::Utc;
 use serde_json::json;
-use vsm_ractor_full::system2::coordination;
+use vsm_rs::system2::coordination;
 
 let existing = vec![json!({
     "id": "job-a",
@@ -711,7 +711,7 @@ The typed wrappers cover `coordinate`, `balance`, and `get_state`.
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::system3::control;
+use vsm_rs::system3::control;
 
 let result = control::allocate_resources(
     vec![
@@ -772,7 +772,7 @@ System 4 offers an aggregate Intelligence actor and separate Scanner, Analytics,
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::system4::intelligence;
+use vsm_rs::system4::intelligence;
 
 let scan = intelligence::environmental_scan(
     vec![
@@ -791,8 +791,8 @@ Signals above `0.65` are classified as opportunities, below `-0.35` as threats, 
 `get_intelligence_report()` uses an empty source list. For real input, call the service directly:
 
 ```rust
-use vsm_ractor_full::actor_support::call_service;
-use vsm_ractor_full::names;
+use vsm_rs::actor_support::call_service;
+use vsm_rs::names;
 
 let report = call_service(
     names::SYSTEM4_INTELLIGENCE,
@@ -811,7 +811,7 @@ let report = call_service(
 ### 13.3 Analyze data
 
 ```rust
-use vsm_ractor_full::system4::analytics;
+use vsm_rs::system4::analytics;
 
 let analysis = analytics::analyze_data(
     json!([1.0, 1.2, 1.3, 4.8]),
@@ -931,7 +931,7 @@ let values = call_service(
 ### 14.3 Set policy
 
 ```rust
-use vsm_ractor_full::system5::policy;
+use vsm_rs::system5::policy;
 
 let policy_result = policy::set_policy_area(
     "risk",
@@ -1078,8 +1078,8 @@ The advanced algedonic actor is separate from the broker's algedonic channel.
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::channels::algedonic;
-use vsm_ractor_full::channels::algedonic::signals::Severity;
+use vsm_rs::channels::algedonic;
+use vsm_rs::channels::algedonic::signals::Severity;
 
 algedonic::send_pain_signal(
     "payments",
@@ -1113,7 +1113,7 @@ println!("metrics: {metrics:#}");
 ### 15.3 Configure filters
 
 ```rust
-use vsm_ractor_full::channels::algedonic::filtering::{
+use vsm_rs::channels::algedonic::filtering::{
     create_filter, FilterKind,
 };
 
@@ -1137,7 +1137,7 @@ algedonic::configure_filters(vec![
 ### 15.4 Alert history
 
 ```rust
-use vsm_ractor_full::channels::algedonic::alerting;
+use vsm_rs::channels::algedonic::alerting;
 
 let history = alerting::get_alert_history(&json!({ "limit": 25 }));
 ```
@@ -1150,7 +1150,7 @@ The actor computes descriptive routes and alert records. It does not deliver tho
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::channels::temporal_variety;
+use vsm_rs::channels::temporal_variety;
 
 temporal_variety::record_variety(json!({
     "input": 12.0,
@@ -1192,8 +1192,8 @@ Pure helper modules can be used without starting the actor application.
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::shared::variety::{amplifier, attenuator, calculator};
-use vsm_ractor_full::shared::variety_engineering;
+use vsm_rs::shared::variety::{amplifier, attenuator, calculator};
+use vsm_rs::shared::variety_engineering;
 
 let input = json!([1.0, 2.0, 3.0, 9.0]);
 let output = json!([1.0, 2.0]);
@@ -1223,7 +1223,7 @@ These functions are heuristic starter implementations. Validate their formulas f
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::shared::recursion;
+use vsm_rs::shared::recursion;
 
 let structure = recursion::initialize_structure(json!({
     "id": "enterprise",
@@ -1263,7 +1263,7 @@ The recursion module is a pure value API: functions generally consume and return
 ### 19.1 Health
 
 ```rust
-let health = vsm_ractor_full::health().await?;
+let health = vsm_rs::health().await?;
 println!("{health:#}");
 ```
 
@@ -1279,7 +1279,7 @@ Inspect `root_supervisor` rather than relying only on the top-level `status` str
 ### 19.2 Full status
 
 ```rust
-let status = vsm_ractor_full::status().await?;
+let status = vsm_rs::status().await?;
 ```
 
 `status()` combines health with best-effort state from Systems 2–5. Failed subsystem calls are omitted from the subsystem object rather than failing the whole operation.
@@ -1289,7 +1289,7 @@ let status = vsm_ractor_full::status().await?;
 Enable logging with `RUST_LOG`:
 
 ```bash
-RUST_LOG=vsm_ractor_full=debug,ractor=info cargo run
+RUST_LOG=vsm_rs=debug,ractor=info cargo run
 ```
 
 Or configure a default directive in code:
@@ -1324,7 +1324,7 @@ A standard application pattern is:
 ```rust
 match system1::process_transaction(tx).await {
     Ok(result) => handle_result(result),
-    Err(vsm_ractor_full::VsmError::ActorNotFound(name)) => {
+    Err(vsm_rs::VsmError::ActorNotFound(name)) => {
         eprintln!("VSM service is not ready: {name}");
     }
     Err(error) => return Err(error.into()),
@@ -1374,7 +1374,7 @@ use serial_test::serial;
 #[tokio::test]
 #[serial]
 async fn my_vsm_test() {
-    let app = vsm_ractor_full::start().await.unwrap();
+    let app = vsm_rs::start().await.unwrap();
     // Exercise APIs.
     app.supervisor.stop(Some("test complete".into()));
     let _ = app.join_handle.await;

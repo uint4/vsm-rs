@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the architecture of the current `vsm-ractor-full` crate: how it starts, where state lives, how actors communicate, how the five VSM systems are represented, and where the current implementation intentionally differs from Elixir/OTP.
+This document describes the architecture of the current `vsm-rs` crate: how it starts, where state lives, how actors communicate, how the five VSM systems are represented, and where the current implementation intentionally differs from Elixir/OTP.
 
 The crate is a conceptual port of `vsm-core`, not a byte-for-byte translation. Elixir process registries, GenServers, supervisors, and dynamic supervisors are represented with `ractor`, `ractor-supervisor`, typed Rust messages, and JSON integration boundaries.
 

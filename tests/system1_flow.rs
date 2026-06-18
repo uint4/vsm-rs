@@ -2,8 +2,8 @@ use serde_json::json;
 use serial_test::serial;
 use tokio::time::{sleep, Duration};
 
-use vsm_ractor_full::app;
-use vsm_ractor_full::system1::{self, Transaction, TransactionResult, UnitConfig};
+use vsm_rs::app;
+use vsm_rs::system1::{self, Transaction, TransactionResult, UnitConfig};
 
 #[tokio::test]
 #[serial]

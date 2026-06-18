@@ -10,9 +10,9 @@ use serde_json::json;
 use tokio::time::{sleep, Duration};
 use tracing_subscriber::EnvFilter;
 
-use vsm_ractor_full::app;
-use vsm_ractor_full::system1::{self, Transaction, UnitConfig};
-use vsm_ractor_full::vsm_core;
+use vsm_rs::app;
+use vsm_rs::system1::{self, Transaction, UnitConfig};
+use vsm_rs::vsm_core;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

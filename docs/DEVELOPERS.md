@@ -1,6 +1,6 @@
 # Developer Guide
 
-This guide is for maintainers and contributors working on `vsm-ractor-full`. It explains how the crate is organized, which architectural constraints are intentional, how to extend actors and channels safely, and how to prepare a release.
+This guide is for maintainers and contributors working on `vsm-rs`. It explains how the crate is organized, which architectural constraints are intentional, how to extend actors and channels safely, and how to prepare a release.
 
 For the conceptual model and runtime topology, start with [`ARCHITECTURE.md`](ARCHITECTURE.md). For consumer-facing examples, see [`USAGE.md`](USAGE.md).
 
@@ -351,7 +351,7 @@ use serial_test::serial;
 #[tokio::test]
 #[serial]
 async fn actor_flow() {
-    let (root, join_handle) = vsm_ractor_full::start_vsm_core()
+    let (root, join_handle) = vsm_rs::start_vsm_core()
         .await
         .expect("runtime should start");
 

@@ -1,12 +1,12 @@
-# vsm-ractor-full
+# vsm-rs
 
-[![Crates.io](https://img.shields.io/crates/v/vsm-ractor-full.svg)](https://crates.io/crates/vsm-ractor-full)
-[![Documentation](https://docs.rs/vsm-ractor-full/badge.svg)](https://docs.rs/vsm-ractor-full)
-[![License](https://img.shields.io/crates/l/vsm-ractor-full.svg)](LICENSE)
+[![Crates.io](https://img.shields.io/crates/v/vsm-rs.svg)](https://crates.io/crates/vsm-rs)
+[![Documentation](https://docs.rs/vsm-rs/badge.svg)](https://docs.rs/vsm-rs)
+[![License](https://img.shields.io/crates/l/vsm-rs.svg)](LICENSE)
 
 An actor-based implementation of Stafford Beer's **Viable System Model (VSM)** for Rust, built with [`ractor`](https://crates.io/crates/ractor) and OTP-style supervision from [`ractor-supervisor`](https://crates.io/crates/ractor-supervisor).
 
-`vsm-ractor-full` provides a supervised runtime for the five VSM subsystems, typed inter-system messages, operational units, pub/sub channels, algedonic escalation, temporal-variety analysis, and reusable variety-engineering utilities.
+`vsm-rs` provides a supervised runtime for the five VSM subsystems, typed inter-system messages, operational units, pub/sub channels, algedonic escalation, temporal-variety analysis, and reusable variety-engineering utilities.
 
 > **Project status:** the crate is currently in the `0.x` series. It is suitable for experimentation, simulation, research, and application integration, but its public API may evolve before `1.0`. Runtime state and channel history are currently in memory.
 
@@ -42,7 +42,7 @@ The systems communicate through command, coordination, audit, resource-bargain, 
 Add the crate and the runtime dependencies used by your application:
 
 ```bash
-cargo add vsm-ractor-full
+cargo add vsm-rs
 cargo add tokio --features macros,rt-multi-thread,time
 cargo add serde_json
 ```
@@ -51,12 +51,12 @@ Or add them manually:
 
 ```toml
 [dependencies]
-vsm-ractor-full = "0.1"
+vsm-rs = "0.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
 serde_json = "1"
 ```
 
-The package name contains hyphens; Rust code imports it as `vsm_ractor_full`.
+The package name contains hyphens; Rust code imports it as `vsm_rs`.
 
 ## Quick start
 
@@ -65,8 +65,8 @@ The following example starts the complete VSM runtime, registers a System 1 unit
 ```rust
 use serde_json::json;
 use tokio::time::{sleep, Duration};
-use vsm_ractor_full::{start, VsmApplication};
-use vsm_ractor_full::system1::{
+use vsm_rs::{start, VsmApplication};
+use vsm_rs::system1::{
     self, Transaction, TransactionResult, UnitConfig,
 };
 
@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         other => println!("not processed: {other:#?}"),
     }
 
-    println!("status: {:#}", vsm_ractor_full::status().await?);
+    println!("status: {:#}", vsm_rs::status().await?);
 
     supervisor.stop(Some("application shutdown".to_owned()));
     let _ = join_handle.await;
@@ -121,10 +121,10 @@ RUST_LOG=info cargo run --example basic_usage
 ### Application lifecycle
 
 ```rust
-let app = vsm_ractor_full::start().await?;
-let health = vsm_ractor_full::health().await?;
-let status = vsm_ractor_full::status().await?;
-vsm_ractor_full::stop().await?;
+let app = vsm_rs::start().await?;
+let health = vsm_rs::health().await?;
+let status = vsm_rs::status().await?;
+vsm_rs::stop().await?;
 ```
 
 Use `app::start_vsm_core()` or the returned `VsmApplication` when the caller needs the root `ActorRef` and join handle for deterministic shutdown.
@@ -133,7 +133,7 @@ Use `app::start_vsm_core()` or the returned `VsmApplication` when the caller nee
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::system1::{self, Transaction, UnitConfig};
+use vsm_rs::system1::{self, Transaction, UnitConfig};
 
 system1::register_unit(UnitConfig::new("billing", ["invoice", "payment"])).await?;
 
@@ -155,7 +155,7 @@ A unit is selected when it advertises every capability required by the transacti
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::{
+use vsm_rs::{
     channels,
     ChannelKind,
     MessageKind,
@@ -183,7 +183,7 @@ Systems 2–5 expose convenience functions for common operations and a generic J
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::{actor_support::call_service, names};
+use vsm_rs::{actor_support::call_service, names};
 
 let report = call_service(
     names::SYSTEM4_INTELLIGENCE,
@@ -213,7 +213,7 @@ Prefer the subsystem convenience functions where one exists, such as:
 
 ```rust
 use serde_json::json;
-use vsm_ractor_full::channels::algedonic::{self, signals::Severity};
+use vsm_rs::channels::algedonic::{self, signals::Severity};
 
 algedonic::send_pain_signal(
     "payments",
@@ -247,7 +247,7 @@ See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the supervision tree, message routi
 
 ## Documentation
 
-- [API documentation](https://docs.rs/vsm-ractor-full)
+- [API documentation](https://docs.rs/vsm-rs)
 - [Usage guide](USAGE.md)
 - [Architecture guide](ARCHITECTURE.md)
 - [Developer guide](DEVELOPERS.md)

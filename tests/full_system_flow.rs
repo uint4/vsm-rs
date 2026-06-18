@@ -2,19 +2,19 @@ use serde_json::json;
 use serial_test::serial;
 use tokio::time::{sleep, Duration};
 
-use vsm_ractor_full::system1::{Transaction, TransactionResult, UnitConfig};
+use vsm_rs::system1::{Transaction, TransactionResult, UnitConfig};
 
 #[tokio::test]
 #[serial]
 async fn full_vsm_flow_exercises_all_systems() {
-    vsm_ractor_full::start().await.expect("app should start");
+    vsm_rs::start().await.expect("app should start");
     sleep(Duration::from_millis(100)).await;
 
-    vsm_ractor_full::system1::register_unit(UnitConfig::new("unit-a", ["alpha", "beta"]))
+    vsm_rs::system1::register_unit(UnitConfig::new("unit-a", ["alpha", "beta"]))
         .await
         .expect("unit should register");
 
-    let result = vsm_ractor_full::system1::process_transaction(Transaction::new(
+    let result = vsm_rs::system1::process_transaction(Transaction::new(
         "alpha_work",
         vec!["alpha".to_string()],
         json!({"x": 1, "y": 2}),
@@ -23,24 +23,24 @@ async fn full_vsm_flow_exercises_all_systems() {
     .expect("transaction call should succeed");
     assert!(matches!(result, TransactionResult::Ok(_)));
 
-    let s2 = vsm_ractor_full::system2::coordination::get_state().await.unwrap();
+    let s2 = vsm_rs::system2::coordination::get_state().await.unwrap();
     assert_eq!(s2["status"], "running");
 
-    let s3 = vsm_ractor_full::system3::control::get_state().await.unwrap();
+    let s3 = vsm_rs::system3::control::get_state().await.unwrap();
     assert_eq!(s3["status"], "running");
 
-    let trend = vsm_ractor_full::system4::analytics::analyze_trends(json!([1, 2, 3, 4]), "hour")
+    let trend = vsm_rs::system4::analytics::analyze_trends(json!([1, 2, 3, 4]), "hour")
         .await
         .unwrap();
     assert_eq!(trend["direction"], "increasing");
 
-    let decision = vsm_ractor_full::system5::policy::make_decision(json!({"proposal":"maintain viability"}))
+    let decision = vsm_rs::system5::policy::make_decision(json!({"proposal":"maintain viability"}))
         .await
         .unwrap();
     assert!(decision.get("id").is_some());
 
-    let health = vsm_ractor_full::health().await.expect("health should return");
+    let health = vsm_rs::health().await.expect("health should return");
     assert!(health.get("status").is_some());
 
-    vsm_ractor_full::stop().await.expect("stop should succeed");
+    vsm_rs::stop().await.expect("stop should succeed");
 }
