@@ -1,6 +1,6 @@
 //! Shared JSON service actor used by the less-typed service boundaries.
 //!
-//! System 5 and telemetry currently use `ServiceActor` to expose string
+//! Telemetry and auxiliary services currently use `ServiceActor` to expose string
 //! operation names with `serde_json::Value` payloads. The shell owns in-memory
 //! service state, records calls/casts/channel events in bounded history, and
 //! delegates domain work to each module's `actor_call` function. Unknown
@@ -21,10 +21,6 @@ use crate::shared::message::{ChannelKind, MessageKind, SystemId, VsmMessage};
 pub enum ServiceKind {
     Algedonic,
     TemporalVariety,
-    System5Policy,
-    System5Identity,
-    System5Values,
-    System5Decisions,
     TelemetryReporter,
 }
 
@@ -66,10 +62,6 @@ pub struct ServiceState {
 impl ServiceState {
     pub fn new(kind: ServiceKind, config: Value) -> Self {
         let id = match kind {
-            ServiceKind::System5Policy
-            | ServiceKind::System5Identity
-            | ServiceKind::System5Values
-            | ServiceKind::System5Decisions => "system5",
             ServiceKind::Algedonic => "algedonic",
             ServiceKind::TemporalVariety => "temporal_variety",
             ServiceKind::TelemetryReporter => "telemetry",
@@ -98,9 +90,6 @@ impl Actor for ServiceActor {
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
         match self.kind {
-            ServiceKind::System5Policy => {
-                subscribe(myself.clone(), ChannelKind::Algedonic, "system5").await?
-            }
             ServiceKind::Algedonic => {
                 subscribe(myself.clone(), ChannelKind::Algedonic, "algedonic").await?
             }
@@ -214,14 +203,6 @@ pub async fn handle_service_call(
         ServiceKind::Algedonic => crate::channels::algedonic::actor_call(op, payload, state).await,
         ServiceKind::TemporalVariety => {
             crate::channels::temporal_variety::actor_call(op, payload, state).await
-        }
-        ServiceKind::System5Policy => crate::system5::policy::actor_call(op, payload, state).await,
-        ServiceKind::System5Identity => {
-            crate::system5::identity::actor_call(op, payload, state).await
-        }
-        ServiceKind::System5Values => crate::system5::values::actor_call(op, payload, state).await,
-        ServiceKind::System5Decisions => {
-            crate::system5::decisions::actor_call(op, payload, state).await
         }
         ServiceKind::TelemetryReporter => Ok(
             json!({"status":"ok", "history_len": state.history.len(), "data": state.data.clone()}),

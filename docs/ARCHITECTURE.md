@@ -40,9 +40,9 @@ src/
 ├── config.rs                 Typed runtime configuration
 ├── builder.rs                Typed runtime builder
 ├── runtime.rs                Typed runtime handles, readiness, shutdown, component snapshots
-├── kernel/                   Private runtime registry, observer bus, and typed System 1-4 actor adapters
-├── protocol/                 Typed foundations: addresses, metadata, snapshots, bus outcomes, events, System 1-4 records
-├── roles/                    ViableSystem type family, role contexts, System 1-4 contracts, runtime ports
+├── kernel/                   Private runtime registry, observer bus, and typed System 1-5 actor adapters
+├── protocol/                 Typed foundations: addresses, metadata, snapshots, bus outcomes, events, System 1-5 records
+├── roles/                    ViableSystem type family, role contexts, System 1-5 contracts, runtime ports
 ├── legacy/                   Temporary adapters from current JSON/System 1 API to typed foundations
 ├── names.rs                  Stable global actor names
 ├── prelude.rs                Small JSON/time helpers
@@ -65,7 +65,7 @@ src/
 ├── system2/                  Typed coordination defaults and legacy supervisor placeholder
 ├── system3/                  Typed defaults and legacy supervisor placeholder
 ├── system4/                  System 4 prototype defaults and legacy supervisor placeholder
-└── system5/                  Policy service family
+└── system5/                  System 5 prototype defaults and legacy supervisor placeholder
 ```
 
 A porting map for the original Elixir files is not currently present in this
@@ -103,6 +103,9 @@ These modules are intentionally alongside the current runtime:
 - `protocol::system4` defines typed System 4 source descriptors, observations,
   interpreted signals, intelligence assessments, forecasts, scenarios,
   calibration records, adaptation proposals, and runtime snapshots.
+- `protocol::system5` defines typed System 5 identity, values, decision,
+  evidence, directive, acknowledgement, crisis, escalation, and snapshot
+  records.
 - `roles::system2` defines the view-centric `CoordinationPolicy` role plus the
   no-op default policy.
 - `roles::system3` defines `ResourceGovernance`, `OperationalControlPolicy`,
@@ -110,6 +113,8 @@ These modules are intentionally alongside the current runtime:
 - `roles::system4` defines environmental source factory/source, signal
   interpretation, intelligence model, and forecasting/scenario/proposal roles
   plus no-op defaults.
+- `roles::system5` defines identity provider, values provider, values
+  evaluator, decision policy, and crisis policy roles plus no-op defaults.
 - `roles::ports` defines `StateStore`, `EventSink`, and `ReportSink`, plus
   no-op implementations. It also defines early `TelemetrySink`, `AlertSink`,
   `Clock`, and `IdGenerator` ports for role contexts and future adapters.
@@ -142,6 +147,10 @@ These modules are intentionally alongside the current runtime:
   observations with provenance/confidence/freshness metadata, restarts failing
   source roles, invokes intelligence/forecasting roles, records calibration
   results, and annotates adaptation proposals with System 3 feasibility context.
+- `kernel::system5` contains the private typed System 5 policy actor. It
+  invokes identity/value providers, values evaluation, decision policy, and
+  crisis policy roles, records decision audit trails, emits directives and
+  acknowledgements, and retains typed crisis/escalation records.
 - `kernel::event_bus` contains the private observer event bus used by typed
   runtime handles. It implements the `EventSink` port, fans out runtime events
   to subscribers without blocking the control path, retains a bounded
@@ -161,9 +170,10 @@ objects, reports readiness deterministically, exposes scoped role contexts,
 permits multiple runtime handles in one process, registers typed operational
 units, dispatches typed work through private unit actors, supports typed System
 2 coordination, supports typed System 3 governance/audit, supports typed System
-4 environmental intelligence, supports typed observer-event subscriptions, and
-acknowledges shutdown. The existing global actor runtime still serves the
-legacy `Transaction`/JSON facade and System 5 JSON services.
+4 environmental intelligence, supports typed System 5 decisions/crises,
+supports typed observer-event subscriptions, and acknowledges shutdown. The
+existing global actor runtime still serves the legacy `Transaction`/JSON
+facade.
 
 ## 3. Supervision tree
 
@@ -189,10 +199,7 @@ vsm.root_supervisor
 ├── vsm.system4.supervisor
 │   └── no legacy JSON children; typed System 4 runs under VsmRuntime
 ├── vsm.system5.supervisor
-│   ├── vsm.system5.policy
-│   ├── vsm.system5.identity
-│   ├── vsm.system5.values
-│   └── vsm.system5.decisions
+│   └── no legacy JSON children; typed System 5 runs under VsmRuntime
 └── vsm.telemetry_reporter
 ```
 
@@ -227,7 +234,6 @@ Examples:
 vsm.root_supervisor
 vsm.channels.broker
 vsm.system1.operations
-vsm.system5.policy
 vsm.system1.unit.payments
 ```
 
@@ -264,8 +270,9 @@ This style gives compile-time message checking and is the preferred model for be
 
 ### 5.2 Shared JSON `ServiceActor`
 
-System 5 and telemetry use `actor_support::ServiceActor`. System 4 has moved
-to typed runtime actors and no longer uses this JSON service shell.
+Telemetry and auxiliary services use `actor_support::ServiceActor`. Systems 2,
+3, 4, and 5 have moved to typed runtime actors and no longer use this JSON
+service shell.
 
 ```rust
 pub enum ServiceMsg {
@@ -279,8 +286,8 @@ pub enum ServiceMsg {
 Each instance has a `ServiceKind`, and calls are delegated to a module-specific `actor_call` function:
 
 ```text
-ServiceKind::System5Policy        -> system5::policy::actor_call
-...
+ServiceKind::TemporalVariety      -> channels::temporal_variety::actor_call
+ServiceKind::TelemetryReporter    -> telemetry reporter status shell
 ```
 
 `ServiceState` contains:
@@ -295,10 +302,9 @@ The initial `data` value has this shape:
 
 ```json
 {
-  "id": "system5",
+  "id": "telemetry",
   "config": {
-    "subsystem": "system5",
-    "role": "policy"
+    "subsystem": "telemetry"
   },
   "started_at": "...",
   "status": "running"
@@ -380,7 +386,8 @@ For `ChannelBrokerMsg::Publish`:
 
 1. The broker validates the `VsmMessage`.
 2. High-priority message kinds are logged.
-3. Algedonic messages are always delivered to subscriber ID `system5`.
+3. Legacy algedonic messages target subscriber ID `system5`; no built-in typed
+   System 5 actor subscribes there in this milestone.
 4. Other messages target `message.to.subscriber_id()`.
 5. If the target does not exist or the subscriber reference is unavailable, the
    broker records a `TargetUnavailable` outcome and stores the message in
@@ -440,11 +447,13 @@ The following subscriptions are created during actor startup:
 | Actor | Subscriber ID | Channels |
 |---|---|---|
 | System 1 Operations | `system1` | Command, Coordination, Audit |
-| System 5 Policy | `system5` | Algedonic |
 
 The dedicated algedonic processor and temporal-variety actor are accessed through their typed APIs; they do not subscribe to the broker in the current supervision tree.
 
-A major current distinction is that `ServiceActor` channel handling records the received message in `history`, but does not dispatch it into the module's domain operations. System 1 has explicit channel behavior; System 5 currently treats channel messages as observable events unless application code makes a separate service call.
+System 1 has explicit legacy channel behavior. Typed System 5 crisis handling is
+available through `System5Handle::handle_algedonic_signal`; automatic bridging
+from the legacy broker's JSON algedonic messages to the typed crisis path is
+deferred to the algedonic migration.
 
 ## 10. System 1: operational execution
 
@@ -591,22 +600,27 @@ opt-in prototype helpers under `system4::defaults`.
 
 ## 14. System 5: policy and identity
 
-System 5 contains four separately supervised service actors:
+System 5 is part of the typed runtime handle. It provides:
 
-- Policy
-- Identity
-- Values
-- Decisions
+- `protocol::system5` framework-owned identity, values, policy version,
+  evidence, decision, directive, acknowledgement, crisis, escalation, and
+  snapshot records.
+- `roles::system5` identity provider, values provider, values evaluator,
+  decision policy, and crisis policy contracts.
+- `runtime::System5Handle` methods for identity, values, decision cycles,
+  directive acknowledgement, crisis handling, algedonic crisis handling, and
+  snapshots.
 
-The Policy service can set policy, set identity, define values, make decisions, evaluate alignment, handle crises, and return its organizational state.
+The private `kernel::system5` adapter owns one policy actor. It invokes
+application-owned provider and policy roles, attaches System 3 operational
+summaries and System 4 adaptation proposals to decision requests, records typed
+decision audit trails, emits typed directives/reports/events, tracks
+acknowledgements, and stores crisis/escalation records in memory.
 
-### State isolation inside System 5
-
-Each actor owns an independent `ServiceState`. Calling the standalone Identity actor does not mutate the Policy actor's state. Likewise, a decision stored by the standalone Decisions actor is not automatically visible in Policy state.
-
-The Policy module calls the identity, values, and decisions **functions using Policy's own state**. For a coherent single organizational state, use the Policy actor as the aggregate boundary. Use the standalone actors only when deliberately maintaining independent state or when building a higher-level synchronization layer.
-
-System 5 Policy subscribes to the algedonic channel. Received messages are currently recorded in its history; they do not automatically invoke `handle_crisis`.
+The crate no longer imposes default mission text, decision values, weighted
+scoring, keyword alignment, or generic crisis directives in the core runtime.
+Prototype JSON helpers are retained only as opt-in examples under
+`system5::defaults`.
 
 ## 15. Algedonic architecture
 
@@ -614,7 +628,11 @@ There are two related but distinct paths.
 
 ### 15.1 VSM algedonic channel
 
-`system1::send_algedonic_signal()` and `channels::algedonic_channel` create `VsmMessage` values and route them through the broker to subscriber ID `system5`. This path reaches the Policy service's channel history.
+`system1::send_algedonic_signal()` and `channels::algedonic_channel` create
+`VsmMessage` values and route them through the legacy broker. The typed System
+5 path accepts algedonic crisis records through
+`System5Handle::handle_algedonic_signal`. Automatic conversion between these
+paths is deferred to the algedonic migration.
 
 ### 15.2 Advanced algedonic processor
 
@@ -787,10 +805,11 @@ S3 or S3* -> Audit/AuditRequest -> System 1 Operations
 ### Algedonic escalation
 
 ```text
-System 1 -> broker Algedonic message -> System 5 Policy history
+Typed caller -> System5Handle::handle_algedonic_signal -> CrisisPolicy
 ```
 
-This does not automatically call `handle_crisis`.
+Legacy broker algedonic messages are not automatically converted into typed
+crisis records yet.
 
 ## 22. Extension strategy
 
@@ -841,15 +860,14 @@ The most important current limitations are:
 
 - The crate is still in baseline hardening; see `CODEX.md` for the latest
   validation evidence.
-- System 5 APIs use string operation names and `serde_json::Value`.
-- Channel events for System 5 are recorded, not converted into domain actions.
+- Legacy broker algedonic messages are not automatically converted into typed
+  System 5 crisis records.
 - Broker restart loses registrations and history for the legacy global actor
   facade. The typed runtime handle's observer subscriptions are owned by the
   handle, not the legacy broker.
 - The legacy global actor facade has no explicit readiness barrier. The typed
   runtime handle reports readiness gates.
 - State is in-memory and restart-volatile.
-- System 5's four actors have independent state stores.
 - The root dynamic supervisor is present for parity but is not exposed by a public child-management API.
 - There is no System 1 unit unregister/update API.
 - Some algorithms are intentionally lightweight starter implementations rather than production statistical or optimization models.

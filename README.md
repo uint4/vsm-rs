@@ -39,15 +39,18 @@ The systems communicate through command, coordination, audit, resource-bargain, 
 - Typed System 3 control/resource governance and System 3* audit for the
   trait-driven runtime, with framework-owned resource, directive, audit,
   acknowledgement, and remediation records.
-- Typed System 4 environmental intelligence plus the remaining JSON-oriented System 5 policy service boundary.
+- Typed System 4 environmental intelligence and typed System 5 policy,
+  identity, values, decision, directive, and crisis records.
 - Trait-driven migration foundations including `ViableSystem`, instance-scoped
   protocol metadata, typed System 1 records, snapshot/store ports, event/report
-  sink traits, first-wave System 1, System 2, and System 3 role contracts, role contexts,
+  sink traits, first-wave System 1, System 2, System 3, System 4, and System 5
+  role contracts, role contexts,
   opt-in default policies, a typed runtime builder/handle with readiness and
   shutdown acknowledgement, actor-backed typed System 1 registration/work
   processing, typed System 2 coordination, typed System 3 governance/audit,
-  typed observer-event subscriptions, typed bus delivery status records, and
-  legacy JSON adapters.
+  typed System 4 intelligence, typed System 5 decisions/crises, typed
+  observer-event subscriptions, typed bus delivery status records, and legacy
+  JSON adapters.
 
 ## Installation
 
@@ -129,7 +132,8 @@ instance-scoped runtime handle, reports readiness, and acknowledges shutdown.
 This path can register typed System 1 units, process typed work through private
 unit actor adapters, coordinate System 1 views through typed System 2 policy,
 run typed System 3 resource governance/control and System 3* audit, and
-subscribe observers to typed runtime events.
+run typed System 4 intelligence and typed System 5 policy decisions.
+It can also subscribe observers to typed runtime events.
 The legacy `start()` facade remains available for the current JSON transaction
 workflow.
 
@@ -217,7 +221,7 @@ The previous JSON `system2::coordination` service dispatch has been removed
 from the core path. The old schedule and balancing helpers remain under
 `system2::defaults` as opt-in example algorithms.
 
-### System 4 Typed Intelligence and System 5 Policy
+### System 4 Typed Intelligence and System 5 Typed Policy
 
 System 4 is available through the typed runtime handle. Applications register
 environmental sources and provide optional role implementations for signal
@@ -236,11 +240,23 @@ let cycle = runtime.system4().run_intelligence_cycle().await?;
 
 Prototype JSON helper algorithms are still available under
 `system4::defaults`, but the old System 4 JSON service actors are no longer
-started. System 5 still exposes the legacy JSON policy service and convenience
-functions, such as:
+started. System 5 is also part of the typed runtime handle:
 
-- `system5::policy::make_decision`
-- `system5::policy::set_policy_area`
+```rust
+use vsm_rs::protocol::system5::{DecisionAlternative, DecisionRequest};
+
+let decision = runtime
+    .system5()
+    .decide(
+        DecisionRequest::new("capacity policy")
+            .with_alternative(DecisionAlternative::new("expand now")),
+    )
+    .await?;
+println!("decision: {}", decision.decision.decision_id);
+```
+
+Prototype JSON policy helpers are retained under `system5::defaults` for
+experiments, but the old System 5 JSON service actors are no longer started.
 
 System 3 is available through `VsmRuntime::system3()` on the typed runtime
 handle. The old JSON `system3::control` service dispatch has been removed from
@@ -271,8 +287,8 @@ The crate deliberately follows actor ownership and supervision rather than share
 - Every long-lived actor has a stable global name defined in `names.rs`.
 - Static actors run under `ractor_supervisor::Supervisor`; runtime System 1 units run under `DynamicSupervisor`.
 - The channel broker owns subscriptions and message history.
-- The typed runtime path uses actor-backed System 1, System 2, System 3, and
-  System 4 protocols. System 5 currently uses shared JSON service actors.
+- The typed runtime path uses actor-backed System 1, System 2, System 3,
+  System 4, and System 5 protocols.
 
 Important operational constraints in the current release:
 

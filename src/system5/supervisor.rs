@@ -1,40 +1,16 @@
-//! Supervisor specification for System 5.
+//! Legacy supervisor boundary for System 5.
 //!
-//! The supervisor starts Policy, Identity, Values, and Decisions as independent
-//! permanent `ServiceActor` children. Restarting any child loses that child's
-//! in-memory JSON state and bounded history.
+//! System 5 has moved to the typed runtime surface. The legacy default
+//! application still starts this supervisor so the static actor tree shape does
+//! not churn during the migration, but it intentionally has no JSON service
+//! children.
 
 use ractor::concurrency::Duration;
 use ractor_supervisor::{SupervisorArguments, SupervisorOptions, SupervisorStrategy};
-use serde_json::json;
-
-use crate::actor_support::{service_child, ServiceKind};
-use crate::names;
 
 pub fn supervisor_args() -> SupervisorArguments {
     SupervisorArguments {
-        child_specs: vec![
-            service_child(
-                names::SYSTEM5_POLICY,
-                ServiceKind::System5Policy,
-                json!({"subsystem":"system5", "role":"policy"}),
-            ),
-            service_child(
-                names::SYSTEM5_IDENTITY,
-                ServiceKind::System5Identity,
-                json!({"subsystem":"system5", "role":"identity"}),
-            ),
-            service_child(
-                names::SYSTEM5_VALUES,
-                ServiceKind::System5Values,
-                json!({"subsystem":"system5", "role":"values"}),
-            ),
-            service_child(
-                names::SYSTEM5_DECISIONS,
-                ServiceKind::System5Decisions,
-                json!({"subsystem":"system5", "role":"decisions"}),
-            ),
-        ],
+        child_specs: Vec::new(),
         options: SupervisorOptions {
             strategy: SupervisorStrategy::OneForOne,
             max_restarts: 5,

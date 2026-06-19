@@ -1,12 +1,7 @@
-//! System 5 policy, identity, values, and decisions.
+//! Legacy module boundary for System 5.
 //!
-//! System 5 runs four supervised JSON service actors with independent
-//! `ServiceState`s. Use the Policy actor as the aggregate boundary when a single
-//! coherent organizational state is required; calling the standalone Identity,
-//! Values, or Decisions actors mutates only their own state.
+//! System 5 has moved to the typed runtime surface. Prototype JSON helper
+//! algorithms remain under [`defaults`] for callers that explicitly opt in.
 
-pub mod decisions;
-pub mod identity;
-pub mod policy;
+pub mod defaults;
 pub mod supervisor;
-pub mod values;

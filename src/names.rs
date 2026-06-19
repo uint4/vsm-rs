@@ -28,10 +28,6 @@ pub const SYSTEM3_CONTROL: &str = "vsm.system3.control";
 pub const SYSTEM4_SUPERVISOR: &str = "vsm.system4.supervisor";
 
 pub const SYSTEM5_SUPERVISOR: &str = "vsm.system5.supervisor";
-pub const SYSTEM5_POLICY: &str = "vsm.system5.policy";
-pub const SYSTEM5_IDENTITY: &str = "vsm.system5.identity";
-pub const SYSTEM5_VALUES: &str = "vsm.system5.values";
-pub const SYSTEM5_DECISIONS: &str = "vsm.system5.decisions";
 
 pub fn system1_unit(id: &str) -> String {
     format!("vsm.system1.unit.{id}")

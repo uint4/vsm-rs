@@ -16,20 +16,27 @@ use crate::roles::system3::defaults::{
 use crate::roles::system4::defaults::{
     NoopEnvironmentalSourceFactory, NoopForecaster, NoopIntelligenceModel, NoopSignalInterpreter,
 };
+use crate::roles::system5::defaults::{
+    NoopCrisisPolicy, NoopDecisionPolicy, NoopIdentityProvider, NoopValuesEvaluator,
+    NoopValuesProvider,
+};
 use crate::roles::{
-    AlertSink, AlgedonicPolicy, Auditor, Clock, CoordinationPolicy, EnvironmentalSourceFactory,
-    EventSink, Forecaster, IntelligenceModel, NoopAlertSink, NoopEventSink, NoopReportSink,
-    NoopStateStore, NoopTelemetrySink, OperationalControlPolicy, OperationalUnitFactory,
-    PerformanceModel, ReportSink, ResourceGovernance, SharedAlgedonicPolicy, SharedAuditor,
-    SharedCoordinationPolicy, SharedEnvironmentalSourceFactory, SharedForecaster,
-    SharedIntelligenceModel, SharedOperationalControlPolicy, SharedOperationalUnitFactory,
-    SharedPerformanceModel, SharedResourceGovernance, SharedSignalInterpreter,
-    SharedUnitSelectionPolicy, SharedVarietyModel, SharedWorkModel, SignalInterpreter, StateStore,
-    SystemClock, TelemetrySink, UnitSelectionPolicy, VarietyModel, ViableSystem, WorkModel,
+    AlertSink, AlgedonicPolicy, Auditor, Clock, CoordinationPolicy, CrisisPolicy, DecisionPolicy,
+    EnvironmentalSourceFactory, EventSink, Forecaster, IdentityProvider, IntelligenceModel,
+    NoopAlertSink, NoopEventSink, NoopReportSink, NoopStateStore, NoopTelemetrySink,
+    OperationalControlPolicy, OperationalUnitFactory, PerformanceModel, ReportSink,
+    ResourceGovernance, SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy,
+    SharedCrisisPolicy, SharedDecisionPolicy, SharedEnvironmentalSourceFactory, SharedForecaster,
+    SharedIdentityProvider, SharedIntelligenceModel, SharedOperationalControlPolicy,
+    SharedOperationalUnitFactory, SharedPerformanceModel, SharedResourceGovernance,
+    SharedSignalInterpreter, SharedUnitSelectionPolicy, SharedValuesEvaluator,
+    SharedValuesProvider, SharedVarietyModel, SharedWorkModel, SignalInterpreter, StateStore,
+    SystemClock, TelemetrySink, UnitSelectionPolicy, ValuesEvaluator, ValuesProvider, VarietyModel,
+    ViableSystem, WorkModel,
 };
 use crate::runtime::{
     RuntimePorts, System1RuntimeRoles, System2RuntimeRoles, System3RuntimeRoles,
-    System4RuntimeRoles, VsmRuntime,
+    System4RuntimeRoles, System5RuntimeRoles, VsmRuntime,
 };
 
 /// Builder for one typed VSM runtime instance.
@@ -56,6 +63,11 @@ where
     signal_interpreter: Option<SharedSignalInterpreter<V>>,
     intelligence_model: Option<SharedIntelligenceModel<V>>,
     forecaster: Option<SharedForecaster<V>>,
+    identity_provider: Option<SharedIdentityProvider<V>>,
+    values_provider: Option<SharedValuesProvider<V>>,
+    values_evaluator: Option<SharedValuesEvaluator<V>>,
+    decision_policy: Option<SharedDecisionPolicy<V>>,
+    crisis_policy: Option<SharedCrisisPolicy<V>>,
     state_store: Arc<dyn StateStore<V>>,
     event_sink: Arc<dyn EventSink<V>>,
     report_sink: Arc<dyn ReportSink<V>>,
@@ -85,6 +97,11 @@ where
             signal_interpreter: None,
             intelligence_model: None,
             forecaster: None,
+            identity_provider: None,
+            values_provider: None,
+            values_evaluator: None,
+            decision_policy: None,
+            crisis_policy: None,
             state_store: Arc::new(NoopStateStore::<V>::new()),
             event_sink: Arc::new(NoopEventSink::<V>::new()),
             report_sink: Arc::new(NoopReportSink::<V>::new()),
@@ -377,6 +394,81 @@ where
         self
     }
 
+    /// Sets the optional System 5 identity provider role.
+    pub fn identity_provider<P>(mut self, provider: P) -> Self
+    where
+        P: IdentityProvider<V> + 'static,
+    {
+        self.identity_provider = Some(Arc::new(provider));
+        self
+    }
+
+    /// Sets the optional System 5 identity provider from a shared trait object.
+    pub fn identity_provider_arc(mut self, provider: SharedIdentityProvider<V>) -> Self {
+        self.identity_provider = Some(provider);
+        self
+    }
+
+    /// Sets the optional System 5 values provider role.
+    pub fn values_provider<P>(mut self, provider: P) -> Self
+    where
+        P: ValuesProvider<V> + 'static,
+    {
+        self.values_provider = Some(Arc::new(provider));
+        self
+    }
+
+    /// Sets the optional System 5 values provider from a shared trait object.
+    pub fn values_provider_arc(mut self, provider: SharedValuesProvider<V>) -> Self {
+        self.values_provider = Some(provider);
+        self
+    }
+
+    /// Sets the optional System 5 values evaluator role.
+    pub fn values_evaluator<E>(mut self, evaluator: E) -> Self
+    where
+        E: ValuesEvaluator<V> + 'static,
+    {
+        self.values_evaluator = Some(Arc::new(evaluator));
+        self
+    }
+
+    /// Sets the optional System 5 values evaluator from a shared trait object.
+    pub fn values_evaluator_arc(mut self, evaluator: SharedValuesEvaluator<V>) -> Self {
+        self.values_evaluator = Some(evaluator);
+        self
+    }
+
+    /// Sets the optional System 5 decision policy role.
+    pub fn decision_policy<P>(mut self, policy: P) -> Self
+    where
+        P: DecisionPolicy<V> + 'static,
+    {
+        self.decision_policy = Some(Arc::new(policy));
+        self
+    }
+
+    /// Sets the optional System 5 decision policy from a shared trait object.
+    pub fn decision_policy_arc(mut self, policy: SharedDecisionPolicy<V>) -> Self {
+        self.decision_policy = Some(policy);
+        self
+    }
+
+    /// Sets the optional System 5 crisis policy role.
+    pub fn crisis_policy<P>(mut self, policy: P) -> Self
+    where
+        P: CrisisPolicy<V> + 'static,
+    {
+        self.crisis_policy = Some(Arc::new(policy));
+        self
+    }
+
+    /// Sets the optional System 5 crisis policy from a shared trait object.
+    pub fn crisis_policy_arc(mut self, policy: SharedCrisisPolicy<V>) -> Self {
+        self.crisis_policy = Some(policy);
+        self
+    }
+
     /// Sets the state store port. The default is [`NoopStateStore`].
     pub fn state_store<S>(mut self, state_store: S) -> Self
     where
@@ -488,6 +580,11 @@ where
             signal_interpreter,
             intelligence_model,
             forecaster,
+            identity_provider,
+            values_provider,
+            values_evaluator,
+            decision_policy,
+            crisis_policy,
             state_store,
             event_sink,
             report_sink,
@@ -512,6 +609,13 @@ where
             intelligence_model,
             forecaster,
         );
+        let system5_roles = system5_roles(
+            identity_provider,
+            values_provider,
+            values_evaluator,
+            decision_policy,
+            crisis_policy,
+        );
         let ports = RuntimePorts::noop()
             .with_state_store(state_store)
             .with_event_sink(event_sink)
@@ -527,6 +631,7 @@ where
             system2_roles,
             system3_roles,
             system4_roles,
+            system5_roles,
         )
         .await
     }
@@ -619,5 +724,34 @@ where
         signal_interpreter,
         intelligence_model,
         forecaster,
+    )
+}
+
+fn system5_roles<V>(
+    identity_provider: Option<SharedIdentityProvider<V>>,
+    values_provider: Option<SharedValuesProvider<V>>,
+    values_evaluator: Option<SharedValuesEvaluator<V>>,
+    decision_policy: Option<SharedDecisionPolicy<V>>,
+    crisis_policy: Option<SharedCrisisPolicy<V>>,
+) -> System5RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    let identity_provider =
+        identity_provider.unwrap_or_else(|| Arc::new(NoopIdentityProvider::<V>::new()));
+    let values_provider =
+        values_provider.unwrap_or_else(|| Arc::new(NoopValuesProvider::<V>::new()));
+    let values_evaluator =
+        values_evaluator.unwrap_or_else(|| Arc::new(NoopValuesEvaluator::<V>::new()));
+    let decision_policy =
+        decision_policy.unwrap_or_else(|| Arc::new(NoopDecisionPolicy::<V>::new()));
+    let crisis_policy = crisis_policy.unwrap_or_else(|| Arc::new(NoopCrisisPolicy::<V>::new()));
+
+    System5RuntimeRoles::new(
+        identity_provider,
+        values_provider,
+        values_evaluator,
+        decision_policy,
+        crisis_policy,
     )
 }

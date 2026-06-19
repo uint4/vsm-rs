@@ -231,7 +231,7 @@ async fn explicit_broadcast_rejects_targeted_message() {
 
 #[tokio::test]
 #[serial]
-async fn system2_to_system4_json_service_dispatch_are_removed_and_system5_remains() {
+async fn system2_to_system5_json_service_dispatch_are_removed() {
     let app = start_app().await;
 
     let system2 = call_service(names::SYSTEM2_COORDINATION, "get_state", json!({})).await;
@@ -242,18 +242,16 @@ async fn system2_to_system4_json_service_dispatch_are_removed_and_system5_remain
         json!({"sources": []}),
     )
     .await;
-    let system5 = call_service(names::SYSTEM5_POLICY, "definitely_unknown", json!({}))
-        .await
-        .expect("system5 unknown operation should return JSON");
+    let system5 = call_service("vsm.system5.policy", "definitely_unknown", json!({})).await;
 
     let system2_unavailable = system2.is_err();
     let system3_unavailable = system3.is_err();
     let system4_unavailable = system4.is_err();
-    let system5_unknown_operation = system5["status"] == "unknown_operation";
+    let system5_unavailable = system5.is_err();
     stop_app(app).await;
 
     assert!(system2_unavailable);
     assert!(system3_unavailable);
     assert!(system4_unavailable);
-    assert!(system5_unknown_operation);
+    assert!(system5_unavailable);
 }

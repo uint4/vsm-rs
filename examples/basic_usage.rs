@@ -2,7 +2,6 @@ use serde_json::json;
 use tokio::time::{sleep, Duration};
 use tracing_subscriber::EnvFilter;
 
-use vsm_rs::actor_support::call_service;
 use vsm_rs::channels::algedonic::signals::Severity;
 use vsm_rs::system1::{self, Transaction, UnitConfig};
 
@@ -34,12 +33,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &json!({}),
     );
 
-    let organizational_state = call_service(
-        vsm_rs::names::SYSTEM5_POLICY,
-        "get_organizational_state",
-        json!({}),
-    )
-    .await?;
+    let policy_decision =
+        vsm_rs::system5::defaults::make_weighted_decision(&json!({"subject": "demo_policy"}));
 
     println!(
         "{}",
@@ -47,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "transaction": processed,
             "status": vsm_rs::vsm_core::status().await?,
             "intelligence_report": intelligence_report,
-            "organizational_state": organizational_state,
+            "policy_decision": policy_decision,
         }))?
     );
 

@@ -27,3 +27,4 @@ implementation milestone by itself.
 | [0005](0005-system2-coordination-policy.md) | Accepted | Minimal view-centric System 2 coordination policy |
 | [0006](0006-system3-role-boundary.md) | Accepted | System 3 control and System 3* audit role boundary |
 | [0007](0007-system4-intelligence-boundary.md) | Accepted | System 4 environmental-intelligence role boundary |
+| [0008](0008-system5-policy-boundary.md) | Accepted | System 5 policy/identity/decision role boundary |

@@ -14,15 +14,13 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Milestone 8 — System 4 migration, completed at review gate
-- Approved scope: Convert System 4 from JSON `ServiceActor` services into a
-  typed, supervised environmental-intelligence pipeline with dynamic source
-  registration, observation freshness/provenance/confidence, application-owned
-  interpretation/modeling/forecasting behavior, typed adaptation proposals,
-  System 3 feasibility integration, defaults relocation, tests, and
-  documentation.
-- Approved architectural decisions: Recorded in ADR-0001 through ADR-0007
-- Pending decisions: Awaiting explicit approval before Milestone 9
+- Approved milestone: Milestone 9 — System 5 migration under ADR-0008 Option A
+- Approved scope: Convert System 5 to minimal framework-owned governance
+  records and provider/evaluator/decision/crisis roles over the existing
+  `ViableSystem` family; move embedded JSON heuristics to opt-in defaults;
+  update tests and docs; stop at the Milestone 9 review gate.
+- Approved architectural decisions: Recorded in ADR-0001 through ADR-0008
+- Pending decisions: None for current Milestone 9 scope
 - Permission to begin next milestone: No
 
 ## Pending user decisions
@@ -32,30 +30,30 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 | S2-001 | Public `CoordinationPolicy` role shape | A. Minimal view-centric policy over typed System 1 coordination views, generic conflict/intervention/ack records, no new `ViableSystem` associated types; B. System 2 extension type family with app-owned conflict/intervention payload types; C. Keep System 2 policy private for this slice and defer public replacement | A | Milestone 6 | Approved 2026-06-18; recorded in ADR-0005 |
 | S3-001 | Public System 3/System 3* role boundary | A. Minimal framework-owned records with `ResourceGovernance`, `OperationalControlPolicy`, and `Auditor` roles over existing `ViableSystem` types; B. Add a System 3 extension type family for app-owned resource/directive/audit payloads; C. Convert control/resource governance now and defer System 3* audit | A | Milestone 7 | Approved 2026-06-18; recorded in ADR-0006 |
 | S4-001 | Public System 4 intelligence role boundary | A. Minimal framework-owned pipeline records with environmental source factories, signal interpretation, intelligence modeling, and forecasting/scenario roles over existing `ViableSystem` types; B. Add a System 4 extension type family with app-owned observation/signal/forecast/scenario/proposal payloads; C. Convert observation collection and interpretation now, defer forecasting/scenarios/proposals | A | Milestone 8 | Approved 2026-06-18; recorded in ADR-0007 |
+| S5-001 | Public System 5 policy/identity/decision role boundary | A. Minimal framework-owned governance records with provider/evaluator/decision/crisis roles over existing `ViableSystem` types; B. Add a System 5 extension type family with app-owned identity/values/policy/decision/crisis payloads; C. Convert typed decision lifecycle now and leave identity, values, and crisis as legacy/deferred boundaries | A | Milestone 9 | Approved 2026-06-19; recorded in ADR-0008 |
 
 ## Current status
 
-- Overall state: Milestone 8 complete; stopped for review
-- Current phase: Review gate after Milestone 8 — System 4 migration
-- Current milestone: Typed System 4 environmental-intelligence pipeline complete
-- Last updated: 2026-06-18
+- Overall state: Milestone 9 complete; stopped for user review
+- Current phase: Review gate after Milestone 9 — System 5 migration
+- Current milestone: Typed System 5 policy/identity/decision/crisis boundary
+  complete
+- Last updated: 2026-06-19
 - Last updated by: Codex
-- Baseline commit: `f66cf44`
+- Baseline commit: `849b4ea`
 - Working branch: `master`
 - Repository clean at start: Yes.
-- Repository status now: Milestone 8 implementation, tests, docs, and
-  validation complete; working tree contains Milestone 8 changes pending user
-  review.
+- Repository status now: Milestone 9 implementation, tests, docs, and
+  validation are complete; working tree contains changes pending review.
 
 ## Current objective
 
-Stop at the Milestone 8 review gate after completing the approved Option A
-typed System 4 environmental-intelligence migration.
+Stop at the Milestone 9 review gate with validation evidence recorded.
 
 ## Next action
 
-Wait for explicit user review and approval before beginning Milestone 9
-(`System 5 migration`).
+Wait for explicit user approval before beginning Milestone 10: variety and
+algedonic migration.
 
 ---
 
@@ -64,7 +62,7 @@ Wait for explicit user review and approval before beginning Milestone 9
 | Phase | Milestone | Status | Evidence |
 |---|---|---:|---|
 | 0 | Repository baseline | Complete | Formatting, check, tests, Clippy, docs, doctests, and example validation pass. |
-| 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, explicit delivery outcomes, removed targeted fallback, broadcast validation, removed System 2/System 3/System 4 JSON dispatch, and remaining System 5 JSON service calls. Existing System 1 and full-system tests still pass. |
+| 0 | Characterization tests | Complete | `tests/phase0_characterization.rs` covers startup/health, System 1 no-unit resource request, explicit delivery outcomes, removed targeted fallback, broadcast validation, and removed System 2/System 3/System 4/System 5 JSON dispatch. Existing System 1 and full-system tests still pass. |
 | 0 | ADR setup | Complete | `docs/adr/README.md`, template, and ADR-0001 through ADR-0004 added. |
 | 1 | Application type family | Complete | `src/roles/types.rs` defines `ViableSystem`; `tests/foundational_types.rs` proves non-serde application work, outcome, and snapshot payloads compile. |
 | 1 | Typed core envelopes | Complete | `src/protocol/*`, `src/error.rs`, `src/cancellation.rs`, `src/roles/ports.rs`, and `src/legacy/*` added with tests, docs, and full validation passing. |
@@ -75,7 +73,7 @@ Wait for explicit user review and approval before beginning Milestone 9
 | 5 | System 2 migration | Complete | `src/protocol/system2.rs`, `src/roles/system2.rs`, `src/kernel/system2.rs`, expanded runtime handles, updated System 1 coordination hooks, defaults relocation, docs, and `tests/system2_typed_runtime.rs`; full validation passes. |
 | 6 | System 3 and System 3* migration | Complete | ADR-0006 accepted as Option A; `src/protocol/system3.rs`, `src/roles/system3.rs`, `src/kernel/system3.rs`, `System3Handle`, builder hooks, docs, and `tests/system3_typed_runtime.rs` added; full validation passes. |
 | 7 | System 4 migration | Complete | ADR-0007 accepted as Option A; typed System 4 protocols, roles, private runtime actors, builder/handle APIs, defaults relocation, docs, and `tests/system4_typed_runtime.rs` added; full validation passes. |
-| 8 | System 5 migration | Not started | Awaiting user approval. |
+| 8 | System 5 migration | Complete | ADR-0008 accepted as Option A; typed System 5 protocols, roles, private runtime actors, builder/handle APIs, defaults relocation, docs, and `tests/system5_typed_runtime.rs` added; full validation passes. |
 | 9 | Variety and algedonic migration | Not started | Awaiting user approval. |
 | 10 | Temporal processing | Not started | Awaiting user approval. |
 | 11 | Recursive runtimes | Not started | Awaiting user approval. |
@@ -99,15 +97,15 @@ documentation are complete.
 
 | Command | Result | Last run | Notes |
 |---|---:|---|---|
-| `cargo fmt --all -- --check` | Passed | 2026-06-18 | No formatting drift after Milestone 8. |
-| `cargo check --all-targets --all-features --locked` | Passed | 2026-06-18 | No warnings. |
-| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-18 | 57 integration tests across foundational, full-system, Phase 0, role-contract, runtime-builder, typed-System-1, typed-System-2, typed-System-3, and typed-System-4 suites; example test targets have 0 tests. |
-| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-18 | No warnings. |
-| `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-18 | Generated `target/doc/vsm_rs/index.html`. |
-| `cargo test --doc --all-features --locked` | Passed | 2026-06-18 | 0 doctests. |
-| `cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-18 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
-| `cargo run --example basic_usage --locked` | Passed | 2026-06-18 | Example starts runtime, registers `payments`, processes a transaction, uses `system4::defaults` for prototype intelligence output, reads System 5 policy state, prints status, records System 2 target unavailability on the legacy coordination channel, and exits. |
-| `git diff --check` | Passed | 2026-06-18 | No whitespace errors. |
+| `cargo fmt --all -- --check` | Passed | 2026-06-19 | No formatting drift after Milestone 9. |
+| `cargo check --all-targets --all-features --locked` | Passed | 2026-06-19 | No warnings. |
+| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-19 | 61 integration tests across foundational, full-system, Phase 0, role-contract, runtime-builder, typed-System-1, typed-System-2, typed-System-3, typed-System-4, and typed-System-5 suites; example test targets have 0 tests. |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-19 | No warnings. |
+| `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-19 | Generated `target/doc/vsm_rs/index.html`. |
+| `cargo test --doc --all-features --locked` | Passed | 2026-06-19 | 0 doctests. |
+| `cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-19 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
+| `cargo run --example basic_usage --locked` | Passed | 2026-06-19 | Example starts runtime, registers `payments`, processes a transaction, uses `system4::defaults` and `system5::defaults` for prototype helper output, prints status with no legacy System 5 JSON state, records System 2 target unavailability on the legacy coordination channel, and exits. |
+| `git diff --check` | Passed | 2026-06-19 | No whitespace errors after Milestone 9. |
 
 Do not replace failing results with “not run.” Preserve the most recent failure
 until a subsequent run succeeds.
@@ -349,14 +347,44 @@ until a subsequent run succeeds.
   removed System 4 JSON service boundary and retained prototype defaults.
 - Updated README, architecture, usage, developer docs, ADR index, and ADR-0007
   status for the completed System 4 migration.
+- Completed the typed System 5 migration:
+  - accepted ADR-0008 as Option A and kept `ViableSystem` unchanged;
+  - added `src/protocol/system5.rs` for framework-owned identity, values,
+    policy, decision, directive, crisis, escalation, decision-cycle, and
+    snapshot records;
+  - added `src/roles/system5.rs` with identity/value provider roles, values
+    evaluation, decision policy, crisis policy, shared object aliases, and
+    no-op defaults;
+  - added private `src/kernel/system5.rs` with the typed policy actor,
+    decision audit trail, directive acknowledgement tracking, crisis handling,
+    escalation recording, event/report emission, and snapshots;
+  - extended `VsmBuilder`, `VsmRuntime`, and crate-root exports with System 5
+    role injection, runtime role bundles, and `System5Handle`;
+  - extended typed bus/events/reports with System 5 records;
+  - removed the old compiled System 5 JSON `ServiceActor` services and their
+    public actor-name constants;
+  - changed the legacy System 5 supervisor to a placeholder with no JSON
+    children;
+  - moved old mission/value/decision/crisis JSON heuristics under
+    `src/system5/defaults.rs` as opt-in prototype helpers;
+  - updated `vsm_core::subsystem_state()` so status no longer probes removed
+    System 5 services.
+- Added `tests/system5_typed_runtime.rs` covering downstream-style identity,
+  values, values-evaluation, decision, and crisis roles; decision audit and
+  directive acknowledgement; System 3 and System 4 context in decisions; no-op
+  defaults; and typed algedonic crisis escalation records.
+- Updated characterization, full-flow, and basic-usage example paths for the
+  removed System 5 JSON service boundary and retained prototype defaults.
+- Updated README, architecture, usage, developer docs, ADR index, and ADR-0008
+  status for the completed System 5 migration.
 
 ---
 
 ## Work in progress
 
-No active implementation work. Milestone 8 is complete under ADR-0007 Option A,
-and Codex is stopped at the review gate pending explicit approval for Milestone
-9.
+No implementation work is active. Milestone 9 is complete under ADR-0008
+Option A, and the repository is stopped at the review gate pending explicit
+approval for Milestone 10.
 
 ---
 
@@ -367,9 +395,10 @@ The user approved the Phase 0-only scope, approved Milestone 1 after the Phase
 approved Milestone 3 after the Milestone 2 review gate, approved Milestone 4
 after the Milestone 3 review gate, approved Milestone 5 after the Milestone 4
 review gate, approved Milestone 6 after the Milestone 5 review gate, and
-approved Milestone 7 after the Milestone 6 review gate, and approved Milestone
-8 after the Milestone 7 review gate. Accepted migration decisions are recorded
-as ADRs.
+approved Milestone 7 after the Milestone 6 review gate, approved Milestone 8
+after the Milestone 7 review gate, approved Milestone 9 start after the
+Milestone 8 review gate, and approved ADR-0008 Option A for the System 5 role
+boundary. Accepted migration decisions are recorded as ADRs.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -380,6 +409,7 @@ as ADRs.
 | [ADR-0005](docs/adr/0005-system2-coordination-policy.md) | Minimal view-centric System 2 coordination policy | Accepted |
 | [ADR-0006](docs/adr/0006-system3-role-boundary.md) | Minimal System 3/System 3* role boundary | Accepted |
 | [ADR-0007](docs/adr/0007-system4-intelligence-boundary.md) | Minimal System 4 environmental-intelligence role boundary | Accepted |
+| [ADR-0008](docs/adr/0008-system5-policy-boundary.md) | Minimal System 5 policy/identity/decision role boundary | Accepted |
 
 Milestone 1 introduced no new ADR-level architectural decisions. Implementation
 notes:
@@ -464,18 +494,45 @@ notes:
     no JSON control service child.
   - Automatic routing from System 2 escalation records into System 3 governance
     remains deferred.
+- Milestone 8 introduced ADR-0007. Implementation notes:
+  - `EnvironmentalSourceFactory`, `SignalInterpreter`, `IntelligenceModel`,
+    and `Forecaster` are public, object-safe, runtime-selectable roles over
+    framework-owned records and the existing `ViableSystem` associated types.
+  - System 4 runs as private source and intelligence actors inside
+    `VsmRuntime`; the public handle exposes no actor references, global names,
+    or JSON payloads.
+  - Former scanner/analytics/forecasting helpers are retained only as
+    `system4::defaults` helpers.
+  - Adaptation proposals are typed and include System 3 feasibility context,
+    but later policy semantics belong to System 5 and recursion milestones.
+- Milestone 9 introduced ADR-0008. Implementation notes:
+  - `IdentityProvider`, `ValuesProvider`, `ValuesEvaluator`,
+    `DecisionPolicy`, and `CrisisPolicy` are public, object-safe,
+    runtime-selectable roles over framework-owned governance records and the
+    existing `ViableSystem` associated types.
+  - System 5 runs as a private policy actor inside `VsmRuntime`; the public
+    handle exposes no actor references, global names, or JSON payloads.
+  - Former mission/value/alignment/weighted-decision/crisis helpers are
+    retained only as `system5::defaults` helpers.
+  - The typed handle can record algedonic crisis signals and parent-recursion
+    escalation metadata, but the legacy broker algedonic bridge and detailed
+    recursion authority remain deferred.
 
 ---
 
 ## Compatibility changes
 
-Milestones 1 through 7 add public foundational APIs. Milestone 5 intentionally
+Milestones 1 through 9 add public foundational APIs. Milestone 5 intentionally
 changed legacy broker behavior by removing targeted-to-broadcast fallback and
 validating explicit broadcast targets. Milestone 6 intentionally removes the
 legacy System 2 JSON coordination service from the core path and replaces it
 with typed runtime coordination. Milestone 7 intentionally removes the legacy
 System 3 JSON control service from the core path and replaces it with typed
-runtime governance/control and System 3* audit.
+runtime governance/control and System 3* audit. Milestone 8 intentionally
+removes the legacy System 4 JSON intelligence services and replaces them with
+typed runtime environmental intelligence. Milestone 9 intentionally removes the
+legacy System 5 JSON policy services and replaces them with typed runtime
+policy, identity, values, decision, and crisis roles.
 
 New public modules and re-exports:
 
@@ -508,6 +565,14 @@ New public modules and re-exports:
 - `vsm_rs::System3ControlMessage`
 - `vsm_rs::{ResourceGovernance, OperationalControlPolicy, Auditor}`
 - `vsm_rs::{System3Roles, System3RuntimeRoles, System3Handle}`
+- `vsm_rs::System4ControlMessage`
+- `vsm_rs::{EnvironmentalSource, EnvironmentalSourceFactory}`
+- `vsm_rs::{SignalInterpreter, IntelligenceModel, Forecaster}`
+- `vsm_rs::{System4Roles, System4RuntimeRoles, System4Handle}`
+- `vsm_rs::System5ControlMessage`
+- `vsm_rs::{IdentityProvider, ValuesProvider, ValuesEvaluator}`
+- `vsm_rs::{DecisionPolicy, CrisisPolicy}`
+- `vsm_rs::{System5Roles, System5RuntimeRoles, System5Handle}`
 - `vsm_rs::async_trait`
 
 New public channel/runtime APIs:
@@ -539,6 +604,37 @@ New public channel/runtime APIs:
 - `System3Handle::audit_system1`
 - `System3Handle::audit_with_evidence`
 - `System3Handle::snapshot`
+- `VsmBuilder::environmental_source_factory`
+- `VsmBuilder::environmental_source_factory_arc`
+- `VsmBuilder::signal_interpreter`
+- `VsmBuilder::signal_interpreter_arc`
+- `VsmBuilder::intelligence_model`
+- `VsmBuilder::intelligence_model_arc`
+- `VsmBuilder::forecaster`
+- `VsmBuilder::forecaster_arc`
+- `VsmRuntime::system4`
+- `System4Handle::register_source`
+- `System4Handle::list_sources`
+- `System4Handle::run_intelligence_cycle`
+- `System4Handle::snapshot`
+- `VsmBuilder::identity_provider`
+- `VsmBuilder::identity_provider_arc`
+- `VsmBuilder::values_provider`
+- `VsmBuilder::values_provider_arc`
+- `VsmBuilder::values_evaluator`
+- `VsmBuilder::values_evaluator_arc`
+- `VsmBuilder::decision_policy`
+- `VsmBuilder::decision_policy_arc`
+- `VsmBuilder::crisis_policy`
+- `VsmBuilder::crisis_policy_arc`
+- `VsmRuntime::system5`
+- `System5Handle::identity`
+- `System5Handle::values`
+- `System5Handle::decide`
+- `System5Handle::handle_crisis`
+- `System5Handle::handle_algedonic_signal`
+- `System5Handle::acknowledge_directives`
+- `System5Handle::snapshot`
 
 Public behavior changed:
 
@@ -556,6 +652,19 @@ Public behavior changed:
   through `VsmRuntime::system3()`;
 - former System 3 resource and audit helpers live under `system3::defaults` as
   opt-in examples.
+- legacy System 4 JSON service calls no longer dispatch to
+  `system4::intelligence`, `system4::scanner`, `system4::analytics`, or
+  `system4::forecasting`;
+- the legacy global System 4 supervisor remains present but starts no JSON
+  intelligence children;
+- former System 4 scanner, analytics, and forecasting helpers live under
+  `system4::defaults` as opt-in examples;
+- legacy System 5 JSON service calls no longer dispatch to `system5::policy`,
+  `system5::identity`, `system5::values`, or `system5::decisions`;
+- the legacy global System 5 supervisor remains present but starts no JSON
+  policy children;
+- former System 5 mission, value, alignment, decision, and crisis helpers live
+  under `system5::defaults` as opt-in examples.
 
 Removed characterized bug behavior:
 
@@ -576,16 +685,18 @@ Removed characterized bug behavior:
   and the typed System 1 path uses private actor adapters.
 - State, metrics, channel history, dead-letter history, observer event history,
   and most service data remain in memory and restart-volatile.
-- System 5 still uses string operation names and `serde_json::Value`.
 - The typed runtime path now processes System 1 work, System 2 coordination,
-  System 3 governance/audit, and System 4 environmental intelligence through
-  private actor adapters. System 5 and the legacy `start()` facade still use
-  the current actor/JSON runtime.
-- The legacy global System 2 and System 3 supervisors no longer start JSON
-  service children; callers using the old targeted coordination or
-  resource-bargain channels receive `TargetUnavailable`.
+  System 3 governance/audit, System 4 environmental intelligence, and System 5
+  policy/identity/decision/crisis flows through private actor adapters. The
+  legacy `start()` facade still uses the current actor/JSON transaction facade.
+- The legacy global System 2, System 3, System 4, and System 5 supervisors no
+  longer start JSON service children; callers using old targeted subsystem
+  service channels receive `TargetUnavailable`.
 - Automatic routing of System 2 escalation records into System 3 governance is
   still deferred; callers can invoke System 3 through the typed handle.
+- Legacy broker algedonic messages are not automatically converted into typed
+  System 5 crisis records. Callers can use `System5Handle::handle_algedonic_signal`;
+  the bridge belongs to the variety/algedonic milestone.
 - Temporary `legacy` adapters intentionally bridge current JSON forms for
   round-trip tests only; they are not the target public application surface.
 - First-wave role contracts, contexts, and runtime handles are wired into the
@@ -610,7 +721,7 @@ resolved, and record the resolution in the development history.
 |---|---|---|---|---|
 | System 1 restart/reconciliation | Automatic unit restart, Operations restart directory reconstruction, and unit-supervisor reconciliation are outside the first actor-backed typed slice. | Typed unit actors stop cleanly on unregister/shutdown, but crash recovery is not complete. | Typed System 1 registration/work path. | System 1 hardening |
 | Durable `StateStore` implementations | Persistence contract is accepted, but durable adapters are outside Phase 0. | Current stores are in-memory or no-op only. | StateStore core contract and persistence milestone approval. | Persistence and recovery |
-| System 5 typed role catalog and migration | System 5 policy/identity/value/decision semantics require a separate review gate. | System 5 continues to use string/JSON service calls. | System 1-System 4 patterns and owning milestone approval. | System 5 migration |
+| Legacy broker algedonic bridge to typed crisis records | Typed System 5 can handle algedonic crisis signals directly, but the old broker channel is not yet bridged. | Legacy algedonic channel messages are recorded through broker delivery, not System 5 crisis audit records. | Typed System 5 handle and owning variety/algedonic milestone approval. | Variety and algedonic migration |
 | Full event replay and durability | Requires event model and store semantics not approved for Phase 0. | Events and channel history remain non-durable. | Typed bus/event bus and persistence decisions. | Persistence and recovery |
 | Automatic work retries | User chose no automatic work retries in first System 1 slice. | Work retry behavior remains caller/application responsibility. | Failure classification and retry policy review. | Backpressure/execution hardening |
 | Richer defaults | Defaults must be opt-in and non-normative. | Initial defaults remain minimal. | Role contracts and default namespaces. | System 1 and later default milestones |
@@ -1936,3 +2047,171 @@ passed
 
 Wait for explicit user review and approval before beginning Milestone 9:
 System 5 migration.
+
+#### 2026-06-19 — Milestone 9 Start
+
+**Objective**
+
+Begin the System 5 migration after the user completed the Milestone 8 review
+gate, and stop before implementation because the System 5 role boundary is a
+material public API decision.
+
+**Changes**
+
+- Updated this journal to record Milestone 9 approval, baseline commit, clean
+  starting tree, scope, and pending decision S5-001.
+- Added proposed ADR-0008 for the public System 5 policy/identity/decision
+  role boundary.
+- Updated the ADR index with ADR-0008 as `Proposed`.
+- No Milestone 9 Rust public API or runtime implementation changes have begun.
+
+**Decisions**
+
+- User explicitly approved proceeding after the Milestone 8 review gate.
+- S5-001 is pending because the System 5 boundary decides public role traits,
+  protocol records, whether identity/values are provider data or app payload
+  associated types, and how decision/crisis behavior enters the typed runtime.
+
+**Validation**
+
+Most recent full validation remains the Milestone 8 gate suite, all passing on
+2026-06-18. These Milestone 9 start edits are documentation-only.
+
+```text
+git diff --check
+passed
+```
+
+**Next task**
+
+Wait for the user to choose S5-001. If Option A is approved, accept ADR-0008,
+implement the typed System 5 migration slice, and stop at the Milestone 9
+review gate.
+
+#### 2026-06-19 — Milestone 9 Complete
+
+**Objective**
+
+Implement the approved Option A System 5 migration and stop at the review gate.
+
+**Files changed**
+
+- Added `src/protocol/system5.rs`, `src/roles/system5.rs`,
+  `src/kernel/system5.rs`, `src/system5/defaults.rs`, and
+  `tests/system5_typed_runtime.rs`.
+- Updated `src/builder.rs`, `src/runtime.rs`, `src/lib.rs`,
+  `src/protocol/{mod.rs,bus.rs,events.rs}`, `src/roles/mod.rs`,
+  `src/kernel/mod.rs`, `src/system5/{mod.rs,supervisor.rs}`,
+  `src/actor_support.rs`, `src/names.rs`, `src/vsm_core.rs`,
+  `examples/basic_usage.rs`, `tests/full_system_flow.rs`, and
+  `tests/phase0_characterization.rs`.
+- Deleted the compiled legacy System 5 service modules:
+  `src/system5/policy.rs`, `src/system5/identity.rs`,
+  `src/system5/values.rs`, and `src/system5/decisions.rs`.
+- Updated README, architecture, usage, developer docs, ADR-0008, and the ADR
+  index.
+
+**Public APIs added**
+
+- `protocol::system5` records:
+  `PolicyVersion`, `IdentityVersion`, `ValuesVersion`, `IdentityRecord`,
+  `ValueStatement`, `ValueSet`, `PolicyAuthorityScope`, `PolicyAuthority`,
+  `PolicyRecord`, `DecisionEvidenceKind`, `DecisionEvidence`,
+  `PolicyDirectiveKind`, `PolicyDirective`, `PolicyAckStatus`,
+  `PolicyDirectiveAcknowledgement`, `DecisionAlternative`,
+  `ValuesEvaluation`, `DecisionRequest`, `DecisionStatus`, `DecisionRecord`,
+  `PolicyEscalation`, `CrisisSeverity`, `CrisisSignal`, `CrisisResponse`,
+  `System5DecisionCycle`, and `System5Snapshot`.
+- `roles::system5` traits and aliases:
+  `IdentityProvider`, `ValuesProvider`, `ValuesEvaluator`, `DecisionPolicy`,
+  `CrisisPolicy`, `System5Roles`, shared object aliases, and no-op defaults.
+- `runtime::System5RuntimeRoles` and `runtime::System5Handle`.
+- `VsmBuilder` methods:
+  `identity_provider`, `identity_provider_arc`, `values_provider`,
+  `values_provider_arc`, `values_evaluator`, `values_evaluator_arc`,
+  `decision_policy`, `decision_policy_arc`, `crisis_policy`, and
+  `crisis_policy_arc`.
+- `VsmRuntime::system5()`.
+- `RuntimeControlMessage::System5`, `System5ControlMessage`,
+  `RuntimeEvent::System5`, `System5Event`, `RuntimeReport::System5`, and
+  `System5Report`.
+
+**Public APIs removed or relocated**
+
+- Removed the compiled System 5 JSON service modules and service dispatch:
+  `system5::policy`, `system5::identity`, `system5::values`,
+  `system5::decisions`, and `ServiceKind::System5*`.
+- Removed public names for the deleted service actors:
+  `names::SYSTEM5_POLICY`, `names::SYSTEM5_IDENTITY`,
+  `names::SYSTEM5_VALUES`, and `names::SYSTEM5_DECISIONS`.
+- Relocated prototype JSON helper algorithms under `system5::defaults`.
+
+**Decisions**
+
+- ADR-0008 is accepted as Option A: System 5 uses minimal framework-owned
+  governance records and public provider/evaluator/decision/crisis role traits
+  over the existing `ViableSystem` family. No new `ViableSystem` associated
+  types were added.
+- The typed runtime records System 3 summaries and System 4 adaptation
+  proposals as decision evidence before invoking the application decision role.
+- Legacy broker algedonic messages are not automatically bridged to typed
+  System 5 crisis records in this milestone; callers can use
+  `System5Handle::handle_algedonic_signal`, and the broker bridge remains a
+  variety/algedonic milestone concern.
+
+**Tests added or updated**
+
+- `tests/system5_typed_runtime.rs` covers downstream-style identity, values,
+  values-evaluation, decision, and crisis roles; decision audit trails;
+  directive acknowledgement; System 3/System 4 decision context; no-op
+  defaults; and typed algedonic escalation records.
+- Phase 0 characterization now records that System 2, System 3, System 4, and
+  System 5 JSON service dispatch have been removed.
+- Full-system and basic-usage paths use `system5::defaults` for prototype
+  System 5 helper behavior.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+passed
+
+cargo check --all-targets --all-features --locked
+passed
+
+cargo test --all-targets --all-features --locked
+passed
+
+cargo clippy --all-targets --all-features --locked -- -D warnings
+passed
+
+cargo doc --all-features --no-deps --locked
+passed
+
+cargo test --doc --all-features --locked
+passed
+
+cargo run --example typed_runtime_builder --locked
+passed
+
+cargo run --example basic_usage --locked
+passed
+
+git diff --check
+passed
+```
+
+**Failures and warnings**
+
+- No validation failures remain.
+- One targeted System 5 test originally expected exactly one System 3 summary.
+  The assertion now checks for the relevant accepted summary because System 3
+  can legitimately retain multiple summaries in the runtime snapshot.
+- Legacy broker algedonic target delivery is still separate from typed System 5
+  crisis handling. The direct typed handle path is available; automatic bridge
+  behavior is deferred.
+
+**Next task**
+
+Wait for explicit user review and approval before beginning Milestone 10:
+variety and algedonic migration.

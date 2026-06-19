@@ -11,6 +11,7 @@ use crate::kernel::system1::System1Runtime;
 use crate::kernel::system2::System2Runtime;
 use crate::kernel::system3::System3Runtime;
 use crate::kernel::system4::System4Runtime;
+use crate::kernel::system5::System5Runtime;
 use crate::protocol::system1::{
     Acknowledgement, AuditEvidence, AuditRequest, CoordinationView, ResourceShortageRequest,
     UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
@@ -26,6 +27,10 @@ use crate::protocol::system4::{
     EnvironmentSourceDescriptor, EnvironmentSourceStatus, EnvironmentalObservation,
     ForecastCalibration, System4IntelligenceCycle, System4Snapshot,
 };
+use crate::protocol::system5::{
+    CrisisResponse, CrisisSignal, DecisionRequest, IdentityRecord, PolicyDirectiveAcknowledgement,
+    System5DecisionCycle, System5Snapshot, ValueSet,
+};
 use crate::protocol::{
     RecursionPath, RuntimeEvent, RuntimeId, SnapshotKey, SnapshotVersion, SubsystemRole, VsmAddress,
 };
@@ -33,10 +38,12 @@ use crate::roles::RoleContext;
 use crate::roles::{
     AlertSink, Clock, EventSink, NoopAlertSink, NoopEventSink, NoopReportSink, NoopStateStore,
     NoopTelemetrySink, ReportSink, SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy,
-    SharedEnvironmentalSourceFactory, SharedForecaster, SharedIntelligenceModel,
-    SharedOperationalControlPolicy, SharedOperationalUnitFactory, SharedPerformanceModel,
-    SharedResourceGovernance, SharedSignalInterpreter, SharedUnitSelectionPolicy,
-    SharedVarietyModel, SharedWorkModel, StateStore, SystemClock, TelemetrySink, ViableSystem,
+    SharedCrisisPolicy, SharedDecisionPolicy, SharedEnvironmentalSourceFactory, SharedForecaster,
+    SharedIdentityProvider, SharedIntelligenceModel, SharedOperationalControlPolicy,
+    SharedOperationalUnitFactory, SharedPerformanceModel, SharedResourceGovernance,
+    SharedSignalInterpreter, SharedUnitSelectionPolicy, SharedValuesEvaluator,
+    SharedValuesProvider, SharedVarietyModel, SharedWorkModel, StateStore, SystemClock,
+    TelemetrySink, ViableSystem,
 };
 
 /// Runtime lifecycle state visible through typed handles.
@@ -637,6 +644,80 @@ where
     }
 }
 
+/// Runtime-selected System 5 role objects.
+pub struct System5RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    identity_provider: SharedIdentityProvider<V>,
+    values_provider: SharedValuesProvider<V>,
+    values_evaluator: SharedValuesEvaluator<V>,
+    decision_policy: SharedDecisionPolicy<V>,
+    crisis_policy: SharedCrisisPolicy<V>,
+}
+
+impl<V> Clone for System5RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            identity_provider: Arc::clone(&self.identity_provider),
+            values_provider: Arc::clone(&self.values_provider),
+            values_evaluator: Arc::clone(&self.values_evaluator),
+            decision_policy: Arc::clone(&self.decision_policy),
+            crisis_policy: Arc::clone(&self.crisis_policy),
+        }
+    }
+}
+
+impl<V> System5RuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    /// Creates a runtime role bundle.
+    pub fn new(
+        identity_provider: SharedIdentityProvider<V>,
+        values_provider: SharedValuesProvider<V>,
+        values_evaluator: SharedValuesEvaluator<V>,
+        decision_policy: SharedDecisionPolicy<V>,
+        crisis_policy: SharedCrisisPolicy<V>,
+    ) -> Self {
+        Self {
+            identity_provider,
+            values_provider,
+            values_evaluator,
+            decision_policy,
+            crisis_policy,
+        }
+    }
+
+    /// Returns the configured identity provider.
+    pub fn identity_provider(&self) -> SharedIdentityProvider<V> {
+        Arc::clone(&self.identity_provider)
+    }
+
+    /// Returns the configured values provider.
+    pub fn values_provider(&self) -> SharedValuesProvider<V> {
+        Arc::clone(&self.values_provider)
+    }
+
+    /// Returns the configured values evaluator.
+    pub fn values_evaluator(&self) -> SharedValuesEvaluator<V> {
+        Arc::clone(&self.values_evaluator)
+    }
+
+    /// Returns the configured decision policy.
+    pub fn decision_policy(&self) -> SharedDecisionPolicy<V> {
+        Arc::clone(&self.decision_policy)
+    }
+
+    /// Returns the configured crisis policy.
+    pub fn crisis_policy(&self) -> SharedCrisisPolicy<V> {
+        Arc::clone(&self.crisis_policy)
+    }
+}
+
 /// Handle for the System 1 surface owned by a typed runtime.
 pub struct System1Handle<V>
 where
@@ -1206,6 +1287,151 @@ where
     }
 }
 
+/// Handle for the System 5 policy surface.
+pub struct System5Handle<V>
+where
+    V: ViableSystem,
+{
+    config: RuntimeConfig,
+    roles: System5RuntimeRoles<V>,
+    ports: RuntimePorts<V>,
+    runtime: Arc<System5Runtime<V>>,
+    system3_runtime: Arc<System3Runtime<V>>,
+    system4_runtime: Arc<System4Runtime<V>>,
+}
+
+impl<V> Clone for System5Handle<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            roles: self.roles.clone(),
+            ports: self.ports.clone(),
+            runtime: Arc::clone(&self.runtime),
+            system3_runtime: Arc::clone(&self.system3_runtime),
+            system4_runtime: Arc::clone(&self.system4_runtime),
+        }
+    }
+}
+
+impl<V> System5Handle<V>
+where
+    V: ViableSystem,
+{
+    fn new(
+        config: RuntimeConfig,
+        roles: System5RuntimeRoles<V>,
+        ports: RuntimePorts<V>,
+        runtime: Arc<System5Runtime<V>>,
+        system3_runtime: Arc<System3Runtime<V>>,
+        system4_runtime: Arc<System4Runtime<V>>,
+    ) -> Self {
+        Self {
+            config,
+            roles,
+            ports,
+            runtime,
+            system3_runtime,
+            system4_runtime,
+        }
+    }
+
+    /// Returns the runtime instance identity.
+    pub fn runtime_id(&self) -> &RuntimeId {
+        &self.config.runtime_id
+    }
+
+    /// Returns the recursion path for this runtime instance.
+    pub fn recursion_path(&self) -> &RecursionPath {
+        &self.config.recursion_path
+    }
+
+    /// Returns the runtime-selected System 5 role bundle.
+    pub fn roles(&self) -> &System5RuntimeRoles<V> {
+        &self.roles
+    }
+
+    /// Builds a System 5 role context with runtime-scoped identity and ports.
+    pub fn role_context(&self) -> RoleContext<V> {
+        self.ports.role_context(
+            self.config.runtime_id.clone(),
+            self.config.recursion_path.clone(),
+            SubsystemRole::System5,
+        )
+    }
+
+    /// Reads the current identity provider output.
+    pub async fn identity(&self) -> Result<IdentityRecord, FrameworkError> {
+        self.runtime.identity().await
+    }
+
+    /// Reads the current values provider output.
+    pub async fn values(&self) -> Result<ValueSet, FrameworkError> {
+        self.runtime.values().await
+    }
+
+    /// Runs one decision cycle with current System 3 and System 4 context attached.
+    pub async fn decide(
+        &self,
+        mut request: DecisionRequest<V>,
+    ) -> Result<System5DecisionCycle<V>, FrameworkError> {
+        self.attach_system_context(&mut request).await;
+        self.runtime.decide(request).await
+    }
+
+    /// Handles a crisis signal through the typed System 5 crisis policy.
+    pub async fn handle_crisis(
+        &self,
+        signal: CrisisSignal,
+    ) -> Result<CrisisResponse<V>, FrameworkError> {
+        self.runtime.handle_crisis(signal).await
+    }
+
+    /// Handles an algedonic crisis signal through the typed System 5 crisis policy.
+    pub async fn handle_algedonic_signal(
+        &self,
+        mut signal: CrisisSignal,
+    ) -> Result<CrisisResponse<V>, FrameworkError> {
+        if signal.source.is_none() {
+            signal.source = Some(VsmAddress::new(
+                self.config.runtime_id.clone(),
+                self.config.recursion_path.clone(),
+                SubsystemRole::Algedonic,
+            ));
+        }
+        self.handle_crisis(signal).await
+    }
+
+    /// Records externally supplied directive acknowledgements.
+    pub async fn acknowledge_directives(
+        &self,
+        acknowledgements: Vec<PolicyDirectiveAcknowledgement<V>>,
+    ) -> Result<System5Snapshot<V>, FrameworkError> {
+        self.runtime.acknowledge_directives(acknowledgements).await
+    }
+
+    /// Returns the current typed System 5 runtime snapshot.
+    pub async fn snapshot(&self) -> Result<System5Snapshot<V>, FrameworkError> {
+        self.runtime.snapshot().await
+    }
+
+    async fn attach_system_context(&self, request: &mut DecisionRequest<V>) {
+        if let Ok(snapshot) = self.system3_runtime.snapshot().await {
+            request
+                .operational_summaries
+                .extend(snapshot.summaries.iter().cloned());
+        }
+
+        if let Ok(snapshot) = self.system4_runtime.snapshot().await {
+            request
+                .adaptation_proposals
+                .extend(snapshot.proposals.iter().cloned());
+        }
+    }
+}
+
 fn apply_audit_boundary<V>(
     request: &System3AuditRequest<V>,
     mut evidence: Vec<AuditEvidence<V>>,
@@ -1244,6 +1470,8 @@ where
     system3_runtime: Arc<System3Runtime<V>>,
     system4_roles: System4RuntimeRoles<V>,
     system4_runtime: Arc<System4Runtime<V>>,
+    system5_roles: System5RuntimeRoles<V>,
+    system5_runtime: Arc<System5Runtime<V>>,
     observer_bus: Arc<ObserverEventBus<V>>,
 }
 
@@ -1258,6 +1486,7 @@ where
         system2_roles: System2RuntimeRoles<V>,
         system3_roles: System3RuntimeRoles<V>,
         system4_roles: System4RuntimeRoles<V>,
+        system5_roles: System5RuntimeRoles<V>,
     ) -> Result<Self, FrameworkError> {
         let observer_bus = Arc::new(ObserverEventBus::new(
             ports.event_sink(),
@@ -1273,6 +1502,8 @@ where
             System3Runtime::start(config.clone(), system3_roles.clone(), ports.clone()).await?;
         let system4_runtime =
             System4Runtime::start(config.clone(), system4_roles.clone(), ports.clone()).await?;
+        let system5_runtime =
+            System5Runtime::start(config.clone(), system5_roles.clone(), ports.clone()).await?;
 
         let readiness = RuntimeReadiness::new(vec![
             ReadinessCheck::new(
@@ -1283,12 +1514,12 @@ where
             ReadinessCheck::new(
                 ReadinessGate::SubsystemActors,
                 ReadinessStatus::Ready,
-                "typed System 1, System 2, System 3, and System 4 actor adapters started",
+                "typed System 1, System 2, System 3, System 4, and System 5 actor adapters started",
             ),
             ReadinessCheck::new(
                 ReadinessGate::RoleImplementations,
                 ReadinessStatus::Ready,
-                "required System 1 role objects validated; System 2, System 3, and System 4 policies configured",
+                "required System 1 role objects validated; System 2, System 3, System 4, and System 5 policies configured",
             ),
             ReadinessCheck::new(
                 ReadinessGate::Subscriptions,
@@ -1319,6 +1550,8 @@ where
             system3_runtime,
             system4_roles,
             system4_runtime,
+            system5_roles,
+            system5_runtime,
             observer_bus,
         })
     }
@@ -1405,6 +1638,18 @@ where
         )
     }
 
+    /// Returns a System 5 handle scoped to this runtime instance.
+    pub fn system5(&self) -> System5Handle<V> {
+        System5Handle::new(
+            self.config.clone(),
+            self.system5_roles.clone(),
+            self.ports.clone(),
+            Arc::clone(&self.system5_runtime),
+            Arc::clone(&self.system3_runtime),
+            Arc::clone(&self.system4_runtime),
+        )
+    }
+
     /// Builds a role context for any subsystem role.
     pub fn role_context(&self, role: SubsystemRole) -> RoleContext<V> {
         self.ports.role_context(
@@ -1453,6 +1698,7 @@ where
         };
 
         if !already_shutdown {
+            self.system5_runtime.shutdown().await?;
             self.system4_runtime.shutdown().await?;
             self.system3_runtime.shutdown().await?;
             self.system2_runtime.shutdown().await?;
@@ -1542,6 +1788,20 @@ fn register_runtime_components(directory: &mut RuntimeDirectory, config: &Runtim
         recursion_path,
         SubsystemRole::System4,
         "source-registry",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::System5,
+        "role-bundle",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::System5,
+        "policy-actor",
         RuntimeComponentStatus::Ready,
     );
     directory.register(

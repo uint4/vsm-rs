@@ -1,7 +1,7 @@
 //! High-level lifecycle, health, and smoke-test facade.
 //!
 //! This module wraps `app` startup/shutdown and aggregates runtime inspection
-//! from channels, telemetry, and legacy System 5. Health and status calls are
+//! from channels and telemetry. Health and status calls are
 //! best-effort snapshots over in-memory actor state; they are not readiness
 //! barriers and may omit subsystem state when a service call fails.
 
@@ -9,7 +9,6 @@ use ractor::ActorRef;
 use ractor_supervisor::SupervisorMsg;
 use serde_json::{json, Value};
 
-use crate::actor_support::call_service;
 use crate::app::{self, VsmApplication};
 use crate::channels;
 use crate::error::{VsmError, VsmResult};
@@ -49,13 +48,7 @@ pub async fn health() -> VsmResult<Value> {
 }
 
 pub async fn subsystem_state() -> VsmResult<Value> {
-    let mut state = serde_json::Map::new();
-    for (name, op) in [(names::SYSTEM5_POLICY, "get_organizational_state")] {
-        if let Ok(value) = call_service(name, op, json!({})).await {
-            state.insert(name.to_string(), value);
-        }
-    }
-    Ok(Value::Object(state))
+    Ok(json!({}))
 }
 
 pub fn send_test_signal(payload: Value) -> VsmResult<()> {

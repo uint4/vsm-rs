@@ -11,6 +11,7 @@ use super::system4::{
     AdaptationProposal, EnvironmentSourceDescriptor, EnvironmentalObservation,
     System4IntelligenceCycle,
 };
+use super::system5::{CrisisSignal, DecisionRequest, PolicyDirectiveAcknowledgement};
 
 /// Delivery result for a typed control-path message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,6 +66,7 @@ where
     System2(Box<System2ControlMessage<V>>),
     System3(Box<System3ControlMessage<V>>),
     System4(Box<System4ControlMessage>),
+    System5(Box<System5ControlMessage<V>>),
 }
 
 /// Typed System 1 control messages.
@@ -102,4 +104,14 @@ pub enum System4ControlMessage {
     Observations(Vec<EnvironmentalObservation>),
     IntelligenceCycle(Box<System4IntelligenceCycle>),
     AdaptationProposal(Box<AdaptationProposal>),
+}
+
+/// Typed System 5 control messages.
+pub enum System5ControlMessage<V>
+where
+    V: ViableSystem,
+{
+    DecisionRequest(Box<DecisionRequest<V>>),
+    CrisisSignal(Box<CrisisSignal>),
+    DirectiveAcknowledgement(Box<PolicyDirectiveAcknowledgement<V>>),
 }

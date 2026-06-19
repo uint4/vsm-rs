@@ -28,9 +28,9 @@ async fn full_vsm_flow_exercises_all_systems() {
         .unwrap();
     assert_eq!(trend["direction"], "increasing");
 
-    let decision = vsm_rs::system5::policy::make_decision(json!({"proposal":"maintain viability"}))
-        .await
-        .unwrap();
+    let decision = vsm_rs::system5::defaults::make_weighted_decision(
+        &json!({"proposal":"maintain viability"}),
+    );
     assert!(decision.get("id").is_some());
 
     let health = vsm_rs::health().await.expect("health should return");

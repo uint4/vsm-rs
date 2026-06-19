@@ -20,6 +20,10 @@ use super::system4::{
     AdaptationProposal, EnvironmentSourceStatus, EnvironmentalObservation, Forecast,
     ForecastCalibration, IntelligenceAssessment, InterpretedSignal, Scenario,
 };
+use super::system5::{
+    CrisisResponse, DecisionRecord, IdentityRecord, PolicyAckStatus, PolicyDirective,
+    PolicyDirectiveAcknowledgement, PolicyEscalation, ValueSet,
+};
 
 /// Framework event record.
 #[derive(Clone)]
@@ -38,6 +42,7 @@ where
     System2(Box<System2Event<V>>),
     System3(Box<System3Event<V>>),
     System4(Box<System4Event>),
+    System5(Box<System5Event>),
 }
 
 impl<V> Clone for RuntimeEvent<V>
@@ -51,6 +56,7 @@ where
             Self::System2(event) => Self::System2(Box::new((**event).clone())),
             Self::System3(event) => Self::System3(Box::new((**event).clone())),
             Self::System4(event) => Self::System4(event.clone()),
+            Self::System5(event) => Self::System5(event.clone()),
         }
     }
 }
@@ -96,6 +102,7 @@ where
     System2(Box<System2Report<V>>),
     System3(Box<System3Report<V>>),
     System4(Box<System4Report>),
+    System5(Box<System5Report<V>>),
 }
 
 /// System 1 report stream item.
@@ -260,4 +267,42 @@ pub enum System4Report {
     Scenario(Box<Scenario>),
     Proposal(Box<AdaptationProposal>),
     Calibration(Box<ForecastCalibration>),
+}
+
+/// System 5 event stream item.
+#[derive(Clone)]
+pub enum System5Event {
+    DecisionRecorded {
+        decision_id: String,
+        directive_count: usize,
+        escalation_count: usize,
+    },
+    DirectiveIssued {
+        directive_id: String,
+        requires_ack: bool,
+    },
+    DirectiveAcknowledged {
+        directive_id: String,
+        status: PolicyAckStatus,
+        success: bool,
+    },
+    CrisisHandled {
+        signal_id: String,
+        directive_count: usize,
+        escalation_count: usize,
+    },
+}
+
+/// System 5 report stream item.
+pub enum System5Report<V>
+where
+    V: ViableSystem,
+{
+    Identity(Box<IdentityRecord>),
+    Values(Box<ValueSet>),
+    Decision(Box<DecisionRecord<V>>),
+    Directive(Box<PolicyDirective<V>>),
+    DirectiveAcknowledgement(Box<PolicyDirectiveAcknowledgement<V>>),
+    CrisisResponse(Box<CrisisResponse<V>>),
+    Escalation(Box<PolicyEscalation>),
 }

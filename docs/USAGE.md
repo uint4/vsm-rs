@@ -122,7 +122,7 @@ Use interfaces in this order:
 1. **Typed subsystem facade**, such as `system1::process_transaction`.
 2. **Typed dedicated service API**, such as `channels::temporal_variety::get_patterns`.
 3. **Channel facade**, when the interaction is an asynchronous VSM event.
-4. **`actor_support::call_service`**, when using a System 5 JSON service operation that has no typed wrapper.
+4. **`actor_support::call_service`**, when using a remaining dynamic service shell.
 5. **Direct pure function**, when no actor state or supervision is needed.
 
 The typed facade gives the strongest compile-time guarantees. Generic service calls are intentionally flexible but operation and payload mistakes become runtime behavior.
@@ -146,12 +146,15 @@ The crate also exposes early trait-driven foundations for the approved migration
 - `roles::system4` contracts for environmental sources, signal
   interpretation, intelligence modeling, forecasting/scenario planning, and
   adaptation proposal roles.
+- `roles::system5` contracts for identity providers, values providers, values
+  evaluation, decision policy, and crisis policy.
 - `roles::system1::defaults` for opt-in lowest-load selection and no-op
   performance, variety, and algedonic policies.
 - `roles::system2::defaults` for the no-op coordination policy.
 - `roles::system3::defaults` for deny-all resource governance, no-op
   operational control, and no-op audit.
 - `roles::system4::defaults` for no-op System 4 roles.
+- `roles::system5::defaults` for no-op System 5 roles.
 - `roles::system1::testing` for downstream-style test fakes.
 - `roles::ports` for `StateStore`, `EventSink`, `ReportSink`, `TelemetrySink`,
   `AlertSink`, `Clock`, and `IdGenerator`.
@@ -164,10 +167,10 @@ The crate also exposes early trait-driven foundations for the approved migration
 
 These types are public so downstream-style code can compile against the future
 boundary. `VsmBuilder` now starts actor-backed typed System 1, System 2,
-System 3, and System 4 paths for unit registration, work processing,
-coordination, governance/audit, environmental intelligence, and observer-event
-delivery; the current global actor/JSON-backed runtime continues to serve the
-legacy transaction facade and System 5 service APIs.
+System 3, System 4, and System 5 paths for unit registration, work processing,
+coordination, governance/audit, environmental intelligence, policy decisions,
+crisis response, and observer-event delivery; the current global
+actor/JSON-backed runtime continues to serve the legacy transaction facade.
 
 Application role implementations should import `vsm_rs::async_trait` when
 implementing async role methods. They should not need to import `ractor`,
@@ -498,7 +501,10 @@ system1::send_algedonic_signal(json!({
 }))?;
 ```
 
-This is a non-blocking send to Operations. Operations publishes an algedonic `VsmMessage` to System 5. The current Policy actor records the event in history but does not automatically invoke crisis handling.
+This is a non-blocking send to Operations. Operations publishes a legacy
+algedonic `VsmMessage` to the broker target for System 5. The typed System 5
+crisis path is `VsmRuntime::system5().handle_algedonic_signal(...)`; automatic
+conversion from legacy broker messages is deferred.
 
 ## 7. Drive System 1 through channels
 
@@ -783,17 +789,17 @@ Supervise long-lived subscribers rather than spawning detached actors. Re-subscr
 
 ## 10. JSON service calls
 
-System 5 and telemetry use the shared service actor facade. System 4 has moved
-to the typed runtime handle and no longer starts JSON service actors.
+Telemetry and auxiliary services use the shared service actor facade. Systems
+2, 3, 4, and 5 have moved to typed runtime handles and no longer start JSON
+service actors.
 
 ```rust
 use serde_json::json;
 use vsm_rs::actor_support::call_service;
-use vsm_rs::names;
 
 let value = call_service(
-    names::SYSTEM5_POLICY,
-    "get_organizational_state",
+    "vsm.telemetry_reporter",
+    "health",
     json!({ /* payload */ }),
 )
 .await?;
@@ -931,186 +937,77 @@ let scan = vsm_rs::system4::defaults::scan_environment(
 
 ## 14. System 5 usage
 
-For a single coherent organizational state, use the Policy actor as the aggregate boundary.
+System 5 is part of the typed runtime handle. The crate owns identity/value
+record shapes, policy versions, decision evidence, directives,
+acknowledgements, crisis responses, escalation records, and snapshots.
+Applications own the providers and policy behavior.
 
-### 14.1 Set identity through Policy
+Provide custom roles with:
 
-```rust
-let identity = call_service(
-    names::SYSTEM5_POLICY,
-    "set_identity",
-    json!({
-        "purpose": "deliver resilient payment infrastructure",
-        "mission": "operate safely across regions",
-        "core_values": ["resilience", "fairness", "autonomy"]
-    }),
-)
-.await?;
-```
+- `VsmBuilder::identity_provider`
+- `VsmBuilder::values_provider`
+- `VsmBuilder::values_evaluator`
+- `VsmBuilder::decision_policy`
+- `VsmBuilder::crisis_policy`
 
-### 14.2 Define values through Policy
+If omitted, the typed runtime uses no-op System 5 defaults: an unconfigured
+identity, an empty values set, a neutral values evaluation, deferred decisions,
+and crisis records with no generic directives.
 
-```rust
-let values = call_service(
-    names::SYSTEM5_POLICY,
-    "define_values",
-    json!([
-        {
-            "name": "resilience",
-            "priority": 1.0,
-            "indicators": ["resilient", "redundant", "recoverable"]
-        },
-        {
-            "name": "fairness",
-            "priority": 0.9,
-            "indicators": ["fair", "transparent", "inclusive"]
-        }
-    ]),
-)
-.await?;
-```
-
-### 14.3 Set policy
+### 14.1 Run a decision cycle
 
 ```rust
-use vsm_rs::system5::policy;
+use vsm_rs::protocol::system5::{
+    DecisionAlternative, DecisionRequest, PolicyDirective, PolicyDirectiveKind,
+};
 
-let policy_result = policy::set_policy_area(
-    "risk",
-    json!({
-        "max_failure_rate": 0.02,
-        "escalation_threshold": "high"
-    }),
-)
-.await?;
+let directive = PolicyDirective::<ExampleSystem>::new(
+    PolicyDirectiveKind::Strategic,
+    "increase operating capacity",
+);
+let request = DecisionRequest::new("capacity expansion")
+    .with_alternative(DecisionAlternative::new("expand now").with_directive(directive));
+
+let cycle = runtime.system5().decide(request).await?;
+println!("decision: {}", cycle.decision.decision_id);
 ```
 
-### 14.4 Make a decision
+`System5Handle::decide` attaches current typed System 3 operational summaries
+and typed System 4 adaptation proposals before invoking the configured
+`DecisionPolicy`.
+
+### 14.2 Acknowledge directives
 
 ```rust
-let decision = call_service(
-    names::SYSTEM5_POLICY,
-    "make_decision",
-    json!({
-        "subject": "capacity_expansion",
-        "options": [
-            { "name": "expand_now", "viability": 0.9, "cost": 0.4 },
-            { "name": "defer", "viability": 0.5, "cost": 0.9 }
-        ],
-        "criteria": [
-            { "name": "viability", "weight": 0.8 },
-            { "name": "cost", "weight": 0.2 }
-        ]
-    }),
-)
-.await?;
+use vsm_rs::protocol::system5::PolicyDirectiveAcknowledgement;
+
+let ack = PolicyDirectiveAcknowledgement::accepted(&cycle.decision.directives[0]);
+let snapshot = runtime.system5().acknowledge_directives(vec![ack]).await?;
+println!("acks: {}", snapshot.directive_acknowledgements.len());
 ```
 
-The scorer multiplies each named option field by the criterion weight and selects the maximum total.
-
-`system5::policy::make_decision()` is a convenience wrapper, but the current wrapper adds a nested copy under `decision`. Use `call_service` directly when a raw, non-duplicated decision object is preferred.
-
-### 14.5 Evaluate alignment
+### 14.3 Handle an algedonic crisis
 
 ```rust
-let alignment = call_service(
-    names::SYSTEM5_POLICY,
-    "evaluate_alignment",
-    json!({
-        "proposal": "build a resilient, transparent regional service"
-    }),
-)
-.await?;
+use vsm_rs::protocol::system5::{CrisisSeverity, CrisisSignal};
+
+let response = runtime
+    .system5()
+    .handle_algedonic_signal(CrisisSignal::new(
+        CrisisSeverity::Critical,
+        "regional settlement outage",
+    ))
+    .await?;
+
+println!("escalations: {}", response.escalations.len());
 ```
 
-The current identity and values alignment methods are keyword-based heuristics, not semantic models.
+Legacy broker algedonic messages are not automatically converted into typed
+crisis records yet; that bridge belongs to the algedonic migration.
 
-### 14.6 Handle a crisis explicitly
-
-```rust
-let response = call_service(
-    names::SYSTEM5_POLICY,
-    "handle_crisis",
-    json!({
-        "severity": "critical",
-        "message": "regional settlement outage"
-    }),
-)
-.await?;
-```
-
-An algedonic channel message does not invoke this operation automatically in the current port.
-
-### 14.7 Get organizational state
-
-```rust
-let state = policy::get_organizational_state().await?;
-println!("{state:#}");
-```
-
-### 14.8 State isolation warning
-
-These actors have separate state:
-
-```text
-vsm.system5.policy
-vsm.system5.identity
-vsm.system5.values
-vsm.system5.decisions
-```
-
-For example:
-
-```rust
-call_service(names::SYSTEM5_IDENTITY, "set_identity", identity).await?;
-```
-
-updates the standalone Identity actor, not the Policy actor. A later Policy `evaluate_alignment` call will use Policy's own identity/default identity. Choose one aggregate boundary and use it consistently.
-
-### 14.9 System 5 operation reference
-
-#### Policy actor
-
-| Operation | Payload |
-|---|---|
-| `set_identity` | Identity object/patch |
-| `define_values` | Array of value definitions |
-| `make_decision` | `{subject, options, criteria}` |
-| `set_policy` | `{policy_area, policy_details}` |
-| `evaluate_alignment` | Proposal/subject JSON |
-| `handle_crisis` | Crisis JSON with optional `severity` |
-| `get_organizational_state`, `state` | `{}` |
-
-#### Identity actor
-
-| Operation | Payload |
-|---|---|
-| `set_identity` | Identity object/patch |
-| `get_current_identity`, `identity` | `{}` |
-| `check_alignment` | Proposal JSON |
-| `get_relevant_aspects` | Context JSON |
-| `update_aspect` | `{aspect, value}` |
-| `evolve_identity` | Deep-merge patch |
-
-#### Values actor
-
-| Operation | Payload |
-|---|---|
-| `define_values` | Array of values |
-| `get_current_values`, `values` | `{}` |
-| `evaluate_against_values`, `check_alignment` | Subject JSON |
-| `validate_policy` | `{policy_area, policy_details}` |
-| `add_value` | One value object |
-| `update_value_priority` | `{name, priority}` |
-
-#### Decisions actor
-
-| Operation | Payload |
-|---|---|
-| `make_decision`, `decide` | `{subject, options, criteria}` |
-| `history`, `decision_history` | Optional `{subject}` filter |
-| `review`, `review_decision` | `{decision_id, outcome_data}` |
-| `patterns` | `{}` |
+Prototype JSON helper algorithms are still available under
+`system5::defaults`, but the old System 5 JSON service actors are no longer
+started.
 
 ## 15. Advanced algedonic processor
 
@@ -1324,7 +1221,9 @@ Inspect `root_supervisor` rather than relying only on the top-level `status` str
 let status = vsm_rs::status().await?;
 ```
 
-`status()` combines health with best-effort legacy System 5 state. Failed subsystem calls are omitted from the subsystem object rather than failing the whole operation.
+`status()` combines best-effort health and legacy subsystem state. Typed
+runtime subsystem snapshots are available from the corresponding
+`VsmRuntime` handles.
 
 ### 19.3 Tracing
 
@@ -1442,7 +1341,7 @@ Typed application service layer
         +-- typed System 2 coordination
         +-- typed System 3 governance and audit
         +-- typed System 4 intelligence
-        +-- typed wrappers around remaining System 5 operations
+        +-- typed System 5 policy decisions and crisis response
         +-- validated VsmMessage publishing
         +-- domain-specific channel subscribers
         |
@@ -1475,12 +1374,12 @@ Recommended next steps before production use:
 | Duplicate subscriber ID | Replaces previous subscription |
 | System 2 coordination | Typed runtime policy over System 1 coordination views |
 | System 4 intelligence | Typed runtime source/intelligence cycle |
-| System 5 channel reactions | Record history only |
+| System 5 crisis handling | Typed `handle_algedonic_signal` on `System5Handle`; legacy broker bridge deferred |
 | System 1 channel reactions | Execute command, coordinate, audit |
 | Advanced algedonic routing | Records route; does not deliver it |
 | Temporal scheduled analysis | Not scheduled; queries calculate on demand |
 | Unknown generic operation | JSON `unknown_operation`, not an error |
-| System 5 state | Separate per actor unless Policy is used as aggregate |
+| System 5 state | Typed in-memory `System5Snapshot` from `System5Handle` |
 | Restart recovery | Actor restart exists; relationship/state reconciliation is incomplete |
 
 Read `ARCHITECTURE.md` before changing supervision, channel routing, or state ownership.

@@ -55,9 +55,9 @@ src/
 ├── config.rs                 Typed runtime configuration
 ├── builder.rs                Typed runtime builder
 ├── runtime.rs                Typed runtime handles, readiness, observer subscriptions, shutdown, component snapshots
-├── kernel/                   Private runtime registry, observer bus, and typed System 1-4 actor adapters
+├── kernel/                   Private runtime registry, observer bus, and typed System 1-5 actor adapters
 ├── protocol/                 Typed migration protocols, delivery outcomes, and framework metadata
-├── roles/                    ViableSystem, role contexts, System 1-4 contracts, ports
+├── roles/                    ViableSystem, role contexts, System 1-5 contracts, ports
 ├── legacy/                   Temporary adapters from current JSON API to typed foundations
 ├── names.rs                  Stable global actor names
 ├── channels/                 Broker, channels, algedonic, temporal services
@@ -66,7 +66,7 @@ src/
 ├── system2/                  Typed coordination defaults and legacy supervisor placeholder
 ├── system3/                  Typed defaults and legacy supervisor placeholder
 ├── system4/                  System 4 prototype defaults and supervisor placeholder
-├── system5/                  Policy, identity, values, decisions
+├── system5/                  System 5 prototype defaults and supervisor placeholder
 └── telemetry_reporter.rs     Supervised telemetry service
 
 tests/                        End-to-end actor tests
@@ -100,7 +100,6 @@ All persistent services use stable names from `names.rs`:
 
 ```rust
 pub const SYSTEM1_OPERATIONS: &str = "vsm.system1.operations";
-pub const SYSTEM5_POLICY: &str = "vsm.system5.policy";
 ```
 
 Do not scatter literal actor names through the codebase. Add a constant or name-builder function in `names.rs` and use it everywhere.
@@ -224,7 +223,7 @@ pub async fn get_state() -> VsmResult<ExampleSnapshot> {
 
 ### 5.2 JSON ServiceActor
 
-System 5 currently uses `actor_support::ServiceActor`. It provides a common protocol:
+Telemetry and auxiliary services use `actor_support::ServiceActor`. It provides a common protocol:
 
 ```rust
 pub enum ServiceMsg {
@@ -545,7 +544,8 @@ The following areas are important candidates for future hardening:
 1. **Readiness:** replace startup sleeps with an explicit application-ready signal.
 2. **Subscription recovery:** re-register subscribers automatically when the broker restarts.
 3. **Unit reconciliation:** ensure System 1 Operations reconstructs its directory after unit or supervisor restarts.
-4. **Typed protocols:** migrate frequently used System 5 operations away from string/JSON dispatch.
+4. **Algedonic bridge:** convert legacy broker algedonic messages into typed
+   System 5 crisis records during the algedonic migration.
 5. **Persistence:** define opt-in snapshots or event persistence without coupling the core to one database.
 6. **Backpressure:** add explicit mailbox and ingress controls for high-volume channel traffic.
 7. **Namespacing:** support more than one VSM runtime in a process through configurable actor-name prefixes.
