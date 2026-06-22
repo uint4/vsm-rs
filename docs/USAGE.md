@@ -148,6 +148,8 @@ The crate also exposes early trait-driven foundations for the approved migration
   adaptation proposal roles.
 - `roles::system5` contracts for identity providers, values providers, values
   evaluation, decision policy, and crisis policy.
+- `roles::recursion` contracts for parent/child boundary transduction and
+  authority/disclosure decisions.
 - `roles::system1::defaults` for opt-in lowest-load selection and no-op
   performance, variety, and algedonic policies.
 - `roles::system2::defaults` for the no-op coordination policy.
@@ -155,6 +157,7 @@ The crate also exposes early trait-driven foundations for the approved migration
   operational control, and no-op audit.
 - `roles::system4::defaults` for no-op System 4 roles.
 - `roles::system5::defaults` for no-op System 5 roles.
+- `roles::recursion::defaults` for the allow-all recursion transducer.
 - `roles::system1::testing` for downstream-style test fakes.
 - `roles::ports` for `StateStore`, `EventSink`, `ReportSink`, `TelemetrySink`,
   `AlertSink`, `Clock`, and `IdGenerator`.
@@ -167,9 +170,11 @@ The crate also exposes early trait-driven foundations for the approved migration
 
 These types are public so downstream-style code can compile against the future
 boundary. `VsmBuilder` now starts actor-backed typed System 1, System 2,
-System 3, System 4, and System 5 paths for unit registration, work processing,
-coordination, governance/audit, environmental intelligence, policy decisions,
-crisis response, and observer-event delivery; the current global
+System 3, System 4, System 5, variety/algedonic/temporal, and operational
+recursion paths for unit registration, work processing, coordination,
+governance/audit, environmental intelligence, policy decisions, crisis
+response, child runtime delegation/escalation, and observer-event delivery; the
+current global
 actor/JSON-backed runtime continues to serve the legacy transaction facade.
 
 Application role implementations should import `vsm_rs::async_trait` when
@@ -1194,7 +1199,26 @@ let amplified = amplifier::multiply(
 
 These functions are heuristic starter implementations. Validate their formulas for your domain before using them for operational control.
 
-## 18. Recursive viable-system structures
+## 18. Operational recursion
+
+The trait-driven runtime can treat a child VSM as a parent-side System 1 unit.
+Applications provide a `ChildRuntimeFactory` that starts the child
+`VsmRuntime`, and can replace `RecursionTransducer` to enforce authority,
+translation, and disclosure at the boundary.
+
+The first operational slice supports:
+
+- child registration and listing;
+- work delegation through a child bridge unit;
+- child resource shortage escalation to parent System 3;
+- child algedonic escalation to parent variety/System 5;
+- parent policy directive transduction to child System 1;
+- child directory inspection for instance-scoped internal names.
+
+Persistence, replay, cross-process child transport, and durable child recovery
+are still deferred.
+
+## 19. Recursive viable-system structures
 
 ```rust
 use serde_json::json;
@@ -1231,11 +1255,13 @@ println!("metrics: {:#}", recursion::calculate_metrics(&structure));
 assert!(recursion::validate_structure(&structure).is_ok());
 ```
 
-The recursion module is a pure value API: functions generally consume and return `RecursionStructure`.
+The shared recursion module is a pure value API: functions generally consume
+and return `RecursionStructure`. It is separate from the typed operational
+recursion runtime surface above.
 
-## 19. Health, status, and observability
+## 20. Health, status, and observability
 
-### 19.1 Health
+### 20.1 Health
 
 ```rust
 let health = vsm_rs::health().await?;
@@ -1251,7 +1277,7 @@ The result includes:
 
 Inspect `root_supervisor` rather than relying only on the top-level `status` string.
 
-### 19.2 Full status
+### 20.2 Full status
 
 ```rust
 let status = vsm_rs::status().await?;
@@ -1261,7 +1287,7 @@ let status = vsm_rs::status().await?;
 runtime subsystem snapshots are available from the corresponding
 `VsmRuntime` handles.
 
-### 19.3 Tracing
+### 20.3 Tracing
 
 Enable logging with `RUST_LOG`:
 
@@ -1280,7 +1306,7 @@ tracing_subscriber::fmt()
     .init();
 ```
 
-## 20. Error handling
+## 21. Error handling
 
 Public typed APIs generally return `VsmResult<T>` or `Result<T, VsmError>`.
 
@@ -1310,7 +1336,7 @@ match system1::process_transaction(tx).await {
 
 Remember that some domain failures are values, not `VsmError`s. For example, `NoSuitableUnit` is a `TransactionResult`.
 
-## 21. Timeouts and backpressure
+## 22. Timeouts and backpressure
 
 Current RPC timeouts are fixed in the facades. Important values are:
 
@@ -1336,7 +1362,7 @@ acknowledgements, retries, or consumer demand. Outcome-returning APIs report
 broker delivery, rejection, and dead-lettering; add durable replay and recipient
 acknowledgement before treating channels as a durable event bus.
 
-## 22. Testing
+## 23. Testing
 
 The included tests demonstrate startup, unit registration, transaction processing, typed System 2 coordination, typed System 3 governance/audit, typed System 4 source/intelligence cycles, System 5 decisions, and health.
 
@@ -1363,7 +1389,7 @@ async fn my_vsm_test() {
 
 Always stop and await the application so global names are released before the next test.
 
-## 23. Recommended production integration pattern
+## 24. Recommended production integration pattern
 
 A practical application boundary is:
 
@@ -1398,7 +1424,7 @@ Recommended next steps before production use:
 9. Add recipient processing acknowledgements, retry, and durable replay where required.
 10. Add real telemetry export and periodic reporting.
 
-## 24. Important current behavior at a glance
+## 25. Important current behavior at a glance
 
 | Behavior | Current implementation |
 |---|---|

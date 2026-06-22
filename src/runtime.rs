@@ -8,6 +8,7 @@ use crate::config::RuntimeConfig;
 use crate::error::FrameworkError;
 use crate::kernel::event_bus::ObserverEventBus;
 pub use crate::kernel::event_bus::{ObserverBusSnapshot, ObserverId, ObserverSubscription};
+use crate::kernel::recursion::RecursionRuntime;
 use crate::kernel::registry::RuntimeDirectory;
 use crate::kernel::system1::System1Runtime;
 use crate::kernel::system2::System2Runtime;
@@ -19,9 +20,10 @@ use crate::protocol::algedonic::{
     AlgedonicAcknowledgement, AlgedonicCycle, AlgedonicSeverity, AlgedonicSignalKind,
     AlgedonicSignalRecord, AlgedonicSnapshot,
 };
+use crate::protocol::recursion::{ChildRuntimeDescriptor, ChildRuntimeSnapshot, RecursionSnapshot};
 use crate::protocol::system1::{
-    Acknowledgement, AuditEvidence, AuditRequest, CoordinationView, ResourceShortageRequest,
-    UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
+    Acknowledgement, AuditEvidence, AuditRequest, CapacitySnapshot, CoordinationView,
+    ResourceShortageRequest, UnitCommand, UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
 };
 use crate::protocol::system2::{
     CoordinationAcknowledgement, CoordinationCycle, CoordinationIntervention, System2Snapshot,
@@ -50,15 +52,16 @@ use crate::protocol::{
 };
 use crate::roles::RoleContext;
 use crate::roles::{
-    AlertSink, Clock, EventSink, NoopAlertSink, NoopEventSink, NoopReportSink, NoopStateStore,
-    NoopTelemetrySink, ReportSink, SharedAlgedonicLifecyclePolicy, SharedAlgedonicPolicy,
-    SharedAuditor, SharedCoordinationPolicy, SharedCrisisPolicy, SharedDecisionPolicy,
-    SharedEnvironmentalSourceFactory, SharedForecaster, SharedIdentityProvider,
-    SharedIntelligenceModel, SharedOperationalControlPolicy, SharedOperationalUnitFactory,
-    SharedPerformanceModel, SharedResourceGovernance, SharedSignalInterpreter,
-    SharedTemporalAnalysisPolicy, SharedUnitSelectionPolicy, SharedValuesEvaluator,
-    SharedValuesProvider, SharedVarietyEngineeringPolicy, SharedVarietyModel, SharedWorkModel,
-    StateStore, SystemClock, TelemetrySink, ViableSystem,
+    AlertSink, BoxOperationalUnit, Clock, EventSink, NoopAlertSink, NoopEventSink, NoopReportSink,
+    NoopStateStore, NoopTelemetrySink, OperationalUnit, OperationalUnitFactory, ReportSink,
+    SharedAlgedonicLifecyclePolicy, SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy,
+    SharedCrisisPolicy, SharedDecisionPolicy, SharedEnvironmentalSourceFactory, SharedForecaster,
+    SharedIdentityProvider, SharedIntelligenceModel, SharedOperationalControlPolicy,
+    SharedOperationalUnitFactory, SharedPerformanceModel, SharedRecursionTransducer,
+    SharedResourceGovernance, SharedSignalInterpreter, SharedTemporalAnalysisPolicy,
+    SharedUnitSelectionPolicy, SharedValuesEvaluator, SharedValuesProvider,
+    SharedVarietyEngineeringPolicy, SharedVarietyModel, SharedWorkModel, StateStore, SystemClock,
+    TelemetrySink, UnitRoleContext, ViableSystem,
 };
 use crate::shared::message::{ChannelKind, MessageKind, VsmMessage};
 
@@ -323,6 +326,68 @@ where
             admission: self.admission,
             draining: self.draining,
         }
+    }
+}
+
+/// Shared child-runtime factory object.
+pub type SharedChildRuntimeFactory<V> = Arc<dyn ChildRuntimeFactory<V>>;
+
+/// Application-owned factory that starts one child VSM runtime.
+#[ractor::async_trait]
+pub trait ChildRuntimeFactory<V>: Send + Sync
+where
+    V: ViableSystem,
+{
+    async fn start_child_runtime(
+        &self,
+        context: &RoleContext<V>,
+        descriptor: &ChildRuntimeDescriptor<V>,
+    ) -> Result<VsmRuntime<V>, FrameworkError>;
+}
+
+/// Registration request for one operational child runtime.
+pub struct ChildRuntimeRegistration<V>
+where
+    V: ViableSystem,
+{
+    pub descriptor: ChildRuntimeDescriptor<V>,
+    pub factory: SharedChildRuntimeFactory<V>,
+    pub bridge_admission: UnitAdmissionLimits,
+}
+
+impl<V> Clone for ChildRuntimeRegistration<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            descriptor: self.descriptor.clone(),
+            factory: Arc::clone(&self.factory),
+            bridge_admission: self.bridge_admission,
+        }
+    }
+}
+
+impl<V> ChildRuntimeRegistration<V>
+where
+    V: ViableSystem,
+{
+    /// Creates a child runtime registration with unbounded bridge admission.
+    pub fn new(
+        descriptor: ChildRuntimeDescriptor<V>,
+        factory: SharedChildRuntimeFactory<V>,
+    ) -> Self {
+        Self {
+            descriptor,
+            factory,
+            bridge_admission: UnitAdmissionLimits::default(),
+        }
+    }
+
+    /// Sets the admission limits for the parent-side child bridge unit.
+    pub fn with_bridge_admission(mut self, admission: UnitAdmissionLimits) -> Self {
+        self.bridge_admission = admission;
+        self
     }
 }
 
@@ -791,6 +856,42 @@ where
     /// Returns the configured temporal analysis policy.
     pub fn temporal_analysis_policy(&self) -> SharedTemporalAnalysisPolicy<V> {
         Arc::clone(&self.temporal_analysis_policy)
+    }
+}
+
+/// Runtime-selected operational-recursion role objects.
+pub struct RecursionRuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    recursion_transducer: SharedRecursionTransducer<V>,
+}
+
+impl<V> Clone for RecursionRuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            recursion_transducer: Arc::clone(&self.recursion_transducer),
+        }
+    }
+}
+
+impl<V> RecursionRuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    /// Creates a runtime recursion role bundle.
+    pub fn new(recursion_transducer: SharedRecursionTransducer<V>) -> Self {
+        Self {
+            recursion_transducer,
+        }
+    }
+
+    /// Returns the configured recursion transducer.
+    pub fn recursion_transducer(&self) -> SharedRecursionTransducer<V> {
+        Arc::clone(&self.recursion_transducer)
     }
 }
 
@@ -1686,6 +1787,387 @@ where
     }
 }
 
+/// Handle for the operational-recursion surface owned by a typed runtime.
+struct RecursionParentRuntimes<V>
+where
+    V: ViableSystem,
+{
+    system1: Arc<System1Runtime<V>>,
+    system3: Arc<System3Runtime<V>>,
+    variety: Arc<VarietyRuntime<V>>,
+    system5: Arc<System5Runtime<V>>,
+}
+
+impl<V> Clone for RecursionParentRuntimes<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            system1: Arc::clone(&self.system1),
+            system3: Arc::clone(&self.system3),
+            variety: Arc::clone(&self.variety),
+            system5: Arc::clone(&self.system5),
+        }
+    }
+}
+
+pub struct RecursionHandle<V>
+where
+    V: ViableSystem,
+{
+    config: RuntimeConfig,
+    roles: RecursionRuntimeRoles<V>,
+    ports: RuntimePorts<V>,
+    runtime: Arc<RecursionRuntime<V>>,
+    parent: RecursionParentRuntimes<V>,
+}
+
+impl<V> Clone for RecursionHandle<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            roles: self.roles.clone(),
+            ports: self.ports.clone(),
+            runtime: Arc::clone(&self.runtime),
+            parent: self.parent.clone(),
+        }
+    }
+}
+
+impl<V> RecursionHandle<V>
+where
+    V: ViableSystem,
+{
+    fn new(
+        config: RuntimeConfig,
+        roles: RecursionRuntimeRoles<V>,
+        ports: RuntimePorts<V>,
+        runtime: Arc<RecursionRuntime<V>>,
+        parent: RecursionParentRuntimes<V>,
+    ) -> Self {
+        Self {
+            config,
+            roles,
+            ports,
+            runtime,
+            parent,
+        }
+    }
+
+    /// Returns the runtime instance identity.
+    pub fn runtime_id(&self) -> &RuntimeId {
+        &self.config.runtime_id
+    }
+
+    /// Returns the recursion path for this runtime instance.
+    pub fn recursion_path(&self) -> &RecursionPath {
+        &self.config.recursion_path
+    }
+
+    /// Returns the runtime-selected recursion role bundle.
+    pub fn roles(&self) -> &RecursionRuntimeRoles<V> {
+        &self.roles
+    }
+
+    /// Builds a recursion role context with runtime-scoped identity and ports.
+    pub fn role_context(&self) -> RoleContext<V> {
+        self.ports.role_context(
+            self.config.runtime_id.clone(),
+            self.config.recursion_path.clone(),
+            SubsystemRole::Custom("recursion".to_string()),
+        )
+    }
+
+    /// Starts and registers a child runtime as a parent-side System 1 bridge unit.
+    pub async fn register_child_runtime(
+        &self,
+        registration: ChildRuntimeRegistration<V>,
+    ) -> Result<ChildRuntimeSnapshot<V>, FrameworkError> {
+        let child_id = registration.descriptor.child_id.clone();
+        let descriptor = registration.descriptor.unit_descriptor.clone();
+        let capacity = registration.descriptor.capacity.clone();
+        let bridge_admission = registration.bridge_admission;
+        let snapshot = self.runtime.register_child(registration).await?;
+        let bridge_factory = Arc::new(ChildRuntimeUnitFactory::new(
+            Arc::clone(&self.runtime),
+            child_id,
+            capacity,
+        ));
+        let bridge_registration =
+            UnitRegistration::new(descriptor, bridge_factory).with_admission(bridge_admission);
+        self.parent
+            .system1
+            .register_unit(bridge_registration)
+            .await?;
+        Ok(snapshot)
+    }
+
+    /// Lists child runtimes currently retained by the recursion manager.
+    pub fn list_children(&self) -> Result<Vec<ChildRuntimeSnapshot<V>>, FrameworkError> {
+        self.runtime.list_children()
+    }
+
+    /// Returns the private component directory snapshot for one child runtime.
+    pub fn child_directory_snapshot(
+        &self,
+        child_id: &str,
+    ) -> Result<RuntimeDirectorySnapshot, FrameworkError> {
+        self.runtime.child_runtime(child_id)?.directory_snapshot()
+    }
+
+    /// Delegates a typed work request directly to a registered child runtime.
+    pub async fn delegate_work(
+        &self,
+        child_id: &str,
+        request: WorkRequest<V>,
+    ) -> Result<WorkResponse<V>, FrameworkError> {
+        self.runtime.delegate_work(child_id, request).await
+    }
+
+    /// Escalates a child resource shortage to this parent runtime's System 3.
+    pub async fn escalate_resource_shortage(
+        &self,
+        child_id: &str,
+        shortage: ResourceShortageRequest<V>,
+    ) -> Result<System3ControlCycle<V>, FrameworkError> {
+        let request = self
+            .runtime
+            .translate_resource_escalation(child_id, shortage)
+            .await?;
+        let mut cycle = self
+            .parent
+            .system3
+            .govern_resources(vec![request], Vec::new())
+            .await?;
+        let mut acknowledgements = Vec::new();
+        for directive in cycle.directives.clone() {
+            if !directive.requires_ack {
+                continue;
+            }
+            acknowledgements.extend(
+                self.parent
+                    .system1
+                    .apply_operational_directive(directive)
+                    .await,
+            );
+        }
+        let outcome = self
+            .parent
+            .system3
+            .record_directive_acknowledgements(acknowledgements)
+            .await?;
+        cycle.directive_acknowledgements = outcome.directive_acknowledgements;
+        cycle.summaries.extend(outcome.summaries);
+        Ok(cycle)
+    }
+
+    /// Escalates a child algedonic signal to this parent runtime.
+    pub async fn escalate_algedonic_signal(
+        &self,
+        child_id: &str,
+        signal: AlgedonicSignalRecord<V>,
+    ) -> Result<AlgedonicCycle<V>, FrameworkError> {
+        let parent_signal = self
+            .runtime
+            .translate_algedonic_escalation(child_id, signal)
+            .await?;
+        let mut cycle = self.parent.variety.process_algedonic(parent_signal).await?;
+
+        if cycle.signal.requires_system5_dispatch() {
+            let response = self
+                .parent
+                .system5
+                .handle_crisis(crisis_signal_from_algedonic(
+                    &cycle.signal,
+                    &self.config.runtime_id,
+                    &self.config.recursion_path,
+                ))
+                .await?;
+            cycle = self
+                .parent
+                .variety
+                .record_system5_dispatch(cycle.signal.signal_id.clone(), response)
+                .await?;
+        }
+
+        Ok(cycle)
+    }
+
+    /// Transduces and delivers a parent policy directive to a child runtime.
+    pub async fn transduce_policy_directive(
+        &self,
+        child_id: &str,
+        directive: OperationalDirective<V>,
+    ) -> Result<Vec<DirectiveAcknowledgement<V>>, FrameworkError> {
+        let Some(child_directive) = self
+            .runtime
+            .transduce_policy_directive(child_id, directive)
+            .await?
+        else {
+            return Ok(Vec::new());
+        };
+        let child_runtime = self.runtime.child_runtime(child_id)?;
+        Ok(child_runtime
+            .system1_runtime
+            .apply_operational_directive(child_directive)
+            .await)
+    }
+
+    /// Summarizes a child System 4 intelligence cycle at the parent boundary.
+    pub async fn record_intelligence_summary(
+        &self,
+        child_id: &str,
+        cycle: &System4IntelligenceCycle,
+    ) -> Result<crate::protocol::recursion::RecursionIntelligenceSummary, FrameworkError> {
+        self.runtime
+            .record_intelligence_summary(child_id, cycle)
+            .await
+    }
+
+    /// Returns the current recursion manager snapshot.
+    pub fn snapshot(&self) -> Result<RecursionSnapshot<V>, FrameworkError> {
+        self.runtime.snapshot()
+    }
+}
+
+struct ChildRuntimeUnitFactory<V>
+where
+    V: ViableSystem,
+{
+    recursion_runtime: Arc<RecursionRuntime<V>>,
+    child_id: String,
+    capacity: CapacitySnapshot,
+}
+
+impl<V> ChildRuntimeUnitFactory<V>
+where
+    V: ViableSystem,
+{
+    fn new(
+        recursion_runtime: Arc<RecursionRuntime<V>>,
+        child_id: String,
+        capacity: CapacitySnapshot,
+    ) -> Self {
+        Self {
+            recursion_runtime,
+            child_id,
+            capacity,
+        }
+    }
+}
+
+#[ractor::async_trait]
+impl<V> OperationalUnitFactory<V> for ChildRuntimeUnitFactory<V>
+where
+    V: ViableSystem,
+{
+    async fn create_unit(
+        &self,
+        context: &RoleContext<V>,
+        descriptor: &UnitDescriptor<V>,
+    ) -> Result<BoxOperationalUnit<V>, FrameworkError> {
+        let _ = context;
+        Ok(Box::new(ChildRuntimeOperationalUnit {
+            recursion_runtime: Arc::clone(&self.recursion_runtime),
+            child_id: self.child_id.clone(),
+            descriptor: descriptor.clone(),
+            fallback_capacity: self.capacity.clone(),
+        }))
+    }
+}
+
+struct ChildRuntimeOperationalUnit<V>
+where
+    V: ViableSystem,
+{
+    recursion_runtime: Arc<RecursionRuntime<V>>,
+    child_id: String,
+    descriptor: UnitDescriptor<V>,
+    fallback_capacity: CapacitySnapshot,
+}
+
+#[ractor::async_trait]
+impl<V> OperationalUnit<V> for ChildRuntimeOperationalUnit<V>
+where
+    V: ViableSystem,
+{
+    async fn descriptor(
+        &mut self,
+        context: &UnitRoleContext<V>,
+    ) -> Result<UnitDescriptor<V>, FrameworkError> {
+        let _ = context;
+        Ok(self.descriptor.clone())
+    }
+
+    async fn capacity(
+        &mut self,
+        context: &UnitRoleContext<V>,
+    ) -> Result<CapacitySnapshot, FrameworkError> {
+        let _ = context;
+        self.recursion_runtime
+            .child_capacity(&self.child_id)
+            .await
+            .or_else(|_| Ok(self.fallback_capacity.clone()))
+    }
+
+    async fn handle_work(
+        &mut self,
+        context: &UnitRoleContext<V>,
+        request: WorkRequest<V>,
+    ) -> WorkResult<V> {
+        let _ = context;
+        match self
+            .recursion_runtime
+            .delegate_work(&self.child_id, request)
+            .await
+        {
+            Ok(response) => response.result,
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    async fn handle_command(
+        &mut self,
+        context: &UnitRoleContext<V>,
+        command: UnitCommand<V>,
+    ) -> Result<Acknowledgement, FrameworkError> {
+        let _ = context;
+        Ok(Acknowledgement::accepted(command.metadata.child()))
+    }
+
+    async fn coordination_view(
+        &mut self,
+        context: &UnitRoleContext<V>,
+    ) -> Result<CoordinationView<V>, FrameworkError> {
+        Ok(CoordinationView {
+            metadata: context.metadata().clone(),
+            unit_id: context.unit_id().clone(),
+            capabilities: self.descriptor.capabilities.clone(),
+            capacity: self.capacity(context).await?,
+            snapshot_version: None,
+        })
+    }
+
+    async fn audit_evidence(
+        &mut self,
+        context: &UnitRoleContext<V>,
+        request: AuditRequest<V>,
+    ) -> Result<AuditEvidence<V>, FrameworkError> {
+        Ok(AuditEvidence {
+            metadata: request.metadata.child(),
+            unit_id: context.unit_id().clone(),
+            capabilities: self.descriptor.capabilities.clone(),
+            capacity: self.capacity(context).await?,
+            snapshot_version: None,
+            snapshot: None,
+        })
+    }
+}
+
 fn legacy_message_to_algedonic_record<V>(
     message: VsmMessage,
 ) -> Result<AlgedonicSignalRecord<V>, FrameworkError>
@@ -1950,6 +2432,7 @@ where
     pub(crate) system4: System4RuntimeRoles<V>,
     pub(crate) system5: System5RuntimeRoles<V>,
     pub(crate) variety: VarietyRuntimeRoles<V>,
+    pub(crate) recursion: RecursionRuntimeRoles<V>,
 }
 
 impl<V> RuntimeRoleBundles<V>
@@ -1963,6 +2446,7 @@ where
         system4: System4RuntimeRoles<V>,
         system5: System5RuntimeRoles<V>,
         variety: VarietyRuntimeRoles<V>,
+        recursion: RecursionRuntimeRoles<V>,
     ) -> Self {
         Self {
             system1,
@@ -1971,6 +2455,7 @@ where
             system4,
             system5,
             variety,
+            recursion,
         }
     }
 }
@@ -2017,6 +2502,8 @@ where
     system5_runtime: Arc<System5Runtime<V>>,
     variety_roles: VarietyRuntimeRoles<V>,
     variety_runtime: Arc<VarietyRuntime<V>>,
+    recursion_roles: RecursionRuntimeRoles<V>,
+    recursion_runtime: Arc<RecursionRuntime<V>>,
     observer_bus: Arc<ObserverEventBus<V>>,
 }
 
@@ -2036,6 +2523,7 @@ where
             system4: system4_roles,
             system5: system5_roles,
             variety: variety_roles,
+            recursion: recursion_roles,
         } = roles;
         let observer_bus = Arc::new(ObserverEventBus::new(
             ports.event_sink(),
@@ -2055,6 +2543,8 @@ where
             System5Runtime::start(config.clone(), system5_roles.clone(), ports.clone()).await?;
         let variety_runtime =
             VarietyRuntime::start(config.clone(), variety_roles.clone(), ports.clone()).await?;
+        let recursion_runtime =
+            RecursionRuntime::start(config.clone(), recursion_roles.clone(), ports.clone()).await?;
 
         let readiness = RuntimeReadiness::new(vec![
             ReadinessCheck::new(
@@ -2065,12 +2555,12 @@ where
             ReadinessCheck::new(
                 ReadinessGate::SubsystemActors,
                 ReadinessStatus::Ready,
-                "typed System 1, System 2, System 3, System 4, System 5, and variety/algedonic/temporal actor adapters started",
+                "typed System 1, System 2, System 3, System 4, System 5, variety/algedonic/temporal, and recursion actor adapters started",
             ),
             ReadinessCheck::new(
                 ReadinessGate::RoleImplementations,
                 ReadinessStatus::Ready,
-                "required System 1 role objects validated; System 2, System 3, System 4, System 5, and variety/algedonic/temporal policies configured",
+                "required System 1 role objects validated; System 2, System 3, System 4, System 5, variety/algedonic/temporal, and recursion policies configured",
             ),
             ReadinessCheck::new(
                 ReadinessGate::Subscriptions,
@@ -2105,6 +2595,8 @@ where
             system5_runtime,
             variety_roles,
             variety_runtime,
+            recursion_roles,
+            recursion_runtime,
             observer_bus,
         })
     }
@@ -2214,6 +2706,22 @@ where
         )
     }
 
+    /// Returns an operational-recursion handle scoped to this runtime instance.
+    pub fn recursion(&self) -> RecursionHandle<V> {
+        RecursionHandle::new(
+            self.config.clone(),
+            self.recursion_roles.clone(),
+            self.ports.clone(),
+            Arc::clone(&self.recursion_runtime),
+            RecursionParentRuntimes {
+                system1: Arc::clone(&self.system1_runtime),
+                system3: Arc::clone(&self.system3_runtime),
+                variety: Arc::clone(&self.variety_runtime),
+                system5: Arc::clone(&self.system5_runtime),
+            },
+        )
+    }
+
     /// Builds a role context for any subsystem role.
     pub fn role_context(&self, role: SubsystemRole) -> RoleContext<V> {
         self.ports.role_context(
@@ -2249,32 +2757,12 @@ where
 
     /// Shuts the typed runtime handle down and returns an acknowledgement.
     pub async fn shutdown(&self) -> Result<ShutdownReport, FrameworkError> {
-        let (previous_state, already_shutdown) = {
-            let mut lifecycle = self.lifecycle.lock().map_err(poisoned_lifecycle)?;
-            let previous_state = *lifecycle;
-            let already_shutdown = previous_state == RuntimeState::Shutdown;
-
-            if !already_shutdown {
-                *lifecycle = RuntimeState::ShuttingDown;
-            }
-
-            (previous_state, already_shutdown)
-        };
+        let (previous_state, already_shutdown) = self.begin_shutdown()?;
 
         if !already_shutdown {
-            self.variety_runtime.shutdown().await?;
-            self.system5_runtime.shutdown().await?;
-            self.system4_runtime.shutdown().await?;
-            self.system3_runtime.shutdown().await?;
-            self.system2_runtime.shutdown().await?;
-            self.system1_runtime.shutdown().await?;
-            self.directory
-                .lock()
-                .map_err(poisoned_directory)?
-                .mark_all_shutdown();
-
-            let mut lifecycle = self.lifecycle.lock().map_err(poisoned_lifecycle)?;
-            *lifecycle = RuntimeState::Shutdown;
+            self.recursion_runtime.shutdown().await?;
+            self.shutdown_local_components().await?;
+            self.finish_shutdown()?;
         }
 
         let current_state = self.state()?;
@@ -2285,6 +2773,49 @@ where
             current_state,
             already_shutdown,
         })
+    }
+
+    pub(crate) async fn shutdown_without_children(&self) -> Result<(), FrameworkError> {
+        let (_previous_state, already_shutdown) = self.begin_shutdown()?;
+
+        if !already_shutdown {
+            self.shutdown_local_components().await?;
+            self.finish_shutdown()?;
+        }
+
+        Ok(())
+    }
+
+    fn begin_shutdown(&self) -> Result<(RuntimeState, bool), FrameworkError> {
+        let mut lifecycle = self.lifecycle.lock().map_err(poisoned_lifecycle)?;
+        let previous_state = *lifecycle;
+        let already_shutdown = previous_state == RuntimeState::Shutdown;
+
+        if !already_shutdown {
+            *lifecycle = RuntimeState::ShuttingDown;
+        }
+
+        Ok((previous_state, already_shutdown))
+    }
+
+    async fn shutdown_local_components(&self) -> Result<(), FrameworkError> {
+        self.variety_runtime.shutdown().await?;
+        self.system5_runtime.shutdown().await?;
+        self.system4_runtime.shutdown().await?;
+        self.system3_runtime.shutdown().await?;
+        self.system2_runtime.shutdown().await?;
+        self.system1_runtime.shutdown().await?;
+        self.directory
+            .lock()
+            .map_err(poisoned_directory)?
+            .mark_all_shutdown();
+        Ok(())
+    }
+
+    fn finish_shutdown(&self) -> Result<(), FrameworkError> {
+        let mut lifecycle = self.lifecycle.lock().map_err(poisoned_lifecycle)?;
+        *lifecycle = RuntimeState::Shutdown;
+        Ok(())
     }
 }
 
@@ -2395,6 +2926,20 @@ fn register_runtime_components(directory: &mut RuntimeDirectory, config: &Runtim
         recursion_path,
         SubsystemRole::TemporalVariety,
         "temporal-lifecycle-strategy",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::Custom("recursion".to_string()),
+        "role-bundle",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::Custom("recursion".to_string()),
+        "child-runtime-manager",
         RuntimeComponentStatus::Ready,
     );
     directory.register(

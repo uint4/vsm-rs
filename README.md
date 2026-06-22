@@ -4,7 +4,7 @@
 
 An actor-based implementation of Stafford Beer's **Viable System Model (VSM)** for Rust, built with [`ractor`](https://crates.io/crates/ractor) and OTP-style supervision from [`ractor-supervisor`](https://crates.io/crates/ractor-supervisor).
 
-`vsm-rs` provides a supervised runtime for the five VSM subsystems, typed inter-system messages, operational units, pub/sub channels, typed variety/algedonic/temporal lifecycle handling, algedonic escalation, temporal-variety analysis, and reusable variety-engineering utilities.
+`vsm-rs` provides a supervised runtime for the five VSM subsystems, typed inter-system messages, operational units, pub/sub channels, typed variety/algedonic/temporal lifecycle handling, operational recursion, algedonic escalation, temporal-variety analysis, and reusable variety-engineering utilities.
 
 > **Project status:** the crate is currently in the `0.x` series and is not published (`publish = false`). It is suitable for experimentation, simulation, research, and application integration, but its public API may evolve before `1.0`. Runtime state and channel history are currently in memory.
 
@@ -43,6 +43,8 @@ The systems communicate through command, coordination, audit, resource-bargain, 
   identity, values, decision, directive, and crisis records.
 - Typed variety, algedonic, and temporal lifecycle records with replaceable
   strategy roles and bridge helpers for legacy algedonic inputs.
+- Typed operational-recursion records, transducer roles, child runtime
+  factories, child-as-System-1 bridge units, and parent/child escalation paths.
 - Trait-driven migration foundations including `ViableSystem`, instance-scoped
   protocol metadata, typed System 1 records, snapshot/store ports, event/report
   sink traits, first-wave System 1, System 2, System 3, System 4, and System 5
@@ -51,8 +53,9 @@ The systems communicate through command, coordination, audit, resource-bargain, 
   shutdown acknowledgement, actor-backed typed System 1 registration/work
   processing, typed System 2 coordination, typed System 3 governance/audit,
   typed System 4 intelligence, typed System 5 decisions/crises, typed
-  observer-event subscriptions, typed bus delivery status records, and legacy
-  JSON adapters.
+  variety/algedonic/temporal lifecycle handling, typed operational recursion,
+  typed observer-event subscriptions, typed bus delivery status records, and
+  legacy JSON adapters.
 
 ## Installation
 
@@ -134,7 +137,8 @@ instance-scoped runtime handle, reports readiness, and acknowledges shutdown.
 This path can register typed System 1 units, process typed work through private
 unit actor adapters, coordinate System 1 views through typed System 2 policy,
 run typed System 3 resource governance/control and System 3* audit, and
-run typed System 4 intelligence and typed System 5 policy decisions.
+run typed System 4 intelligence, typed System 5 policy decisions, and typed
+operational recursion through child runtime bridge units.
 It can also subscribe observers to typed runtime events.
 The legacy `start()` facade remains available for the current JSON transaction
 workflow.

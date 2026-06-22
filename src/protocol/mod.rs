@@ -9,6 +9,7 @@ pub mod algedonic;
 pub mod bus;
 pub mod envelope;
 pub mod events;
+pub mod recursion;
 pub mod snapshot;
 pub mod system1;
 pub mod system2;
@@ -30,5 +31,11 @@ pub use events::{
     System1Report, System2Event, System2Report, System3Event, System3Report, System4Event,
     System4Report, System5Event, System5Report, TemporalEvent, TemporalReport, VarietyEvent,
     VarietyReport,
+};
+pub use recursion::{
+    ChildRuntimeDescriptor, ChildRuntimeSnapshot, ChildRuntimeStatus, DelegatedWork,
+    DelegatedWorkOutcome, RecursionAlgedonicEscalation, RecursionBoundaryDecision,
+    RecursionIntelligenceSummary, RecursionPerformanceSummary, RecursionPolicyDirective,
+    RecursionResourceEscalation, RecursionSnapshot,
 };
 pub use snapshot::{SnapshotKey, SnapshotRecord, SnapshotVersion};

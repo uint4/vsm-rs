@@ -14,14 +14,12 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Milestone 10 — variety and algedonic migration
-- Approved scope: Implement Option A for typed variety, algedonic, and temporal
-  lifecycle records and role traits over the existing `ViableSystem` family;
-  bridge algedonic signals into typed System 5 crisis handling; move
-  interpretation heuristics to defaults/examples; stop at the Milestone 10
-  review gate.
-- Approved architectural decisions: Recorded in ADR-0001 through ADR-0009
-- Pending decisions: None for current Milestone 10 scope
+- Approved milestone: Milestone 11 — operational recursion
+- Approved scope: Implement ADR-0010 Option A after the Milestone 10 review
+  gate; add a minimal framework-owned recursion boundary; do not start
+  Milestone 12.
+- Approved architectural decisions: Recorded in ADR-0001 through ADR-0010
+- Pending decisions: None for the currently approved milestone scope
 - Permission to begin next milestone: No
 
 ## Pending user decisions
@@ -33,30 +31,32 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 | S4-001 | Public System 4 intelligence role boundary | A. Minimal framework-owned pipeline records with environmental source factories, signal interpretation, intelligence modeling, and forecasting/scenario roles over existing `ViableSystem` types; B. Add a System 4 extension type family with app-owned observation/signal/forecast/scenario/proposal payloads; C. Convert observation collection and interpretation now, defer forecasting/scenarios/proposals | A | Milestone 8 | Approved 2026-06-18; recorded in ADR-0007 |
 | S5-001 | Public System 5 policy/identity/decision role boundary | A. Minimal framework-owned governance records with provider/evaluator/decision/crisis roles over existing `ViableSystem` types; B. Add a System 5 extension type family with app-owned identity/values/policy/decision/crisis payloads; C. Convert typed decision lifecycle now and leave identity, values, and crisis as legacy/deferred boundaries | A | Milestone 9 | Approved 2026-06-19; recorded in ADR-0008 |
 | V10-001 | Public variety/algedonic/temporal role boundary | A. Minimal framework-owned lifecycle records and roles over existing `ViableSystem` types; B. Add extension type families for app-owned variety, algedonic, and temporal payloads; C. Implement the algedonic bridge first and defer public variety/temporal role replacement | A | Milestone 10 | Approved 2026-06-19; recorded in ADR-0009 |
+| R11-001 | Public operational recursion boundary | A. Minimal framework-owned recursion protocols and transducer roles over existing `ViableSystem` types; B. Add a recursion extension type family for app-owned parent/child payloads; C. Implement child runtime manager first and defer cross-boundary protocols | A | Milestone 11 | Approved 2026-06-22; recorded in ADR-0010 |
 
 ## Current status
 
-- Overall state: Milestone 10 complete; stopped for user review
-- Current phase: Review gate after Milestone 10 — variety, algedonic, and
-  temporal lifecycle migration
-- Current milestone: Typed variety, algedonic, and temporal lifecycle boundary
-  complete
-- Last updated: 2026-06-19
+- Overall state: Milestone 11 complete under ADR-0010 Option A; stopped at
+  review gate
+- Current phase: Milestone 11 — operational recursion
+- Current milestone: Operational recursion review gate
+- Last updated: 2026-06-22
 - Last updated by: Codex
-- Baseline commit: `7519aec`
+- Baseline commit: `dbed7f5`
 - Working branch: `master`
-- Repository clean at start: Yes.
-- Repository status now: Milestone 10 implementation, tests, docs, and
-  validation are complete; working tree contains changes pending review.
+- Repository clean at start: No; Milestone 11 start documentation edits were
+  already present in the working tree.
+- Repository status now: Milestone 11 implementation, documentation, tests, and
+  full validation are complete; working tree contains reviewable changes.
 
 ## Current objective
 
-Stop at the Milestone 10 review gate with validation evidence recorded.
+Stop for user review after completing the approved Option A operational
+recursion slice.
 
 ## Next action
 
-Wait for explicit user approval before beginning Milestone 11: operational
-recursion.
+Wait for explicit user review and approval before beginning Milestone 12:
+persistence, recovery, and reconciliation.
 
 ---
 
@@ -79,7 +79,7 @@ recursion.
 | 8 | System 5 migration | Complete | ADR-0008 accepted as Option A; typed System 5 protocols, roles, private runtime actors, builder/handle APIs, defaults relocation, docs, and `tests/system5_typed_runtime.rs` added; full validation passes. |
 | 9 | Variety and algedonic migration | Complete | ADR-0009 accepted as Option A; typed variety/algedonic/temporal records, role traits, runtime handle, System 5 crisis bridge, actor-owned alert history, docs, and `tests/variety_algedonic_temporal_runtime.rs` added; full validation passes. |
 | 10 | Temporal processing | Complete | Typed temporal samples, aggregates, and replaceable analysis strategy are part of Milestone 10; scheduled/durable temporal processing remains deferred. |
-| 11 | Recursive runtimes | Not started | Awaiting user approval. |
+| 11 | Recursive runtimes | Complete | ADR-0010 accepted as Option A; typed recursion protocols, roles, manager/handle, child bridge units, docs, and `tests/recursion_typed_runtime.rs` added; full validation passes. |
 | 12 | Persistence and recovery | Not started | Awaiting user approval. |
 | 13 | Publication hardening | Not started | Awaiting user approval. |
 
@@ -100,15 +100,16 @@ documentation are complete.
 
 | Command | Result | Last run | Notes |
 |---|---:|---|---|
-| `cargo fmt --all -- --check` | Passed | 2026-06-19 | No formatting drift after Milestone 10. |
-| `cargo check --all-targets --all-features --locked` | Passed | 2026-06-19 | No warnings. |
-| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-19 | 66 integration tests across foundational, full-system, Phase 0, role-contract, runtime-builder, typed-System-1, typed-System-2, typed-System-3, typed-System-4, typed-System-5, and variety/algedonic/temporal suites; example test targets have 0 tests. |
-| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-19 | No warnings. |
-| `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-19 | Generated `target/doc/vsm_rs/index.html`. |
-| `cargo test --doc --all-features --locked` | Passed | 2026-06-19 | 0 doctests. |
-| `cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-19 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
-| `cargo run --example basic_usage --locked` | Passed | 2026-06-19 | Example starts runtime, registers `payments`, processes a transaction, uses `system4::defaults` and `system5::defaults` for prototype helper output, prints status with no legacy System 5 JSON state, records System 2 target unavailability on the legacy coordination channel, and exits. |
-| `git diff --check` | Passed | 2026-06-19 | No whitespace errors after Milestone 10 implementation. |
+| `cargo fmt --all -- --check` | Passed | 2026-06-22 | No formatting drift after Milestone 11. |
+| `cargo check --all-targets --all-features --locked` | Passed | 2026-06-22 | No warnings after Milestone 11 recursion implementation. A nightly incremental ICE occurred first and was resolved by `cargo clean -p vsm-rs`; source errors were fixed before the passing run. |
+| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-22 | 71 integration tests across foundational, full-system, Phase 0, recursion, role-contract, runtime-builder, typed-System-1, typed-System-2, typed-System-3, typed-System-4, typed-System-5, and variety/algedonic/temporal suites; example test targets have 0 tests. |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-22 | No warnings after grouping `RecursionHandle` dependencies. |
+| `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-22 | Generated `target/doc/vsm_rs/index.html`. |
+| `cargo test --doc --all-features --locked` | Passed | 2026-06-22 | 0 doctests. |
+| `cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-22 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
+| `cargo run --example basic_usage --locked` | Passed | 2026-06-22 | Example starts runtime, registers `payments`, processes a transaction, uses `system4::defaults` and `system5::defaults` for prototype helper output, prints status with no legacy System 5 JSON state, records System 2 target unavailability on the legacy coordination channel, and exits. |
+| `cargo test --test recursion_typed_runtime --locked` | Passed | 2026-06-22 | 5 focused operational-recursion tests pass: child bridge delegation, resource escalation, algedonic escalation, policy transduction, and child directory name isolation. |
+| `git diff --check` | Passed | 2026-06-22 | No whitespace errors after final Milestone 11 changes. |
 
 Do not replace failing results with “not run.” Preserve the most recent failure
 until a subsequent run succeeds.
@@ -380,14 +381,40 @@ until a subsequent run succeeds.
   removed System 5 JSON service boundary and retained prototype defaults.
 - Updated README, architecture, usage, developer docs, ADR index, and ADR-0008
   status for the completed System 5 migration.
+- Completed the operational recursion migration:
+  - accepted ADR-0010 as Option A and kept `ViableSystem` unchanged;
+  - added `src/protocol/recursion.rs` for framework-owned child runtime
+    descriptors/snapshots, delegated-work records, resource and algedonic
+    escalation records, policy transduction records, intelligence summaries,
+    performance summaries, and recursion snapshots;
+  - added `src/roles/recursion.rs` with `RecursionTransducer`,
+    `RecursionRoles`, shared object aliases, and the allow-all default;
+  - added private `src/kernel/recursion.rs` with child runtime registration,
+    retained child/boundary records, work delegation, resource/algedonic
+    translation, policy transduction, intelligence summary retention, and
+    child shutdown integration;
+  - extended `VsmBuilder`, `VsmRuntime`, and crate-root exports with recursion
+    role injection, child runtime factories, child runtime registrations,
+    `RecursionRuntimeRoles`, and `RecursionHandle`;
+  - added child-as-System-1 bridge units so parent System 1 can delegate typed
+    work through a child runtime;
+  - adjusted typed System 1 observation internals to avoid holding references
+    to application work/outcome payloads across awaits, preserving the accepted
+    `Clone + Send + 'static` payload bounds without adding `Sync`;
+  - added `tests/recursion_typed_runtime.rs` covering child bridge delegation,
+    child resource escalation to parent System 3, child algedonic escalation to
+    parent variety/System 5, parent policy directive transduction to child
+    System 1, and child runtime directory name isolation;
+  - updated README, architecture, usage, developer docs, ADR index, and
+    ADR-0010 status for the completed recursion slice.
 
 ---
 
 ## Work in progress
 
-No implementation work is active. Milestone 10 is complete under ADR-0009
-Option A, and the repository is stopped at the review gate pending explicit
-approval for Milestone 11.
+No implementation work is active. Milestone 11 is complete under ADR-0010
+Option A, full validation passes, and the repository is stopped at the review
+gate pending explicit approval for Milestone 12.
 
 ---
 
@@ -401,8 +428,10 @@ review gate, approved Milestone 6 after the Milestone 5 review gate, and
 approved Milestone 7 after the Milestone 6 review gate, approved Milestone 8
 after the Milestone 7 review gate, approved Milestone 9 start after the
 Milestone 8 review gate, approved ADR-0008 Option A for the System 5 role
-boundary, approved Milestone 10 start after the Milestone 9 review gate, and
-approved ADR-0009 Option A for the variety/algedonic/temporal boundary.
+boundary, approved Milestone 10 start after the Milestone 9 review gate,
+approved ADR-0009 Option A for the variety/algedonic/temporal boundary,
+approved Milestone 11 start after the Milestone 10 review gate, and approved
+ADR-0010 Option A for the operational-recursion boundary.
 Accepted migration decisions are recorded as ADRs.
 
 | ADR | Decision | Status |
@@ -416,6 +445,7 @@ Accepted migration decisions are recorded as ADRs.
 | [ADR-0007](docs/adr/0007-system4-intelligence-boundary.md) | Minimal System 4 environmental-intelligence role boundary | Accepted |
 | [ADR-0008](docs/adr/0008-system5-policy-boundary.md) | Minimal System 5 policy/identity/decision role boundary | Accepted |
 | [ADR-0009](docs/adr/0009-variety-algedonic-temporal-boundary.md) | Variety, algedonic, and temporal role boundary | Accepted |
+| [ADR-0010](docs/adr/0010-operational-recursion-boundary.md) | Minimal framework-owned operational recursion boundary | Accepted |
 
 Milestone 1 introduced no new ADR-level architectural decisions. Implementation
 notes:
@@ -2364,3 +2394,106 @@ All passed on 2026-06-19. The full test suite now includes 66 integration tests.
 
 Wait for explicit user review and approval before beginning Milestone 11:
 operational recursion.
+
+#### 2026-06-22 — Milestone 11 Start
+
+**Objective**
+
+Begin the operational recursion milestone after the user completed the
+Milestone 10 review gate, and stop before implementation because the
+parent/child runtime boundary is a material public API decision.
+
+**Changes**
+
+- Updated this journal to record Milestone 11 approval, baseline commit,
+  carried working-tree state, scope, and pending decision R11-001.
+- Added proposed ADR-0010 for the public operational recursion boundary.
+- Updated the ADR index with ADR-0010 as `Proposed`.
+- Corrected the architecture state table to reflect that algedonic alert
+  history is actor-owned after Milestone 10.
+- No Milestone 11 Rust public API or runtime implementation changes have
+  begun.
+
+**Decisions**
+
+- User explicitly approved proceeding after the Milestone 10 review gate.
+- R11-001 is pending because this milestone decides public child runtime
+  registration, child-as-System-1-unit behavior, parent/child protocol records,
+  recursion transduction, authority, and disclosure boundaries.
+
+**Recommendation**
+
+Choose R11-001 Option A: minimal framework-owned recursion protocol records and
+public transducer/authority role traits over the existing `ViableSystem`
+family. This keeps the established type-family posture while satisfying the
+Milestone 11 exit criteria for delegated child work, resource escalation,
+algedonic escalation, policy transduction, and name isolation.
+
+**Validation**
+
+Most recent full validation remains the Milestone 10 gate suite, all passing on
+2026-06-19. These Milestone 11 start edits are documentation-only.
+
+**Next task**
+
+Wait for the user to choose R11-001. If Option A is approved, accept ADR-0010,
+implement the typed operational recursion slice, and stop at the Milestone 11
+review gate.
+
+#### 2026-06-22 — Milestone 11 Complete
+
+**Objective**
+
+Implement ADR-0010 Option A for operational recursion and stop at the review
+gate before Milestone 12.
+
+**Changes**
+
+- Accepted ADR-0010 and updated the ADR index.
+- Added typed operational-recursion protocols, public recursion role contracts,
+  an allow-all default transducer, child runtime factory/registration APIs, and
+  crate-root exports.
+- Added a private recursion manager owned by `VsmRuntime`, plus
+  `RecursionHandle` APIs for child registration/listing, child directory
+  inspection, delegated work, resource escalation, algedonic escalation, policy
+  directive transduction, intelligence summaries, and snapshots.
+- Added child-as-System-1 bridge units so parent System 1 selection can route
+  typed work into child runtimes.
+- Preserved the accepted `Work`/`Outcome: Clone + Send + 'static` bounds by
+  changing typed System 1 observation/resource-shortage internals to avoid
+  holding app-payload references across awaits.
+- Added `tests/recursion_typed_runtime.rs` with five focused operational
+  recursion tests.
+- Updated README, architecture, usage, and developer docs for operational
+  recursion and its deferred persistence/cross-process boundaries.
+
+**Decisions**
+
+- R11-001 Option A was approved by the user and recorded in ADR-0010.
+- No new `ViableSystem` associated types were added.
+- Durable child topology, replay, cross-process child transport, and persistent
+  child recovery remain deferred to later persistence/adapter milestones.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+cargo check --all-targets --all-features --locked
+cargo test --all-targets --all-features --locked
+cargo clippy --all-targets --all-features --locked -- -D warnings
+cargo doc --all-features --no-deps --locked
+cargo test --doc --all-features --locked
+cargo run --example typed_runtime_builder --locked
+cargo run --example basic_usage --locked
+git diff --check
+```
+
+All passed on 2026-06-22. `cargo test --all-targets --all-features --locked`
+now runs 71 integration tests. During implementation, one nightly incremental
+compiler ICE occurred and was resolved by `cargo clean -p vsm-rs`; the final
+gate suite passed normally afterward.
+
+**Next task**
+
+Wait for explicit user review and approval before beginning Milestone 12:
+persistence, recovery, and reconciliation.

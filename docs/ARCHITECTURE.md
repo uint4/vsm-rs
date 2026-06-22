@@ -106,6 +106,9 @@ These modules are intentionally alongside the current runtime:
 - `protocol::system5` defines typed System 5 identity, values, decision,
   evidence, directive, acknowledgement, crisis, escalation, and snapshot
   records.
+- `protocol::recursion` defines typed operational-recursion child descriptors,
+  delegated-work records, parent/child escalation records, policy transduction
+  records, intelligence summaries, performance summaries, and snapshots.
 - `roles::system2` defines the view-centric `CoordinationPolicy` role plus the
   no-op default policy.
 - `roles::system3` defines `ResourceGovernance`, `OperationalControlPolicy`,
@@ -115,6 +118,8 @@ These modules are intentionally alongside the current runtime:
   plus no-op defaults.
 - `roles::system5` defines identity provider, values provider, values
   evaluator, decision policy, and crisis policy roles plus no-op defaults.
+- `roles::recursion` defines `RecursionTransducer` plus the allow-all default
+  for parent/child authority, disclosure, and protocol translation.
 - `roles::ports` defines `StateStore`, `EventSink`, and `ReportSink`, plus
   no-op implementations. It also defines early `TelemetrySink`, `AlertSink`,
   `Clock`, and `IdGenerator` ports for role contexts and future adapters.
@@ -156,6 +161,10 @@ These modules are intentionally alongside the current runtime:
   to subscribers without blocking the control path, retains a bounded
   newest-first in-memory event history, and forwards events to the configured
   downstream sink.
+- `kernel::recursion` contains the private operational-recursion manager. It
+  starts child runtimes through factories, retains child snapshots and boundary
+  records, delegates work to child System 1 handles, and translates resource,
+  algedonic, policy, and intelligence records through `RecursionTransducer`.
 - `legacy::system1` contains temporary adapters for current
   `Transaction`/`TransactionResult`/`UnitConfig`/`VsmMessage` shapes.
 
@@ -171,9 +180,9 @@ permits multiple runtime handles in one process, registers typed operational
 units, dispatches typed work through private unit actors, supports typed System
 2 coordination, supports typed System 3 governance/audit, supports typed System
 4 environmental intelligence, supports typed System 5 decisions/crises,
-supports typed observer-event subscriptions, and acknowledges shutdown. The
-existing global actor runtime still serves the legacy `Transaction`/JSON
-facade.
+supports typed observer-event subscriptions, supports operational recursion
+through child runtime bridge units, and acknowledges shutdown. The existing
+global actor runtime still serves the legacy `Transaction`/JSON facade.
 
 ## 3. Supervision tree
 
@@ -663,7 +672,30 @@ The calculated route is descriptive in the current implementation. It does not p
 
 Alert history, active signals, routes, and metrics live in the actor state.
 
-## 16. Temporal variety architecture
+## 16. Operational recursion
+
+`VsmRuntime::recursion()` exposes the typed operational-recursion adapter. It
+can register child runtime factories, start child VSMs, expose each child as a
+parent-side System 1 bridge unit, delegate typed work into the child runtime,
+and retain typed boundary records.
+
+The public recursion boundary is intentionally framework-owned and minimal:
+
+- `protocol::recursion` defines child descriptors/snapshots, delegated-work
+  records, resource and algedonic escalation records, policy directive
+  transduction records, intelligence summaries, performance summaries, and the
+  recursion snapshot.
+- `roles::recursion::RecursionTransducer` owns application decisions about
+  child registration authority, work translation, resource disclosure,
+  algedonic disclosure, and policy directive transduction.
+- `ChildRuntimeFactory` starts a fresh child `VsmRuntime` for a
+  `ChildRuntimeDescriptor`.
+
+The first slice is in-memory and process-local. It does not persist child
+runtime topology, replay recursion events, or provide cross-process child
+transport. Those remain persistence and adapter milestones.
+
+## 17. Temporal variety architecture
 
 `TemporalVariety` is a dedicated typed actor with:
 
@@ -681,7 +713,7 @@ Callers explicitly record measurements and query variety, patterns, forecasts, c
 
 The broker's `TemporalVariety` channel is separate from this typed actor and has no default subscriber.
 
-## 17. Shared pure modules
+## 18. Shared pure modules
 
 The modules below do not require application startup unless they call an actor facade:
 
@@ -694,13 +726,16 @@ The modules below do not require application startup unless they call an actor f
 
 ### Recursive-system structure
 
-`shared::recursion` models nested viable systems as a tree of `RecursionLevel` values. It supports creation, navigation, context updates, tree rendering, metrics, validation, pruning, and merging.
+`shared::recursion` models nested viable systems as a tree of
+`RecursionLevel` values. It supports creation, navigation, context updates,
+tree rendering, metrics, validation, pruning, and merging. It is separate from
+the operational recursion runtime surface described above.
 
 ### Temporal analysis
 
 `channels::temporal` provides pure timescale, pattern, forecast, causality, aggregation, and visualization helpers used by the TemporalVariety actor.
 
-## 18. State, persistence, and recovery
+## 19. State, persistence, and recovery
 
 All state is currently process-local and in memory. There is no database, event log, snapshot store, or distributed registry.
 
@@ -714,7 +749,7 @@ All state is currently process-local and in memory. There is no database, event 
 | Unit state | Unit actor | Current value | Yes |
 | Generic service history | ServiceActor | 1,000 | Yes |
 | Algedonic active signals | Algedonic actor | 1,000 entries in current implementation | Yes |
-| Alert history | Process-global static | Approximately 10,000 | No actor restart; yes process exit |
+| Alert history | Algedonic actor | Approximately 10,000 | Yes |
 | Temporal raw buffer | TemporalVariety actor | 10,000 | Yes |
 
 ### Recovery gaps to understand
@@ -728,7 +763,7 @@ The supervision structure restarts actors, but some relationships are not yet re
 
 For production use, add durable configuration/state, actor discovery/reconciliation, and subscription re-registration.
 
-## 19. Concurrency and request semantics
+## 20. Concurrency and request semantics
 
 Each actor processes its mailbox serially. Mutable state does not need external locking when it is actor-owned.
 
@@ -752,7 +787,7 @@ Current timeout values include:
 
 Long-running work should not execute directly inside an actor handler without careful design, because it blocks subsequent messages to that actor. Delegate slow work to task actors, worker actors, or external async services and report results back.
 
-## 20. Observability
+## 21. Observability
 
 The crate uses `tracing` for startup, warnings, high-priority messages, registration, and selected operations.
 
@@ -770,7 +805,7 @@ Runtime inspection APIs include:
 
 The telemetry reporter is currently a generic service actor returning its data and event-history length. It does not yet emit external metrics or schedule periodic reporting.
 
-## 21. Current cross-system flows
+## 22. Current cross-system flows
 
 ### Unit registration
 
@@ -825,7 +860,7 @@ Legacy broker message -> VarietyHandle::handle_legacy_algedonic_message -> typed
 Advanced algedonic signal -> VarietyHandle::handle_advanced_algedonic_signal -> typed algedonic lifecycle
 ```
 
-## 22. Extension strategy
+## 23. Extension strategy
 
 ### Prefer typed actors for stable protocols
 
@@ -868,7 +903,7 @@ A new channel requires coordinated changes to:
 
 For real operations, introduce a domain-specific unit actor or a unit behavior abstraction. Keep `Operations` responsible for registration, routing, and governance, and keep domain execution inside unit actors.
 
-## 23. Architectural limitations
+## 24. Architectural limitations
 
 The most important current limitations are:
 

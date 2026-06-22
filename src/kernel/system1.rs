@@ -22,7 +22,7 @@ use crate::protocol::system2::{CoordinationAcknowledgement, CoordinationInterven
 use crate::protocol::system3::{
     DirectiveAcknowledgement, OperationalDirective, OperationalDirectiveKind,
 };
-use crate::protocol::SubsystemRole;
+use crate::protocol::{ProtocolMetadata, SubsystemRole};
 use crate::roles::{BoxOperationalUnit, RoleContext, UnitCandidate, UnitRoleContext, ViableSystem};
 use crate::runtime::{
     RegisteredUnit, RuntimePorts, System1RuntimeRoles, UnitAdmissionLimits, UnitRegistration,
@@ -153,16 +153,13 @@ where
             .required_capabilities(&context, request.clone())
             .await?;
 
-        let eligible = match self
-            .eligible_units(&context, &request, &required_capabilities)
-            .await
-        {
+        let eligible = match self.eligible_units(&required_capabilities).await {
             Ok(eligible) => eligible,
             Err(error) => return Err(error.into()),
         };
 
         if eligible.static_eligible_count == 0 {
-            self.emit_resource_shortage(&request, required_capabilities)
+            self.emit_resource_shortage(request.metadata.clone(), required_capabilities)
                 .await;
             return Err(FrameworkError::Unavailable {
                 target: "system1.unit".to_string(),
@@ -202,8 +199,14 @@ where
 
         let result = self.dispatch_to_unit(&entry, request.clone()).await;
         self.release_unit(&selected_unit_id);
-        self.record_work_observation(&context, &request, &selected_unit_id, &result)
-            .await;
+        let observation_input = WorkObservationInput::from_result(&result);
+        self.record_work_observation(
+            &context,
+            request,
+            selected_unit_id.clone(),
+            observation_input,
+        )
+        .await;
 
         result
     }
@@ -471,8 +474,6 @@ where
 
     async fn eligible_units(
         &self,
-        context: &RoleContext<V>,
-        request: &WorkRequest<V>,
         required_capabilities: &[V::Capability],
     ) -> Result<EligibleUnits<V>, FrameworkError> {
         let entries = self.unit_entries()?;
@@ -507,8 +508,6 @@ where
                 accepting_candidates.push(candidate);
             }
         }
-
-        let _ = (context, request);
         Ok(EligibleUnits {
             static_eligible_count,
             accepting_candidates,
@@ -595,23 +594,18 @@ where
     async fn record_work_observation(
         &self,
         context: &RoleContext<V>,
-        request: &WorkRequest<V>,
-        unit_id: &V::UnitId,
-        result: &WorkResult<V>,
+        request: WorkRequest<V>,
+        unit_id: V::UnitId,
+        input: WorkObservationInput<V>,
     ) {
-        let disposition = match result {
-            Ok(outcome) => self
+        let disposition = match &input {
+            WorkObservationInput::Completed(outcome) => self
                 .roles
                 .work_model()
                 .classify_outcome(context, request.clone(), outcome.clone())
                 .await
                 .unwrap_or(WorkDisposition::FrameworkFailed),
-            Err(error) => self
-                .roles
-                .work_model()
-                .classify_error(context, request.clone(), error)
-                .await
-                .unwrap_or(WorkDisposition::FrameworkFailed),
+            WorkObservationInput::Failed(disposition) => *disposition,
         };
 
         let observation = PerformanceObservation::<V> {
@@ -631,12 +625,12 @@ where
         )))
         .await;
 
-        let response = match result {
-            Ok(outcome) => Some(WorkResponse {
+        let response = match input {
+            WorkObservationInput::Completed(outcome) => Some(WorkResponse {
                 metadata: request.metadata.clone(),
-                result: Ok(outcome.clone()),
+                result: Ok(outcome),
             }),
-            Err(_) => None,
+            WorkObservationInput::Failed(_) => None,
         };
 
         let measurements = match &response {
@@ -673,11 +667,11 @@ where
 
     async fn emit_resource_shortage(
         &self,
-        request: &WorkRequest<V>,
+        metadata: ProtocolMetadata,
         required_capabilities: Vec<V::Capability>,
     ) {
         let shortage = ResourceShortageRequest {
-            metadata: request.metadata.clone(),
+            metadata,
             required_capabilities,
             work_label: None,
             reason: "no registered System 1 unit advertises every required capability".to_string(),
@@ -718,6 +712,26 @@ where
 {
     static_eligible_count: usize,
     accepting_candidates: Vec<UnitCandidate<V>>,
+}
+
+enum WorkObservationInput<V>
+where
+    V: ViableSystem,
+{
+    Completed(V::Outcome),
+    Failed(WorkDisposition),
+}
+
+impl<V> WorkObservationInput<V>
+where
+    V: ViableSystem,
+{
+    fn from_result(result: &WorkResult<V>) -> Self {
+        match result {
+            Ok(outcome) => Self::Completed(outcome.clone()),
+            Err(error) => Self::Failed(WorkDisposition::from(error)),
+        }
+    }
 }
 
 struct UnitEntry<V>

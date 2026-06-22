@@ -265,7 +265,7 @@ where
 }
 
 /// Request emitted when no registered unit can accept required capabilities.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ResourceShortageRequest<V>
 where
     V: ViableSystem,
@@ -274,6 +274,20 @@ where
     pub required_capabilities: Vec<V::Capability>,
     pub work_label: Option<String>,
     pub reason: String,
+}
+
+impl<V> Clone for ResourceShortageRequest<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            metadata: self.metadata.clone(),
+            required_capabilities: self.required_capabilities.clone(),
+            work_label: self.work_label.clone(),
+            reason: self.reason.clone(),
+        }
+    }
 }
 
 /// Scope of an operational audit request.

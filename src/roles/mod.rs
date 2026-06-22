@@ -2,6 +2,7 @@
 
 pub mod context;
 pub mod ports;
+pub mod recursion;
 pub mod system1;
 pub mod system2;
 pub mod system3;
@@ -16,6 +17,7 @@ pub use ports::{
     NoopEventSink, NoopReportSink, NoopStateStore, NoopTelemetrySink, ReportSink, StateStore,
     SystemClock, TelemetryRecord, TelemetrySink, UuidIdGenerator,
 };
+pub use recursion::{RecursionRoles, RecursionTransducer, SharedRecursionTransducer};
 pub use system1::{
     AlgedonicKind, AlgedonicPolicy, AlgedonicSeverity, AlgedonicSignal, BoxOperationalUnit,
     OperationalUnit, OperationalUnitFactory, PerformanceAssessment, PerformanceModel,

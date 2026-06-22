@@ -29,3 +29,4 @@ implementation milestone by itself.
 | [0007](0007-system4-intelligence-boundary.md) | Accepted | System 4 environmental-intelligence role boundary |
 | [0008](0008-system5-policy-boundary.md) | Accepted | System 5 policy/identity/decision role boundary |
 | [0009](0009-variety-algedonic-temporal-boundary.md) | Accepted | Variety, algedonic, and temporal role boundary |
+| [0010](0010-operational-recursion-boundary.md) | Accepted | Minimal framework-owned operational recursion boundary |

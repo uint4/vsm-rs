@@ -6,6 +6,7 @@ use std::time::Duration;
 use crate::config::RuntimeConfig;
 use crate::error::FrameworkError;
 use crate::protocol::{RecursionPath, RuntimeId};
+use crate::roles::recursion::defaults::AllowAllRecursionTransducer;
 use crate::roles::system1::defaults::{
     LowestLoadSelectionPolicy, NoopAlgedonicPolicy, NoopPerformanceModel, NoopVarietyModel,
 };
@@ -28,20 +29,22 @@ use crate::roles::{
     CrisisPolicy, DecisionPolicy, EnvironmentalSourceFactory, EventSink, Forecaster,
     IdentityProvider, IntelligenceModel, NoopAlertSink, NoopEventSink, NoopReportSink,
     NoopStateStore, NoopTelemetrySink, OperationalControlPolicy, OperationalUnitFactory,
-    PerformanceModel, ReportSink, ResourceGovernance, SharedAlgedonicLifecyclePolicy,
-    SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy, SharedCrisisPolicy,
-    SharedDecisionPolicy, SharedEnvironmentalSourceFactory, SharedForecaster,
+    PerformanceModel, RecursionTransducer, ReportSink, ResourceGovernance,
+    SharedAlgedonicLifecyclePolicy, SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy,
+    SharedCrisisPolicy, SharedDecisionPolicy, SharedEnvironmentalSourceFactory, SharedForecaster,
     SharedIdentityProvider, SharedIntelligenceModel, SharedOperationalControlPolicy,
-    SharedOperationalUnitFactory, SharedPerformanceModel, SharedResourceGovernance,
-    SharedSignalInterpreter, SharedTemporalAnalysisPolicy, SharedUnitSelectionPolicy,
-    SharedValuesEvaluator, SharedValuesProvider, SharedVarietyEngineeringPolicy,
-    SharedVarietyModel, SharedWorkModel, SignalInterpreter, StateStore, SystemClock, TelemetrySink,
-    TemporalAnalysisPolicy, UnitSelectionPolicy, ValuesEvaluator, ValuesProvider,
-    VarietyEngineeringPolicy, VarietyModel, ViableSystem, WorkModel,
+    SharedOperationalUnitFactory, SharedPerformanceModel, SharedRecursionTransducer,
+    SharedResourceGovernance, SharedSignalInterpreter, SharedTemporalAnalysisPolicy,
+    SharedUnitSelectionPolicy, SharedValuesEvaluator, SharedValuesProvider,
+    SharedVarietyEngineeringPolicy, SharedVarietyModel, SharedWorkModel, SignalInterpreter,
+    StateStore, SystemClock, TelemetrySink, TemporalAnalysisPolicy, UnitSelectionPolicy,
+    ValuesEvaluator, ValuesProvider, VarietyEngineeringPolicy, VarietyModel, ViableSystem,
+    WorkModel,
 };
 use crate::runtime::{
-    RuntimePorts, RuntimeRoleBundles, System1RuntimeRoles, System2RuntimeRoles,
-    System3RuntimeRoles, System4RuntimeRoles, System5RuntimeRoles, VarietyRuntimeRoles, VsmRuntime,
+    RecursionRuntimeRoles, RuntimePorts, RuntimeRoleBundles, System1RuntimeRoles,
+    System2RuntimeRoles, System3RuntimeRoles, System4RuntimeRoles, System5RuntimeRoles,
+    VarietyRuntimeRoles, VsmRuntime,
 };
 
 /// Builder for one typed VSM runtime instance.
@@ -76,6 +79,7 @@ where
     variety_engineering_policy: Option<SharedVarietyEngineeringPolicy<V>>,
     algedonic_lifecycle_policy: Option<SharedAlgedonicLifecyclePolicy<V>>,
     temporal_analysis_policy: Option<SharedTemporalAnalysisPolicy<V>>,
+    recursion_transducer: Option<SharedRecursionTransducer<V>>,
     state_store: Arc<dyn StateStore<V>>,
     event_sink: Arc<dyn EventSink<V>>,
     report_sink: Arc<dyn ReportSink<V>>,
@@ -113,6 +117,7 @@ where
             variety_engineering_policy: None,
             algedonic_lifecycle_policy: None,
             temporal_analysis_policy: None,
+            recursion_transducer: None,
             state_store: Arc::new(NoopStateStore::<V>::new()),
             event_sink: Arc::new(NoopEventSink::<V>::new()),
             report_sink: Arc::new(NoopReportSink::<V>::new()),
@@ -531,6 +536,21 @@ where
         self
     }
 
+    /// Sets the optional recursion transducer role.
+    pub fn recursion_transducer<T>(mut self, transducer: T) -> Self
+    where
+        T: RecursionTransducer<V> + 'static,
+    {
+        self.recursion_transducer = Some(Arc::new(transducer));
+        self
+    }
+
+    /// Sets the optional recursion transducer from a shared trait object.
+    pub fn recursion_transducer_arc(mut self, transducer: SharedRecursionTransducer<V>) -> Self {
+        self.recursion_transducer = Some(transducer);
+        self
+    }
+
     /// Sets the state store port. The default is [`NoopStateStore`].
     pub fn state_store<S>(mut self, state_store: S) -> Self
     where
@@ -650,6 +670,7 @@ where
             variety_engineering_policy,
             algedonic_lifecycle_policy,
             temporal_analysis_policy,
+            recursion_transducer,
             state_store,
             event_sink,
             report_sink,
@@ -686,6 +707,7 @@ where
             algedonic_lifecycle_policy,
             temporal_analysis_policy,
         );
+        let recursion_roles = recursion_roles(recursion_transducer);
         let ports = RuntimePorts::noop()
             .with_state_store(state_store)
             .with_event_sink(event_sink)
@@ -701,6 +723,7 @@ where
             system4_roles,
             system5_roles,
             variety_roles,
+            recursion_roles,
         );
 
         VsmRuntime::new(config, ports, roles).await
@@ -846,4 +869,16 @@ where
         algedonic_lifecycle_policy,
         temporal_analysis_policy,
     )
+}
+
+fn recursion_roles<V>(
+    recursion_transducer: Option<SharedRecursionTransducer<V>>,
+) -> RecursionRuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    let recursion_transducer =
+        recursion_transducer.unwrap_or_else(|| Arc::new(AllowAllRecursionTransducer::<V>::new()));
+
+    RecursionRuntimeRoles::new(recursion_transducer)
 }

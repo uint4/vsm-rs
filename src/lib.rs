@@ -44,28 +44,33 @@ pub use channels::broker::{DeliveryOutcome, UndeliverableMessage};
 pub use config::RuntimeConfig;
 pub use error::{ApplicationFailure, FrameworkError, VsmError, VsmResult, WorkError};
 pub use protocol::{
-    AlgedonicControlMessage, DeliveryMetrics, DeliveryStatus, RuntimeControlMessage,
-    System1ControlMessage, System2ControlMessage, System3ControlMessage, System4ControlMessage,
-    System5ControlMessage, TemporalControlMessage, VarietyControlMessage,
+    AlgedonicControlMessage, ChildRuntimeDescriptor, ChildRuntimeSnapshot, ChildRuntimeStatus,
+    DelegatedWork, DelegatedWorkOutcome, DeliveryMetrics, DeliveryStatus,
+    RecursionAlgedonicEscalation, RecursionBoundaryDecision, RecursionIntelligenceSummary,
+    RecursionPerformanceSummary, RecursionPolicyDirective, RecursionResourceEscalation,
+    RecursionSnapshot, RuntimeControlMessage, System1ControlMessage, System2ControlMessage,
+    System3ControlMessage, System4ControlMessage, System5ControlMessage, TemporalControlMessage,
+    VarietyControlMessage,
 };
 pub use ractor::async_trait;
 pub use roles::{
     AlgedonicLifecyclePolicy, AlgedonicPolicy, Auditor, CoordinationPolicy, CrisisPolicy,
     DecisionPolicy, EnvironmentalSource, EnvironmentalSourceFactory, Forecaster, IdentityProvider,
     IntelligenceModel, OperationalControlPolicy, OperationalUnit, OperationalUnitFactory,
-    PerformanceModel, ResourceGovernance, RoleContext, SignalInterpreter, System1Roles,
-    System2Roles, System3Roles, System4Roles, System5Roles, TemporalAnalysisPolicy,
-    UnitRoleContext, UnitSelectionPolicy, ValuesEvaluator, ValuesProvider,
+    PerformanceModel, RecursionRoles, RecursionTransducer, ResourceGovernance, RoleContext,
+    SignalInterpreter, System1Roles, System2Roles, System3Roles, System4Roles, System5Roles,
+    TemporalAnalysisPolicy, UnitRoleContext, UnitSelectionPolicy, ValuesEvaluator, ValuesProvider,
     VarietyAlgedonicTemporalRoles, VarietyEngineeringPolicy, VarietyModel, ViableSystem, WorkModel,
 };
 pub use runtime::{
-    ObserverBusSnapshot, ObserverId, ObserverSubscription, ReadinessCheck, ReadinessGate,
-    ReadinessStatus, RegisteredUnit, RuntimeComponentSnapshot, RuntimeComponentStatus,
-    RuntimeDirectorySnapshot, RuntimePorts, RuntimeReadiness, RuntimeState, ShutdownReport,
-    System1Handle, System1RuntimeRoles, System2Handle, System2RuntimeRoles, System3Handle,
-    System3RuntimeRoles, System4Handle, System4RuntimeRoles, System5Handle, System5RuntimeRoles,
-    UnitAdmissionLimits, UnitRegistration, UnitSnapshotConfig, VarietyHandle, VarietyRuntimeRoles,
-    VsmRuntime,
+    ChildRuntimeFactory, ChildRuntimeRegistration, ObserverBusSnapshot, ObserverId,
+    ObserverSubscription, ReadinessCheck, ReadinessGate, ReadinessStatus, RecursionHandle,
+    RecursionRuntimeRoles, RegisteredUnit, RuntimeComponentSnapshot, RuntimeComponentStatus,
+    RuntimeDirectorySnapshot, RuntimePorts, RuntimeReadiness, RuntimeState,
+    SharedChildRuntimeFactory, ShutdownReport, System1Handle, System1RuntimeRoles, System2Handle,
+    System2RuntimeRoles, System3Handle, System3RuntimeRoles, System4Handle, System4RuntimeRoles,
+    System5Handle, System5RuntimeRoles, UnitAdmissionLimits, UnitRegistration, UnitSnapshotConfig,
+    VarietyHandle, VarietyRuntimeRoles, VsmRuntime,
 };
 pub use shared::message::{ChannelKind, MessageKind, SystemId, VsmMessage};
 

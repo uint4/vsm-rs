@@ -410,6 +410,8 @@ Cover at least:
 - Subscription replacement and cleanup.
 - Algedonic bypass behavior.
 - Metrics, variety, and history bounds.
+- Operational recursion with unique runtime IDs and recursion paths for every
+  child fixture.
 - Malformed JSON service calls.
 
 ### Documentation examples
