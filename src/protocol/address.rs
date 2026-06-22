@@ -79,6 +79,7 @@ pub enum SubsystemRole {
     System3Star,
     System4,
     System5,
+    Variety,
     Algedonic,
     TemporalVariety,
     Telemetry,

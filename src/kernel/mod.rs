@@ -7,3 +7,4 @@ pub(crate) mod system2;
 pub(crate) mod system3;
 pub(crate) mod system4;
 pub(crate) mod system5;
+pub(crate) mod variety;

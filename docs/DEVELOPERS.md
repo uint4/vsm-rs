@@ -544,8 +544,8 @@ The following areas are important candidates for future hardening:
 1. **Readiness:** replace startup sleeps with an explicit application-ready signal.
 2. **Subscription recovery:** re-register subscribers automatically when the broker restarts.
 3. **Unit reconciliation:** ensure System 1 Operations reconstructs its directory after unit or supervisor restarts.
-4. **Algedonic bridge:** convert legacy broker algedonic messages into typed
-   System 5 crisis records during the algedonic migration.
+4. **Algedonic durability:** persist typed algedonic lifecycle records and
+   reconcile unresolved signals after restart.
 5. **Persistence:** define opt-in snapshots or event persistence without coupling the core to one database.
 6. **Backpressure:** add explicit mailbox and ingress controls for high-volume channel traffic.
 7. **Namespacing:** support more than one VSM runtime in a process through configurable actor-name prefixes.

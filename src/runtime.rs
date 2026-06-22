@@ -2,6 +2,8 @@
 
 use std::sync::{Arc, Mutex};
 
+use serde_json::Value;
+
 use crate::config::RuntimeConfig;
 use crate::error::FrameworkError;
 use crate::kernel::event_bus::ObserverEventBus;
@@ -12,6 +14,11 @@ use crate::kernel::system2::System2Runtime;
 use crate::kernel::system3::System3Runtime;
 use crate::kernel::system4::System4Runtime;
 use crate::kernel::system5::System5Runtime;
+use crate::kernel::variety::VarietyRuntime;
+use crate::protocol::algedonic::{
+    AlgedonicAcknowledgement, AlgedonicCycle, AlgedonicSeverity, AlgedonicSignalKind,
+    AlgedonicSignalRecord, AlgedonicSnapshot,
+};
 use crate::protocol::system1::{
     Acknowledgement, AuditEvidence, AuditRequest, CoordinationView, ResourceShortageRequest,
     UnitDescriptor, WorkRequest, WorkResponse, WorkResult,
@@ -28,23 +35,32 @@ use crate::protocol::system4::{
     ForecastCalibration, System4IntelligenceCycle, System4Snapshot,
 };
 use crate::protocol::system5::{
-    CrisisResponse, CrisisSignal, DecisionRequest, IdentityRecord, PolicyDirectiveAcknowledgement,
-    System5DecisionCycle, System5Snapshot, ValueSet,
+    CrisisResponse, CrisisSeverity, CrisisSignal, DecisionEvidence, DecisionEvidenceKind,
+    DecisionRequest, IdentityRecord, PolicyDirectiveAcknowledgement, System5DecisionCycle,
+    System5Snapshot, ValueSet,
+};
+use crate::protocol::temporal::{TemporalAnalysis, TemporalSample, TemporalSnapshot};
+use crate::protocol::variety::{
+    VarietyAlgedonicTemporalSnapshot, VarietyCycle, VarietyEstimate, VarietyInterventionOutcome,
+    VarietyObservation,
 };
 use crate::protocol::{
-    RecursionPath, RuntimeEvent, RuntimeId, SnapshotKey, SnapshotVersion, SubsystemRole, VsmAddress,
+    CorrelationId, Priority, RecursionPath, RuntimeEvent, RuntimeId, SnapshotKey, SnapshotVersion,
+    SubsystemRole, VsmAddress,
 };
 use crate::roles::RoleContext;
 use crate::roles::{
     AlertSink, Clock, EventSink, NoopAlertSink, NoopEventSink, NoopReportSink, NoopStateStore,
-    NoopTelemetrySink, ReportSink, SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy,
-    SharedCrisisPolicy, SharedDecisionPolicy, SharedEnvironmentalSourceFactory, SharedForecaster,
-    SharedIdentityProvider, SharedIntelligenceModel, SharedOperationalControlPolicy,
-    SharedOperationalUnitFactory, SharedPerformanceModel, SharedResourceGovernance,
-    SharedSignalInterpreter, SharedUnitSelectionPolicy, SharedValuesEvaluator,
-    SharedValuesProvider, SharedVarietyModel, SharedWorkModel, StateStore, SystemClock,
-    TelemetrySink, ViableSystem,
+    NoopTelemetrySink, ReportSink, SharedAlgedonicLifecyclePolicy, SharedAlgedonicPolicy,
+    SharedAuditor, SharedCoordinationPolicy, SharedCrisisPolicy, SharedDecisionPolicy,
+    SharedEnvironmentalSourceFactory, SharedForecaster, SharedIdentityProvider,
+    SharedIntelligenceModel, SharedOperationalControlPolicy, SharedOperationalUnitFactory,
+    SharedPerformanceModel, SharedResourceGovernance, SharedSignalInterpreter,
+    SharedTemporalAnalysisPolicy, SharedUnitSelectionPolicy, SharedValuesEvaluator,
+    SharedValuesProvider, SharedVarietyEngineeringPolicy, SharedVarietyModel, SharedWorkModel,
+    StateStore, SystemClock, TelemetrySink, ViableSystem,
 };
+use crate::shared::message::{ChannelKind, MessageKind, VsmMessage};
 
 /// Runtime lifecycle state visible through typed handles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -384,6 +400,10 @@ where
         self
     }
 
+    pub(crate) fn alert_sink(&self) -> Arc<dyn AlertSink> {
+        Arc::clone(&self.alert_sink)
+    }
+
     pub(crate) fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
         self.clock = clock;
         self
@@ -715,6 +735,62 @@ where
     /// Returns the configured crisis policy.
     pub fn crisis_policy(&self) -> SharedCrisisPolicy<V> {
         Arc::clone(&self.crisis_policy)
+    }
+}
+
+/// Runtime-selected variety, algedonic, and temporal strategy roles.
+pub struct VarietyRuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    variety_engineering_policy: SharedVarietyEngineeringPolicy<V>,
+    algedonic_lifecycle_policy: SharedAlgedonicLifecyclePolicy<V>,
+    temporal_analysis_policy: SharedTemporalAnalysisPolicy<V>,
+}
+
+impl<V> Clone for VarietyRuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            variety_engineering_policy: Arc::clone(&self.variety_engineering_policy),
+            algedonic_lifecycle_policy: Arc::clone(&self.algedonic_lifecycle_policy),
+            temporal_analysis_policy: Arc::clone(&self.temporal_analysis_policy),
+        }
+    }
+}
+
+impl<V> VarietyRuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    /// Creates a runtime role bundle.
+    pub fn new(
+        variety_engineering_policy: SharedVarietyEngineeringPolicy<V>,
+        algedonic_lifecycle_policy: SharedAlgedonicLifecyclePolicy<V>,
+        temporal_analysis_policy: SharedTemporalAnalysisPolicy<V>,
+    ) -> Self {
+        Self {
+            variety_engineering_policy,
+            algedonic_lifecycle_policy,
+            temporal_analysis_policy,
+        }
+    }
+
+    /// Returns the configured variety engineering policy.
+    pub fn variety_engineering_policy(&self) -> SharedVarietyEngineeringPolicy<V> {
+        Arc::clone(&self.variety_engineering_policy)
+    }
+
+    /// Returns the configured algedonic lifecycle policy.
+    pub fn algedonic_lifecycle_policy(&self) -> SharedAlgedonicLifecyclePolicy<V> {
+        Arc::clone(&self.algedonic_lifecycle_policy)
+    }
+
+    /// Returns the configured temporal analysis policy.
+    pub fn temporal_analysis_policy(&self) -> SharedTemporalAnalysisPolicy<V> {
+        Arc::clone(&self.temporal_analysis_policy)
     }
 }
 
@@ -1432,6 +1508,473 @@ where
     }
 }
 
+/// Handle for the variety, algedonic, and temporal lifecycle surface.
+pub struct VarietyHandle<V>
+where
+    V: ViableSystem,
+{
+    config: RuntimeConfig,
+    roles: VarietyRuntimeRoles<V>,
+    ports: RuntimePorts<V>,
+    runtime: Arc<VarietyRuntime<V>>,
+    system5_runtime: Arc<System5Runtime<V>>,
+}
+
+impl<V> Clone for VarietyHandle<V>
+where
+    V: ViableSystem,
+{
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            roles: self.roles.clone(),
+            ports: self.ports.clone(),
+            runtime: Arc::clone(&self.runtime),
+            system5_runtime: Arc::clone(&self.system5_runtime),
+        }
+    }
+}
+
+impl<V> VarietyHandle<V>
+where
+    V: ViableSystem,
+{
+    fn new(
+        config: RuntimeConfig,
+        roles: VarietyRuntimeRoles<V>,
+        ports: RuntimePorts<V>,
+        runtime: Arc<VarietyRuntime<V>>,
+        system5_runtime: Arc<System5Runtime<V>>,
+    ) -> Self {
+        Self {
+            config,
+            roles,
+            ports,
+            runtime,
+            system5_runtime,
+        }
+    }
+
+    /// Returns the runtime instance identity.
+    pub fn runtime_id(&self) -> &RuntimeId {
+        &self.config.runtime_id
+    }
+
+    /// Returns the recursion path for this runtime instance.
+    pub fn recursion_path(&self) -> &RecursionPath {
+        &self.config.recursion_path
+    }
+
+    /// Returns the runtime-selected variety, algedonic, and temporal role bundle.
+    pub fn roles(&self) -> &VarietyRuntimeRoles<V> {
+        &self.roles
+    }
+
+    /// Builds a variety role context with runtime-scoped identity and ports.
+    pub fn role_context(&self) -> RoleContext<V> {
+        self.ports.role_context(
+            self.config.runtime_id.clone(),
+            self.config.recursion_path.clone(),
+            SubsystemRole::Variety,
+        )
+    }
+
+    /// Records one variety observation and runs the configured engineering policy.
+    pub async fn record_variety(
+        &self,
+        observation: VarietyObservation<V>,
+    ) -> Result<VarietyCycle<V>, FrameworkError> {
+        self.runtime.record_variety(observation).await
+    }
+
+    /// Records an estimate as a variety observation.
+    pub async fn record_variety_estimate(
+        &self,
+        estimate: VarietyEstimate,
+    ) -> Result<VarietyCycle<V>, FrameworkError> {
+        self.record_variety(VarietyObservation::new(estimate)).await
+    }
+
+    /// Records externally supplied variety intervention outcomes.
+    pub async fn record_variety_outcomes(
+        &self,
+        outcomes: Vec<VarietyInterventionOutcome<V>>,
+    ) -> Result<VarietyAlgedonicTemporalSnapshot<V>, FrameworkError> {
+        self.runtime.record_variety_outcomes(outcomes).await
+    }
+
+    /// Handles one typed algedonic signal and dispatches urgent signals to System 5.
+    pub async fn handle_algedonic_signal(
+        &self,
+        signal: AlgedonicSignalRecord<V>,
+    ) -> Result<AlgedonicCycle<V>, FrameworkError> {
+        let mut cycle = self.runtime.process_algedonic(signal).await?;
+
+        if cycle.signal.requires_system5_dispatch() {
+            let response = self
+                .system5_runtime
+                .handle_crisis(crisis_signal_from_algedonic(
+                    &cycle.signal,
+                    &self.config.runtime_id,
+                    &self.config.recursion_path,
+                ))
+                .await?;
+            cycle = self
+                .runtime
+                .record_system5_dispatch(cycle.signal.signal_id.clone(), response)
+                .await?;
+        }
+
+        Ok(cycle)
+    }
+
+    /// Converts and handles a legacy brokered algedonic message.
+    pub async fn handle_legacy_algedonic_message(
+        &self,
+        message: VsmMessage,
+    ) -> Result<AlgedonicCycle<V>, FrameworkError> {
+        let signal = legacy_message_to_algedonic_record(message)?;
+        self.handle_algedonic_signal(signal).await
+    }
+
+    /// Converts and handles an advanced algedonic actor signal.
+    pub async fn handle_advanced_algedonic_signal(
+        &self,
+        signal: crate::channels::algedonic::signals::AlgedonicSignal,
+    ) -> Result<AlgedonicCycle<V>, FrameworkError> {
+        self.handle_algedonic_signal(advanced_signal_to_algedonic_record(signal))
+            .await
+    }
+
+    /// Records externally supplied algedonic acknowledgements.
+    pub async fn acknowledge_algedonic(
+        &self,
+        acknowledgements: Vec<AlgedonicAcknowledgement<V>>,
+    ) -> Result<VarietyAlgedonicTemporalSnapshot<V>, FrameworkError> {
+        self.runtime.acknowledge_algedonic(acknowledgements).await
+    }
+
+    /// Expires overdue algedonic signals and records escalation lifecycle entries.
+    pub async fn expire_algedonic(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<crate::protocol::algedonic::AlgedonicEscalation<V>>, FrameworkError> {
+        self.runtime.expire_algedonic(now).await
+    }
+
+    /// Records one temporal sample and refreshes generic aggregates.
+    pub async fn record_temporal_sample(
+        &self,
+        sample: TemporalSample,
+    ) -> Result<TemporalSnapshot, FrameworkError> {
+        self.runtime.record_temporal_sample(sample).await
+    }
+
+    /// Runs the configured temporal analysis policy over current aggregates.
+    pub async fn analyze_temporal(&self) -> Result<TemporalAnalysis, FrameworkError> {
+        self.runtime.analyze_temporal().await
+    }
+
+    /// Returns the current retained variety, algedonic, and temporal lifecycle snapshot.
+    pub async fn snapshot(&self) -> Result<VarietyAlgedonicTemporalSnapshot<V>, FrameworkError> {
+        self.runtime.snapshot().await
+    }
+
+    /// Returns the retained algedonic lifecycle snapshot.
+    pub async fn algedonic_snapshot(&self) -> Result<AlgedonicSnapshot<V>, FrameworkError> {
+        Ok(self.snapshot().await?.algedonic)
+    }
+}
+
+fn legacy_message_to_algedonic_record<V>(
+    message: VsmMessage,
+) -> Result<AlgedonicSignalRecord<V>, FrameworkError>
+where
+    V: ViableSystem,
+{
+    if message.channel != ChannelKind::Algedonic {
+        return Err(FrameworkError::InvalidProtocol {
+            reason: format!(
+                "expected algedonic channel, received {}",
+                message.channel.as_str()
+            ),
+        });
+    }
+
+    let kind = legacy_message_kind_to_algedonic_kind(&message.kind, &message.payload);
+    let severity = legacy_payload_severity(&message.kind, &message.payload);
+    let reason = first_string(
+        &message.payload,
+        &["reason", "message", "summary", "description"],
+    )
+    .unwrap_or_else(|| format!("{:?} from {}", message.kind, message.from.subscriber_id()));
+    let priority = first_number(&message.payload, &["priority", "urgency"])
+        .unwrap_or_else(|| severity.score())
+        .clamp(0.0, 1.0);
+
+    let mut signal = AlgedonicSignalRecord::new(kind, severity, reason).with_priority(priority);
+    signal.signal_id = message.id;
+    signal.source_label = Some(message.from.subscriber_id().to_string());
+    signal.proposed_at = message.timestamp;
+    signal.metadata.source = Some(VsmAddress::new(
+        RuntimeId::from_string("legacy-broker"),
+        RecursionPath::root(),
+        legacy_system_id_to_role(message.from),
+    ));
+    signal.metadata.destination = Some(VsmAddress::new(
+        RuntimeId::from_string("legacy-broker"),
+        RecursionPath::root(),
+        legacy_system_id_to_role(message.to),
+    ));
+    if let Some(correlation_id) = message.correlation_id {
+        signal.metadata.correlation_id = CorrelationId::from_string(correlation_id);
+    }
+    signal.metadata.priority = priority_to_protocol_priority(severity, priority);
+    signal.details = value_details(&message.payload);
+    if let Some(dedupe_key) = first_string(&message.payload, &["dedupe_key", "dedupe"]) {
+        signal.dedupe_key = Some(dedupe_key);
+    }
+
+    Ok(signal)
+}
+
+fn advanced_signal_to_algedonic_record<V>(
+    signal: crate::channels::algedonic::signals::AlgedonicSignal,
+) -> AlgedonicSignalRecord<V>
+where
+    V: ViableSystem,
+{
+    let kind = match signal.kind {
+        crate::channels::algedonic::signals::SignalKind::Pain => AlgedonicSignalKind::Pain,
+        crate::channels::algedonic::signals::SignalKind::Pleasure => AlgedonicSignalKind::Pleasure,
+        crate::channels::algedonic::signals::SignalKind::Anomaly => AlgedonicSignalKind::Anomaly,
+        crate::channels::algedonic::signals::SignalKind::Opportunity => {
+            AlgedonicSignalKind::Opportunity
+        }
+        crate::channels::algedonic::signals::SignalKind::Emergency => {
+            AlgedonicSignalKind::Emergency
+        }
+    };
+    let severity = match signal.severity {
+        crate::channels::algedonic::signals::Severity::Low => AlgedonicSeverity::Low,
+        crate::channels::algedonic::signals::Severity::Medium => AlgedonicSeverity::Medium,
+        crate::channels::algedonic::signals::Severity::High => AlgedonicSeverity::High,
+        crate::channels::algedonic::signals::Severity::Critical => AlgedonicSeverity::Critical,
+    };
+    let reason = first_string(
+        &signal.data,
+        &["reason", "message", "summary", "description"],
+    )
+    .unwrap_or_else(|| {
+        format!(
+            "{:?} signal from {} with priority {:.2}",
+            signal.kind, signal.source, signal.priority
+        )
+    });
+
+    let mut record =
+        AlgedonicSignalRecord::new(kind, severity, reason).with_priority(signal.priority);
+    record.signal_id = signal.id;
+    record.source_label = Some(signal.source);
+    record.proposed_at = signal.timestamp;
+    record.details = value_details(&signal.data);
+    record
+        .details
+        .insert("urgency".to_string(), format!("{:.3}", signal.urgency));
+    record
+}
+
+fn crisis_signal_from_algedonic<V>(
+    signal: &AlgedonicSignalRecord<V>,
+    runtime_id: &RuntimeId,
+    recursion_path: &RecursionPath,
+) -> CrisisSignal
+where
+    V: ViableSystem,
+{
+    let mut crisis = CrisisSignal::new(
+        algedonic_to_crisis_severity(signal.severity),
+        &signal.reason,
+    )
+    .from_source(signal.source.clone().unwrap_or_else(|| {
+        VsmAddress::new(
+            runtime_id.clone(),
+            recursion_path.clone(),
+            SubsystemRole::Algedonic,
+        )
+    }))
+    .with_evidence(DecisionEvidence::new(
+        DecisionEvidenceKind::Crisis,
+        format!(
+            "algedonic {:?} signal {} with priority {:.2}",
+            signal.kind, signal.signal_id, signal.priority
+        ),
+    ));
+    crisis.metadata = signal.metadata.child();
+    crisis.metadata.destination = Some(VsmAddress::new(
+        runtime_id.clone(),
+        recursion_path.clone(),
+        SubsystemRole::System5,
+    ));
+    crisis.signal_id = signal.signal_id.clone();
+    crisis
+}
+
+fn legacy_message_kind_to_algedonic_kind(
+    kind: &MessageKind,
+    payload: &Value,
+) -> AlgedonicSignalKind {
+    if let Some(kind) = first_string(payload, &["kind", "signal_kind", "type"]) {
+        match kind.as_str() {
+            "pain" => return AlgedonicSignalKind::Pain,
+            "pleasure" => return AlgedonicSignalKind::Pleasure,
+            "opportunity" => return AlgedonicSignalKind::Opportunity,
+            "emergency" => return AlgedonicSignalKind::Emergency,
+            "anomaly" => return AlgedonicSignalKind::Anomaly,
+            _ => {}
+        }
+    }
+
+    match kind {
+        MessageKind::PainSignal | MessageKind::Critical | MessageKind::Emergency => {
+            AlgedonicSignalKind::Pain
+        }
+        MessageKind::PleasureSignal => AlgedonicSignalKind::Pleasure,
+        MessageKind::EmergencySignal => AlgedonicSignalKind::Emergency,
+        MessageKind::Alert => AlgedonicSignalKind::Anomaly,
+        _ => AlgedonicSignalKind::Anomaly,
+    }
+}
+
+fn legacy_payload_severity(kind: &MessageKind, payload: &Value) -> AlgedonicSeverity {
+    if let Some(severity) = first_string(payload, &["severity", "level"]) {
+        match severity.as_str() {
+            "critical" => return AlgedonicSeverity::Critical,
+            "high" => return AlgedonicSeverity::High,
+            "low" => return AlgedonicSeverity::Low,
+            _ => return AlgedonicSeverity::Medium,
+        }
+    }
+
+    match kind {
+        MessageKind::Critical | MessageKind::Emergency | MessageKind::EmergencySignal => {
+            AlgedonicSeverity::Critical
+        }
+        MessageKind::Alert | MessageKind::PainSignal => AlgedonicSeverity::High,
+        _ => AlgedonicSeverity::Medium,
+    }
+}
+
+fn algedonic_to_crisis_severity(severity: AlgedonicSeverity) -> CrisisSeverity {
+    match severity {
+        AlgedonicSeverity::Low => CrisisSeverity::Low,
+        AlgedonicSeverity::Medium => CrisisSeverity::Medium,
+        AlgedonicSeverity::High => CrisisSeverity::High,
+        AlgedonicSeverity::Critical => CrisisSeverity::Critical,
+    }
+}
+
+fn priority_to_protocol_priority(severity: AlgedonicSeverity, priority: f64) -> Priority {
+    if matches!(severity, AlgedonicSeverity::Critical) || priority >= 0.9 {
+        Priority::Critical
+    } else if matches!(severity, AlgedonicSeverity::High) || priority >= 0.75 {
+        Priority::High
+    } else if priority <= 0.25 {
+        Priority::Low
+    } else {
+        Priority::Normal
+    }
+}
+
+fn legacy_system_id_to_role(system_id: crate::shared::message::SystemId) -> SubsystemRole {
+    match system_id {
+        crate::shared::message::SystemId::System1 => SubsystemRole::System1,
+        crate::shared::message::SystemId::System2 => SubsystemRole::System2,
+        crate::shared::message::SystemId::System3 => SubsystemRole::System3,
+        crate::shared::message::SystemId::System3Star => SubsystemRole::System3Star,
+        crate::shared::message::SystemId::System4 => SubsystemRole::System4,
+        crate::shared::message::SystemId::System5 => SubsystemRole::System5,
+        crate::shared::message::SystemId::TemporalVariety => SubsystemRole::TemporalVariety,
+        crate::shared::message::SystemId::Algedonic => SubsystemRole::Algedonic,
+        crate::shared::message::SystemId::Telemetry => SubsystemRole::Telemetry,
+        crate::shared::message::SystemId::All => SubsystemRole::Custom("all".to_string()),
+        crate::shared::message::SystemId::External => SubsystemRole::Custom("external".to_string()),
+        other => SubsystemRole::Custom(other.subscriber_id().to_string()),
+    }
+}
+
+fn first_string(payload: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter().find_map(|key| {
+        payload
+            .get(*key)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+    })
+}
+
+fn first_number(payload: &Value, keys: &[&str]) -> Option<f64> {
+    keys.iter()
+        .find_map(|key| payload.get(*key).and_then(Value::as_f64))
+}
+
+fn value_details(payload: &Value) -> std::collections::BTreeMap<String, String> {
+    let mut details = std::collections::BTreeMap::new();
+
+    if let Some(object) = payload.as_object() {
+        for (key, value) in object {
+            let rendered = match value {
+                Value::Null => continue,
+                Value::Bool(value) => value.to_string(),
+                Value::Number(value) => value.to_string(),
+                Value::String(value) => value.clone(),
+                Value::Array(_) | Value::Object(_) => value.to_string(),
+            };
+            details.insert(key.clone(), rendered);
+        }
+    } else if !payload.is_null() {
+        details.insert("payload".to_string(), payload.to_string());
+    }
+
+    details
+}
+
+pub(crate) struct RuntimeRoleBundles<V>
+where
+    V: ViableSystem,
+{
+    pub(crate) system1: System1RuntimeRoles<V>,
+    pub(crate) system2: System2RuntimeRoles<V>,
+    pub(crate) system3: System3RuntimeRoles<V>,
+    pub(crate) system4: System4RuntimeRoles<V>,
+    pub(crate) system5: System5RuntimeRoles<V>,
+    pub(crate) variety: VarietyRuntimeRoles<V>,
+}
+
+impl<V> RuntimeRoleBundles<V>
+where
+    V: ViableSystem,
+{
+    pub(crate) fn new(
+        system1: System1RuntimeRoles<V>,
+        system2: System2RuntimeRoles<V>,
+        system3: System3RuntimeRoles<V>,
+        system4: System4RuntimeRoles<V>,
+        system5: System5RuntimeRoles<V>,
+        variety: VarietyRuntimeRoles<V>,
+    ) -> Self {
+        Self {
+            system1,
+            system2,
+            system3,
+            system4,
+            system5,
+            variety,
+        }
+    }
+}
+
 fn apply_audit_boundary<V>(
     request: &System3AuditRequest<V>,
     mut evidence: Vec<AuditEvidence<V>>,
@@ -1472,6 +2015,8 @@ where
     system4_runtime: Arc<System4Runtime<V>>,
     system5_roles: System5RuntimeRoles<V>,
     system5_runtime: Arc<System5Runtime<V>>,
+    variety_roles: VarietyRuntimeRoles<V>,
+    variety_runtime: Arc<VarietyRuntime<V>>,
     observer_bus: Arc<ObserverEventBus<V>>,
 }
 
@@ -1482,12 +2027,16 @@ where
     pub(crate) async fn new(
         config: RuntimeConfig,
         ports: RuntimePorts<V>,
-        system1_roles: System1RuntimeRoles<V>,
-        system2_roles: System2RuntimeRoles<V>,
-        system3_roles: System3RuntimeRoles<V>,
-        system4_roles: System4RuntimeRoles<V>,
-        system5_roles: System5RuntimeRoles<V>,
+        roles: RuntimeRoleBundles<V>,
     ) -> Result<Self, FrameworkError> {
+        let RuntimeRoleBundles {
+            system1: system1_roles,
+            system2: system2_roles,
+            system3: system3_roles,
+            system4: system4_roles,
+            system5: system5_roles,
+            variety: variety_roles,
+        } = roles;
         let observer_bus = Arc::new(ObserverEventBus::new(
             ports.event_sink(),
             config.event_buffer_capacity,
@@ -1504,6 +2053,8 @@ where
             System4Runtime::start(config.clone(), system4_roles.clone(), ports.clone()).await?;
         let system5_runtime =
             System5Runtime::start(config.clone(), system5_roles.clone(), ports.clone()).await?;
+        let variety_runtime =
+            VarietyRuntime::start(config.clone(), variety_roles.clone(), ports.clone()).await?;
 
         let readiness = RuntimeReadiness::new(vec![
             ReadinessCheck::new(
@@ -1514,12 +2065,12 @@ where
             ReadinessCheck::new(
                 ReadinessGate::SubsystemActors,
                 ReadinessStatus::Ready,
-                "typed System 1, System 2, System 3, System 4, and System 5 actor adapters started",
+                "typed System 1, System 2, System 3, System 4, System 5, and variety/algedonic/temporal actor adapters started",
             ),
             ReadinessCheck::new(
                 ReadinessGate::RoleImplementations,
                 ReadinessStatus::Ready,
-                "required System 1 role objects validated; System 2, System 3, System 4, and System 5 policies configured",
+                "required System 1 role objects validated; System 2, System 3, System 4, System 5, and variety/algedonic/temporal policies configured",
             ),
             ReadinessCheck::new(
                 ReadinessGate::Subscriptions,
@@ -1552,6 +2103,8 @@ where
             system4_runtime,
             system5_roles,
             system5_runtime,
+            variety_roles,
+            variety_runtime,
             observer_bus,
         })
     }
@@ -1650,6 +2203,17 @@ where
         )
     }
 
+    /// Returns a variety, algedonic, and temporal handle scoped to this runtime instance.
+    pub fn variety(&self) -> VarietyHandle<V> {
+        VarietyHandle::new(
+            self.config.clone(),
+            self.variety_roles.clone(),
+            self.ports.clone(),
+            Arc::clone(&self.variety_runtime),
+            Arc::clone(&self.system5_runtime),
+        )
+    }
+
     /// Builds a role context for any subsystem role.
     pub fn role_context(&self, role: SubsystemRole) -> RoleContext<V> {
         self.ports.role_context(
@@ -1698,6 +2262,7 @@ where
         };
 
         if !already_shutdown {
+            self.variety_runtime.shutdown().await?;
             self.system5_runtime.shutdown().await?;
             self.system4_runtime.shutdown().await?;
             self.system3_runtime.shutdown().await?;
@@ -1802,6 +2367,34 @@ fn register_runtime_components(directory: &mut RuntimeDirectory, config: &Runtim
         recursion_path,
         SubsystemRole::System5,
         "policy-actor",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::Variety,
+        "role-bundle",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::Variety,
+        "variety-lifecycle-actor",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::Algedonic,
+        "algedonic-lifecycle-bridge",
+        RuntimeComponentStatus::Ready,
+    );
+    directory.register(
+        runtime_id,
+        recursion_path,
+        SubsystemRole::TemporalVariety,
+        "temporal-lifecycle-strategy",
         RuntimeComponentStatus::Ready,
     );
     directory.register(

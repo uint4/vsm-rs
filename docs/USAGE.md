@@ -1002,8 +1002,44 @@ let response = runtime
 println!("escalations: {}", response.escalations.len());
 ```
 
-Legacy broker algedonic messages are not automatically converted into typed
-crisis records yet; that bridge belongs to the algedonic migration.
+### 14.4 Handle typed and legacy algedonic lifecycle records
+
+```rust
+use serde_json::json;
+use vsm_rs::protocol::algedonic::{
+    AlgedonicSeverity, AlgedonicSignalKind, AlgedonicSignalRecord,
+};
+use vsm_rs::{ChannelKind, MessageKind, SystemId, VsmMessage};
+
+let typed_signal = AlgedonicSignalRecord::<MySystem>::new(
+    AlgedonicSignalKind::Pain,
+    AlgedonicSeverity::Critical,
+    "regional settlement outage",
+)
+.with_priority(0.95);
+
+let cycle = runtime
+    .variety()
+    .handle_algedonic_signal(typed_signal)
+    .await?;
+
+let legacy = VsmMessage::new(
+    SystemId::System1,
+    SystemId::System5,
+    ChannelKind::Algedonic,
+    MessageKind::PainSignal,
+    json!({"severity": "high", "reason": "legacy pressure spike"}),
+);
+
+let bridged = runtime
+    .variety()
+    .handle_legacy_algedonic_message(legacy)
+    .await?;
+```
+
+High-priority typed algedonic lifecycle records are dispatched into the typed
+System 5 crisis path. The bridge does not make the legacy broker publish path
+durable; it converts a supplied legacy message into the typed runtime path.
 
 Prototype JSON helper algorithms are still available under
 `system5::defaults`, but the old System 5 JSON service actors are no longer
@@ -1076,9 +1112,9 @@ algedonic::configure_filters(vec![
 ### 15.4 Alert history
 
 ```rust
-use vsm_rs::channels::algedonic::alerting;
+use serde_json::json;
 
-let history = alerting::get_alert_history(&json!({ "limit": 25 }));
+let history = algedonic::get_alert_history(json!({ "limit": 25 })).await?;
 ```
 
 The actor computes descriptive routes and alert records. It does not deliver those routes to System 3 or System 5. Publish a `VsmMessage` separately when actor delivery is required.
@@ -1374,7 +1410,7 @@ Recommended next steps before production use:
 | Duplicate subscriber ID | Replaces previous subscription |
 | System 2 coordination | Typed runtime policy over System 1 coordination views |
 | System 4 intelligence | Typed runtime source/intelligence cycle |
-| System 5 crisis handling | Typed `handle_algedonic_signal` on `System5Handle`; legacy broker bridge deferred |
+| Algedonic crisis handling | Typed lifecycle on `VarietyHandle`; high-priority records dispatch to typed System 5 crisis handling |
 | System 1 channel reactions | Execute command, coordinate, audit |
 | Advanced algedonic routing | Records route; does not deliver it |
 | Temporal scheduled analysis | Not scheduled; queries calculate on demand |

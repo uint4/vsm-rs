@@ -781,6 +781,10 @@ Separate decision lifecycle from application-specific identity, values, and gove
 
 ## Milestone 10: Rebuild variety, algedonic, and temporal capabilities
 
+Status: Complete for ADR-0009 Option A as of 2026-06-19. Durable replay,
+automatic broker-to-runtime subscription, richer defaults, and recursion
+authority remain deferred to their owning milestones.
+
 ### Objectives
 
 Keep generic mechanisms in core while moving domain interpretation to roles.

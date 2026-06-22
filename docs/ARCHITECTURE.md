@@ -450,10 +450,11 @@ The following subscriptions are created during actor startup:
 
 The dedicated algedonic processor and temporal-variety actor are accessed through their typed APIs; they do not subscribe to the broker in the current supervision tree.
 
-System 1 has explicit legacy channel behavior. Typed System 5 crisis handling is
-available through `System5Handle::handle_algedonic_signal`; automatic bridging
-from the legacy broker's JSON algedonic messages to the typed crisis path is
-deferred to the algedonic migration.
+System 1 has explicit legacy channel behavior. Typed algedonic lifecycle
+handling is available through `VsmRuntime::variety()`, including bridge helpers
+for legacy broker `VsmMessage` values and advanced algedonic actor signals.
+High-priority typed algedonic records are dispatched into the typed System 5
+crisis path.
 
 ## 10. System 1: operational execution
 
@@ -624,17 +625,31 @@ Prototype JSON helpers are retained only as opt-in examples under
 
 ## 15. Algedonic architecture
 
-There are two related but distinct paths.
+There are three related but distinct paths.
 
-### 15.1 VSM algedonic channel
+### 15.1 Typed variety, algedonic, and temporal lifecycle
+
+`VsmRuntime::variety()` exposes the typed lifecycle adapter for:
+
+- variety observations, estimates, interventions, and outcomes;
+- algedonic signal classification, acknowledgement, expiry, escalation, alert
+  delivery, and System 5 crisis dispatch;
+- temporal samples, generic aggregates, and replaceable temporal analyses.
+
+The public role contracts are `VarietyEngineeringPolicy`,
+`AlgedonicLifecyclePolicy`, and `TemporalAnalysisPolicy`. Defaults are opt-in
+and deliberately minimal: no-op variety engineering, basic algedonic
+classification, and no-op temporal analysis.
+
+### 15.2 VSM algedonic channel
 
 `system1::send_algedonic_signal()` and `channels::algedonic_channel` create
-`VsmMessage` values and route them through the legacy broker. The typed System
-5 path accepts algedonic crisis records through
-`System5Handle::handle_algedonic_signal`. Automatic conversion between these
-paths is deferred to the algedonic migration.
+`VsmMessage` values and route them through the legacy broker. The typed
+`VarietyHandle::handle_legacy_algedonic_message` bridge converts those messages
+into typed algedonic lifecycle records when callers opt into the trait-driven
+runtime path.
 
-### 15.2 Advanced algedonic processor
+### 15.3 Advanced algedonic processor
 
 `channels::algedonic::Algedonic` is a separate typed actor. Its API creates `AlgedonicSignal` values with severity, urgency, priority, kind, source, and context. The actor:
 
@@ -646,7 +661,7 @@ paths is deferred to the algedonic migration.
 
 The calculated route is descriptive in the current implementation. It does not publish a `VsmMessage` to the channel broker or invoke the destination actor.
 
-Alert history is held in a process-global `Mutex<Vec<AlertRecord>>`; active signals and metrics live in the actor state.
+Alert history, active signals, routes, and metrics live in the actor state.
 
 ## 16. Temporal variety architecture
 
@@ -805,11 +820,10 @@ S3 or S3* -> Audit/AuditRequest -> System 1 Operations
 ### Algedonic escalation
 
 ```text
-Typed caller -> System5Handle::handle_algedonic_signal -> CrisisPolicy
+Typed caller -> VarietyHandle::handle_algedonic_signal -> System5 crisis path -> CrisisPolicy
+Legacy broker message -> VarietyHandle::handle_legacy_algedonic_message -> typed algedonic lifecycle
+Advanced algedonic signal -> VarietyHandle::handle_advanced_algedonic_signal -> typed algedonic lifecycle
 ```
-
-Legacy broker algedonic messages are not automatically converted into typed
-crisis records yet.
 
 ## 22. Extension strategy
 
@@ -860,8 +874,9 @@ The most important current limitations are:
 
 - The crate is still in baseline hardening; see `CODEX.md` for the latest
   validation evidence.
-- Legacy broker algedonic messages are not automatically converted into typed
-  System 5 crisis records.
+- Legacy broker algedonic messages are converted into the typed lifecycle only
+  when callers pass them through `VarietyHandle::handle_legacy_algedonic_message`;
+  the legacy broker itself remains non-durable.
 - Broker restart loses registrations and history for the legacy global actor
   facade. The typed runtime handle's observer subscriptions are owned by the
   handle, not the legacy broker.

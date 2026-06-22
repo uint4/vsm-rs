@@ -20,23 +20,28 @@ use crate::roles::system5::defaults::{
     NoopCrisisPolicy, NoopDecisionPolicy, NoopIdentityProvider, NoopValuesEvaluator,
     NoopValuesProvider,
 };
+use crate::roles::variety::defaults::{
+    DefaultAlgedonicLifecyclePolicy, NoopTemporalAnalysisPolicy, NoopVarietyEngineeringPolicy,
+};
 use crate::roles::{
-    AlertSink, AlgedonicPolicy, Auditor, Clock, CoordinationPolicy, CrisisPolicy, DecisionPolicy,
-    EnvironmentalSourceFactory, EventSink, Forecaster, IdentityProvider, IntelligenceModel,
-    NoopAlertSink, NoopEventSink, NoopReportSink, NoopStateStore, NoopTelemetrySink,
-    OperationalControlPolicy, OperationalUnitFactory, PerformanceModel, ReportSink,
-    ResourceGovernance, SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy,
-    SharedCrisisPolicy, SharedDecisionPolicy, SharedEnvironmentalSourceFactory, SharedForecaster,
+    AlertSink, AlgedonicLifecyclePolicy, AlgedonicPolicy, Auditor, Clock, CoordinationPolicy,
+    CrisisPolicy, DecisionPolicy, EnvironmentalSourceFactory, EventSink, Forecaster,
+    IdentityProvider, IntelligenceModel, NoopAlertSink, NoopEventSink, NoopReportSink,
+    NoopStateStore, NoopTelemetrySink, OperationalControlPolicy, OperationalUnitFactory,
+    PerformanceModel, ReportSink, ResourceGovernance, SharedAlgedonicLifecyclePolicy,
+    SharedAlgedonicPolicy, SharedAuditor, SharedCoordinationPolicy, SharedCrisisPolicy,
+    SharedDecisionPolicy, SharedEnvironmentalSourceFactory, SharedForecaster,
     SharedIdentityProvider, SharedIntelligenceModel, SharedOperationalControlPolicy,
     SharedOperationalUnitFactory, SharedPerformanceModel, SharedResourceGovernance,
-    SharedSignalInterpreter, SharedUnitSelectionPolicy, SharedValuesEvaluator,
-    SharedValuesProvider, SharedVarietyModel, SharedWorkModel, SignalInterpreter, StateStore,
-    SystemClock, TelemetrySink, UnitSelectionPolicy, ValuesEvaluator, ValuesProvider, VarietyModel,
-    ViableSystem, WorkModel,
+    SharedSignalInterpreter, SharedTemporalAnalysisPolicy, SharedUnitSelectionPolicy,
+    SharedValuesEvaluator, SharedValuesProvider, SharedVarietyEngineeringPolicy,
+    SharedVarietyModel, SharedWorkModel, SignalInterpreter, StateStore, SystemClock, TelemetrySink,
+    TemporalAnalysisPolicy, UnitSelectionPolicy, ValuesEvaluator, ValuesProvider,
+    VarietyEngineeringPolicy, VarietyModel, ViableSystem, WorkModel,
 };
 use crate::runtime::{
-    RuntimePorts, System1RuntimeRoles, System2RuntimeRoles, System3RuntimeRoles,
-    System4RuntimeRoles, System5RuntimeRoles, VsmRuntime,
+    RuntimePorts, RuntimeRoleBundles, System1RuntimeRoles, System2RuntimeRoles,
+    System3RuntimeRoles, System4RuntimeRoles, System5RuntimeRoles, VarietyRuntimeRoles, VsmRuntime,
 };
 
 /// Builder for one typed VSM runtime instance.
@@ -68,6 +73,9 @@ where
     values_evaluator: Option<SharedValuesEvaluator<V>>,
     decision_policy: Option<SharedDecisionPolicy<V>>,
     crisis_policy: Option<SharedCrisisPolicy<V>>,
+    variety_engineering_policy: Option<SharedVarietyEngineeringPolicy<V>>,
+    algedonic_lifecycle_policy: Option<SharedAlgedonicLifecyclePolicy<V>>,
+    temporal_analysis_policy: Option<SharedTemporalAnalysisPolicy<V>>,
     state_store: Arc<dyn StateStore<V>>,
     event_sink: Arc<dyn EventSink<V>>,
     report_sink: Arc<dyn ReportSink<V>>,
@@ -102,6 +110,9 @@ where
             values_evaluator: None,
             decision_policy: None,
             crisis_policy: None,
+            variety_engineering_policy: None,
+            algedonic_lifecycle_policy: None,
+            temporal_analysis_policy: None,
             state_store: Arc::new(NoopStateStore::<V>::new()),
             event_sink: Arc::new(NoopEventSink::<V>::new()),
             report_sink: Arc::new(NoopReportSink::<V>::new()),
@@ -469,6 +480,57 @@ where
         self
     }
 
+    /// Sets the optional variety engineering policy role.
+    pub fn variety_engineering_policy<P>(mut self, policy: P) -> Self
+    where
+        P: VarietyEngineeringPolicy<V> + 'static,
+    {
+        self.variety_engineering_policy = Some(Arc::new(policy));
+        self
+    }
+
+    /// Sets the optional variety engineering policy from a shared trait object.
+    pub fn variety_engineering_policy_arc(
+        mut self,
+        policy: SharedVarietyEngineeringPolicy<V>,
+    ) -> Self {
+        self.variety_engineering_policy = Some(policy);
+        self
+    }
+
+    /// Sets the optional algedonic lifecycle policy role.
+    pub fn algedonic_lifecycle_policy<P>(mut self, policy: P) -> Self
+    where
+        P: AlgedonicLifecyclePolicy<V> + 'static,
+    {
+        self.algedonic_lifecycle_policy = Some(Arc::new(policy));
+        self
+    }
+
+    /// Sets the optional algedonic lifecycle policy from a shared trait object.
+    pub fn algedonic_lifecycle_policy_arc(
+        mut self,
+        policy: SharedAlgedonicLifecyclePolicy<V>,
+    ) -> Self {
+        self.algedonic_lifecycle_policy = Some(policy);
+        self
+    }
+
+    /// Sets the optional temporal analysis policy role.
+    pub fn temporal_analysis_policy<P>(mut self, policy: P) -> Self
+    where
+        P: TemporalAnalysisPolicy<V> + 'static,
+    {
+        self.temporal_analysis_policy = Some(Arc::new(policy));
+        self
+    }
+
+    /// Sets the optional temporal analysis policy from a shared trait object.
+    pub fn temporal_analysis_policy_arc(mut self, policy: SharedTemporalAnalysisPolicy<V>) -> Self {
+        self.temporal_analysis_policy = Some(policy);
+        self
+    }
+
     /// Sets the state store port. The default is [`NoopStateStore`].
     pub fn state_store<S>(mut self, state_store: S) -> Self
     where
@@ -585,6 +647,9 @@ where
             values_evaluator,
             decision_policy,
             crisis_policy,
+            variety_engineering_policy,
+            algedonic_lifecycle_policy,
+            temporal_analysis_policy,
             state_store,
             event_sink,
             report_sink,
@@ -616,6 +681,11 @@ where
             decision_policy,
             crisis_policy,
         );
+        let variety_roles = variety_roles(
+            variety_engineering_policy,
+            algedonic_lifecycle_policy,
+            temporal_analysis_policy,
+        );
         let ports = RuntimePorts::noop()
             .with_state_store(state_store)
             .with_event_sink(event_sink)
@@ -624,16 +694,16 @@ where
             .with_alert_sink(alert_sink)
             .with_clock(clock);
 
-        VsmRuntime::new(
-            config,
-            ports,
+        let roles = RuntimeRoleBundles::new(
             roles,
             system2_roles,
             system3_roles,
             system4_roles,
             system5_roles,
-        )
-        .await
+            variety_roles,
+        );
+
+        VsmRuntime::new(config, ports, roles).await
     }
 }
 
@@ -753,5 +823,27 @@ where
         values_evaluator,
         decision_policy,
         crisis_policy,
+    )
+}
+
+fn variety_roles<V>(
+    variety_engineering_policy: Option<SharedVarietyEngineeringPolicy<V>>,
+    algedonic_lifecycle_policy: Option<SharedAlgedonicLifecyclePolicy<V>>,
+    temporal_analysis_policy: Option<SharedTemporalAnalysisPolicy<V>>,
+) -> VarietyRuntimeRoles<V>
+where
+    V: ViableSystem,
+{
+    let variety_engineering_policy = variety_engineering_policy
+        .unwrap_or_else(|| Arc::new(NoopVarietyEngineeringPolicy::<V>::new()));
+    let algedonic_lifecycle_policy = algedonic_lifecycle_policy
+        .unwrap_or_else(|| Arc::new(DefaultAlgedonicLifecyclePolicy::<V>::new()));
+    let temporal_analysis_policy = temporal_analysis_policy
+        .unwrap_or_else(|| Arc::new(NoopTemporalAnalysisPolicy::<V>::new()));
+
+    VarietyRuntimeRoles::new(
+        variety_engineering_policy,
+        algedonic_lifecycle_policy,
+        temporal_analysis_policy,
     )
 }

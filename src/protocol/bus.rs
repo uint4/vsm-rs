@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::roles::ViableSystem;
 
+use super::algedonic::{AlgedonicAcknowledgement, AlgedonicSignalRecord};
 use super::system1::{AuditRequest, UnitCommand, WorkRequest};
 use super::system2::{CoordinationAcknowledgement, CoordinationViewRecord};
 use super::system3::{DirectiveAcknowledgement, ResourceRequest, System3AuditRequest};
@@ -12,6 +13,8 @@ use super::system4::{
     System4IntelligenceCycle,
 };
 use super::system5::{CrisisSignal, DecisionRequest, PolicyDirectiveAcknowledgement};
+use super::temporal::{TemporalAnalysis, TemporalSample};
+use super::variety::{VarietyInterventionOutcome, VarietyObservation};
 
 /// Delivery result for a typed control-path message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -67,6 +70,9 @@ where
     System3(Box<System3ControlMessage<V>>),
     System4(Box<System4ControlMessage>),
     System5(Box<System5ControlMessage<V>>),
+    Variety(Box<VarietyControlMessage<V>>),
+    Algedonic(Box<AlgedonicControlMessage<V>>),
+    Temporal(Box<TemporalControlMessage>),
 }
 
 /// Typed System 1 control messages.
@@ -114,4 +120,28 @@ where
     DecisionRequest(Box<DecisionRequest<V>>),
     CrisisSignal(Box<CrisisSignal>),
     DirectiveAcknowledgement(Box<PolicyDirectiveAcknowledgement<V>>),
+}
+
+/// Typed variety control messages.
+pub enum VarietyControlMessage<V>
+where
+    V: ViableSystem,
+{
+    Observation(Box<VarietyObservation<V>>),
+    InterventionOutcomes(Vec<VarietyInterventionOutcome<V>>),
+}
+
+/// Typed algedonic control messages.
+pub enum AlgedonicControlMessage<V>
+where
+    V: ViableSystem,
+{
+    Signal(Box<AlgedonicSignalRecord<V>>),
+    Acknowledgement(Box<AlgedonicAcknowledgement<V>>),
+}
+
+/// Typed temporal control messages.
+pub enum TemporalControlMessage {
+    Sample(Box<TemporalSample>),
+    Analysis(Box<TemporalAnalysis>),
 }

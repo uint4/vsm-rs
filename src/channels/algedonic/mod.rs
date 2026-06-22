@@ -18,7 +18,9 @@ use serde_json::{json, Value};
 use crate::error::VsmError;
 use crate::names;
 
-use alerting::{send_alert, send_critical_alert};
+use alerting::{
+    get_alert_history as filter_alert_history, send_alert, send_critical_alert, AlertRecord,
+};
 use filtering::{apply_filters, default_filters, validate_filters, Filter};
 use routing::{default_rules, route_signal, RouteInfo, RoutingRule};
 use signals::{create_signal, AlgedonicSignal, Severity, SignalKind};
@@ -27,6 +29,7 @@ use signals::{create_signal, AlgedonicSignal, Severity, SignalKind};
 pub enum AlgedonicMsg {
     Signal(AlgedonicSignal),
     GetActiveSignals(RpcReplyPort<Vec<AlgedonicSignal>>),
+    GetAlertHistory(Value, RpcReplyPort<Vec<AlertRecord>>),
     ConfigureFilters(Vec<Filter>, RpcReplyPort<Result<(), VsmError>>),
     GetMetrics(RpcReplyPort<Value>),
     ProcessSignals,
@@ -55,6 +58,7 @@ pub struct AlgedonicState {
     filters: Vec<Filter>,
     routing_rules: Vec<RoutingRule>,
     routes: Vec<RouteInfo>,
+    alert_history: Vec<AlertRecord>,
     accepted: u64,
     rejected: u64,
 }
@@ -78,6 +82,7 @@ impl Actor for Algedonic {
             filters: args.filters,
             routing_rules: args.routing_rules,
             routes: Vec::new(),
+            alert_history: Vec::new(),
             accepted: 0,
             rejected: 0,
         })
@@ -93,10 +98,14 @@ impl Actor for Algedonic {
             AlgedonicMsg::Signal(signal) => {
                 if apply_filters(&signal, &state.filters) {
                     let route = route_signal(&signal, &state.routing_rules);
-                    if signal.priority >= 0.9 {
-                        send_critical_alert(signal.clone(), route.clone());
+                    let alert = if signal.priority >= 0.9 {
+                        send_critical_alert(signal.clone(), route.clone())
                     } else {
-                        send_alert(signal.clone(), route.clone());
+                        send_alert(signal.clone(), route.clone())
+                    };
+                    state.alert_history.push(alert);
+                    if state.alert_history.len() > 10_000 {
+                        state.alert_history.drain(0..1000);
                     }
                     state.routes.push(route);
                     state.active_signals.push(signal);
@@ -108,6 +117,9 @@ impl Actor for Algedonic {
             }
             AlgedonicMsg::GetActiveSignals(reply) => {
                 let _ = reply.send(state.active_signals.clone());
+            }
+            AlgedonicMsg::GetAlertHistory(options, reply) => {
+                let _ = reply.send(filter_alert_history(&state.alert_history, &options));
             }
             AlgedonicMsg::ConfigureFilters(filters, reply) => {
                 let result = validate_filters(&filters).map_err(VsmError::Validation);
@@ -122,6 +134,7 @@ impl Actor for Algedonic {
                     "accepted": state.accepted,
                     "rejected": state.rejected,
                     "routes": state.routes.len(),
+                    "alerts": state.alert_history.len(),
                     "correlations": correlation::analyze_patterns(&state.active_signals, &json!({}))
                 }));
             }
@@ -162,6 +175,11 @@ pub fn send_pleasure_signal(
 
 pub async fn get_active_signals() -> Result<Vec<AlgedonicSignal>, VsmError> {
     call_t!(actor_ref()?, AlgedonicMsg::GetActiveSignals, 1_000)
+        .map_err(|err| VsmError::Ractor(err.to_string()))
+}
+
+pub async fn get_alert_history(options: Value) -> Result<Vec<AlertRecord>, VsmError> {
+    call_t!(actor_ref()?, AlgedonicMsg::GetAlertHistory, 1_000, options)
         .map_err(|err| VsmError::Ractor(err.to_string()))
 }
 
@@ -220,6 +238,9 @@ pub async fn actor_call(
             Ok(json!({"status":"sent"}))
         }
         "active" | "get_active_signals" => Ok(serde_json::to_value(get_active_signals().await?)?),
+        "alerts" | "get_alert_history" => {
+            Ok(serde_json::to_value(get_alert_history(payload).await?)?)
+        }
         "metrics" | "get_metrics" => get_metrics().await,
         _ => Ok(json!({"status":"unknown_operation", "op":op})),
     }

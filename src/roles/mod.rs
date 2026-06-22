@@ -8,6 +8,7 @@ pub mod system3;
 pub mod system4;
 pub mod system5;
 pub mod types;
+pub mod variety;
 
 pub use context::{RoleContext, UnitRoleContext};
 pub use ports::{
@@ -38,3 +39,8 @@ pub use system5::{
     ValuesEvaluator, ValuesProvider,
 };
 pub use types::ViableSystem;
+pub use variety::{
+    AlgedonicLifecyclePolicy, SharedAlgedonicLifecyclePolicy, SharedTemporalAnalysisPolicy,
+    SharedVarietyEngineeringPolicy, TemporalAnalysisPolicy, VarietyAlgedonicTemporalRoles,
+    VarietyEngineeringPolicy,
+};

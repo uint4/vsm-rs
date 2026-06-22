@@ -14,13 +14,14 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 
 ## Approval state
 
-- Approved milestone: Milestone 9 — System 5 migration under ADR-0008 Option A
-- Approved scope: Convert System 5 to minimal framework-owned governance
-  records and provider/evaluator/decision/crisis roles over the existing
-  `ViableSystem` family; move embedded JSON heuristics to opt-in defaults;
-  update tests and docs; stop at the Milestone 9 review gate.
-- Approved architectural decisions: Recorded in ADR-0001 through ADR-0008
-- Pending decisions: None for current Milestone 9 scope
+- Approved milestone: Milestone 10 — variety and algedonic migration
+- Approved scope: Implement Option A for typed variety, algedonic, and temporal
+  lifecycle records and role traits over the existing `ViableSystem` family;
+  bridge algedonic signals into typed System 5 crisis handling; move
+  interpretation heuristics to defaults/examples; stop at the Milestone 10
+  review gate.
+- Approved architectural decisions: Recorded in ADR-0001 through ADR-0009
+- Pending decisions: None for current Milestone 10 scope
 - Permission to begin next milestone: No
 
 ## Pending user decisions
@@ -31,29 +32,31 @@ and acceptance criteria live in `IMPLEMENTATION.md`. Durable decisions live in
 | S3-001 | Public System 3/System 3* role boundary | A. Minimal framework-owned records with `ResourceGovernance`, `OperationalControlPolicy`, and `Auditor` roles over existing `ViableSystem` types; B. Add a System 3 extension type family for app-owned resource/directive/audit payloads; C. Convert control/resource governance now and defer System 3* audit | A | Milestone 7 | Approved 2026-06-18; recorded in ADR-0006 |
 | S4-001 | Public System 4 intelligence role boundary | A. Minimal framework-owned pipeline records with environmental source factories, signal interpretation, intelligence modeling, and forecasting/scenario roles over existing `ViableSystem` types; B. Add a System 4 extension type family with app-owned observation/signal/forecast/scenario/proposal payloads; C. Convert observation collection and interpretation now, defer forecasting/scenarios/proposals | A | Milestone 8 | Approved 2026-06-18; recorded in ADR-0007 |
 | S5-001 | Public System 5 policy/identity/decision role boundary | A. Minimal framework-owned governance records with provider/evaluator/decision/crisis roles over existing `ViableSystem` types; B. Add a System 5 extension type family with app-owned identity/values/policy/decision/crisis payloads; C. Convert typed decision lifecycle now and leave identity, values, and crisis as legacy/deferred boundaries | A | Milestone 9 | Approved 2026-06-19; recorded in ADR-0008 |
+| V10-001 | Public variety/algedonic/temporal role boundary | A. Minimal framework-owned lifecycle records and roles over existing `ViableSystem` types; B. Add extension type families for app-owned variety, algedonic, and temporal payloads; C. Implement the algedonic bridge first and defer public variety/temporal role replacement | A | Milestone 10 | Approved 2026-06-19; recorded in ADR-0009 |
 
 ## Current status
 
-- Overall state: Milestone 9 complete; stopped for user review
-- Current phase: Review gate after Milestone 9 — System 5 migration
-- Current milestone: Typed System 5 policy/identity/decision/crisis boundary
+- Overall state: Milestone 10 complete; stopped for user review
+- Current phase: Review gate after Milestone 10 — variety, algedonic, and
+  temporal lifecycle migration
+- Current milestone: Typed variety, algedonic, and temporal lifecycle boundary
   complete
 - Last updated: 2026-06-19
 - Last updated by: Codex
-- Baseline commit: `849b4ea`
+- Baseline commit: `7519aec`
 - Working branch: `master`
 - Repository clean at start: Yes.
-- Repository status now: Milestone 9 implementation, tests, docs, and
+- Repository status now: Milestone 10 implementation, tests, docs, and
   validation are complete; working tree contains changes pending review.
 
 ## Current objective
 
-Stop at the Milestone 9 review gate with validation evidence recorded.
+Stop at the Milestone 10 review gate with validation evidence recorded.
 
 ## Next action
 
-Wait for explicit user approval before beginning Milestone 10: variety and
-algedonic migration.
+Wait for explicit user approval before beginning Milestone 11: operational
+recursion.
 
 ---
 
@@ -74,8 +77,8 @@ algedonic migration.
 | 6 | System 3 and System 3* migration | Complete | ADR-0006 accepted as Option A; `src/protocol/system3.rs`, `src/roles/system3.rs`, `src/kernel/system3.rs`, `System3Handle`, builder hooks, docs, and `tests/system3_typed_runtime.rs` added; full validation passes. |
 | 7 | System 4 migration | Complete | ADR-0007 accepted as Option A; typed System 4 protocols, roles, private runtime actors, builder/handle APIs, defaults relocation, docs, and `tests/system4_typed_runtime.rs` added; full validation passes. |
 | 8 | System 5 migration | Complete | ADR-0008 accepted as Option A; typed System 5 protocols, roles, private runtime actors, builder/handle APIs, defaults relocation, docs, and `tests/system5_typed_runtime.rs` added; full validation passes. |
-| 9 | Variety and algedonic migration | Not started | Awaiting user approval. |
-| 10 | Temporal processing | Not started | Awaiting user approval. |
+| 9 | Variety and algedonic migration | Complete | ADR-0009 accepted as Option A; typed variety/algedonic/temporal records, role traits, runtime handle, System 5 crisis bridge, actor-owned alert history, docs, and `tests/variety_algedonic_temporal_runtime.rs` added; full validation passes. |
+| 10 | Temporal processing | Complete | Typed temporal samples, aggregates, and replaceable analysis strategy are part of Milestone 10; scheduled/durable temporal processing remains deferred. |
 | 11 | Recursive runtimes | Not started | Awaiting user approval. |
 | 12 | Persistence and recovery | Not started | Awaiting user approval. |
 | 13 | Publication hardening | Not started | Awaiting user approval. |
@@ -97,15 +100,15 @@ documentation are complete.
 
 | Command | Result | Last run | Notes |
 |---|---:|---|---|
-| `cargo fmt --all -- --check` | Passed | 2026-06-19 | No formatting drift after Milestone 9. |
+| `cargo fmt --all -- --check` | Passed | 2026-06-19 | No formatting drift after Milestone 10. |
 | `cargo check --all-targets --all-features --locked` | Passed | 2026-06-19 | No warnings. |
-| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-19 | 61 integration tests across foundational, full-system, Phase 0, role-contract, runtime-builder, typed-System-1, typed-System-2, typed-System-3, typed-System-4, and typed-System-5 suites; example test targets have 0 tests. |
+| `cargo test --all-targets --all-features --locked` | Passed | 2026-06-19 | 66 integration tests across foundational, full-system, Phase 0, role-contract, runtime-builder, typed-System-1, typed-System-2, typed-System-3, typed-System-4, typed-System-5, and variety/algedonic/temporal suites; example test targets have 0 tests. |
 | `cargo clippy --all-targets --all-features --locked -- -D warnings` | Passed | 2026-06-19 | No warnings. |
 | `cargo doc --all-features --no-deps --locked` | Passed | 2026-06-19 | Generated `target/doc/vsm_rs/index.html`. |
 | `cargo test --doc --all-features --locked` | Passed | 2026-06-19 | 0 doctests. |
 | `cargo run --example typed_runtime_builder --locked` | Passed | 2026-06-19 | Example starts typed runtime handle through `VsmBuilder`, registers a typed unit, processes typed work, and shuts down. |
 | `cargo run --example basic_usage --locked` | Passed | 2026-06-19 | Example starts runtime, registers `payments`, processes a transaction, uses `system4::defaults` and `system5::defaults` for prototype helper output, prints status with no legacy System 5 JSON state, records System 2 target unavailability on the legacy coordination channel, and exits. |
-| `git diff --check` | Passed | 2026-06-19 | No whitespace errors after Milestone 9. |
+| `git diff --check` | Passed | 2026-06-19 | No whitespace errors after Milestone 10 implementation. |
 
 Do not replace failing results with “not run.” Preserve the most recent failure
 until a subsequent run succeeds.
@@ -382,9 +385,9 @@ until a subsequent run succeeds.
 
 ## Work in progress
 
-No implementation work is active. Milestone 9 is complete under ADR-0008
+No implementation work is active. Milestone 10 is complete under ADR-0009
 Option A, and the repository is stopped at the review gate pending explicit
-approval for Milestone 10.
+approval for Milestone 11.
 
 ---
 
@@ -397,8 +400,10 @@ after the Milestone 3 review gate, approved Milestone 5 after the Milestone 4
 review gate, approved Milestone 6 after the Milestone 5 review gate, and
 approved Milestone 7 after the Milestone 6 review gate, approved Milestone 8
 after the Milestone 7 review gate, approved Milestone 9 start after the
-Milestone 8 review gate, and approved ADR-0008 Option A for the System 5 role
-boundary. Accepted migration decisions are recorded as ADRs.
+Milestone 8 review gate, approved ADR-0008 Option A for the System 5 role
+boundary, approved Milestone 10 start after the Milestone 9 review gate, and
+approved ADR-0009 Option A for the variety/algedonic/temporal boundary.
+Accepted migration decisions are recorded as ADRs.
 
 | ADR | Decision | Status |
 |---|---|---|
@@ -410,6 +415,7 @@ boundary. Accepted migration decisions are recorded as ADRs.
 | [ADR-0006](docs/adr/0006-system3-role-boundary.md) | Minimal System 3/System 3* role boundary | Accepted |
 | [ADR-0007](docs/adr/0007-system4-intelligence-boundary.md) | Minimal System 4 environmental-intelligence role boundary | Accepted |
 | [ADR-0008](docs/adr/0008-system5-policy-boundary.md) | Minimal System 5 policy/identity/decision role boundary | Accepted |
+| [ADR-0009](docs/adr/0009-variety-algedonic-temporal-boundary.md) | Variety, algedonic, and temporal role boundary | Accepted |
 
 Milestone 1 introduced no new ADR-level architectural decisions. Implementation
 notes:
@@ -694,9 +700,11 @@ Removed characterized bug behavior:
   service channels receive `TargetUnavailable`.
 - Automatic routing of System 2 escalation records into System 3 governance is
   still deferred; callers can invoke System 3 through the typed handle.
-- Legacy broker algedonic messages are not automatically converted into typed
-  System 5 crisis records. Callers can use `System5Handle::handle_algedonic_signal`;
-  the bridge belongs to the variety/algedonic milestone.
+- Typed algedonic lifecycle handling now bridges supplied legacy broker
+  `VsmMessage` values and advanced algedonic actor signals through
+  `VarietyHandle`, with high-priority records dispatched into typed System 5
+  crisis handling. The legacy broker publish path itself remains non-durable
+  and does not automatically invoke a typed runtime instance.
 - Temporary `legacy` adapters intentionally bridge current JSON forms for
   round-trip tests only; they are not the target public application surface.
 - First-wave role contracts, contexts, and runtime handles are wired into the
@@ -721,7 +729,7 @@ resolved, and record the resolution in the development history.
 |---|---|---|---|---|
 | System 1 restart/reconciliation | Automatic unit restart, Operations restart directory reconstruction, and unit-supervisor reconciliation are outside the first actor-backed typed slice. | Typed unit actors stop cleanly on unregister/shutdown, but crash recovery is not complete. | Typed System 1 registration/work path. | System 1 hardening |
 | Durable `StateStore` implementations | Persistence contract is accepted, but durable adapters are outside Phase 0. | Current stores are in-memory or no-op only. | StateStore core contract and persistence milestone approval. | Persistence and recovery |
-| Legacy broker algedonic bridge to typed crisis records | Typed System 5 can handle algedonic crisis signals directly, but the old broker channel is not yet bridged. | Legacy algedonic channel messages are recorded through broker delivery, not System 5 crisis audit records. | Typed System 5 handle and owning variety/algedonic milestone approval. | Variety and algedonic migration |
+| Automatic legacy-broker-to-typed algedonic subscription | `VarietyHandle` can bridge supplied legacy algedonic messages, but the legacy broker publish path does not own or discover typed runtime instances. | Publishing to the legacy broker remains separate from typed lifecycle processing unless caller code invokes the typed bridge. | Typed runtime routing or adapter design. | Adapter/hardening |
 | Full event replay and durability | Requires event model and store semantics not approved for Phase 0. | Events and channel history remain non-durable. | Typed bus/event bus and persistence decisions. | Persistence and recovery |
 | Automatic work retries | User chose no automatic work retries in first System 1 slice. | Work retry behavior remains caller/application responsibility. | Failure classification and retry policy review. | Backpressure/execution hardening |
 | Richer defaults | Defaults must be opt-in and non-normative. | Initial defaults remain minimal. | Role contracts and default namespaces. | System 1 and later default milestones |
@@ -2215,3 +2223,144 @@ passed
 
 Wait for explicit user review and approval before beginning Milestone 10:
 variety and algedonic migration.
+
+#### 2026-06-19 — Milestone 10 Start
+
+**Objective**
+
+Begin the variety/algedonic milestone after the user completed the Milestone 9
+review gate, and stop before implementation because the
+variety/algedonic/temporal role boundary is a material public API decision.
+
+**Changes**
+
+- Updated this journal to record Milestone 10 approval, baseline commit, clean
+  starting tree, scope, and pending decision V10-001.
+- Added proposed ADR-0009 for the public variety, algedonic, and temporal
+  boundary.
+- Updated the ADR index with ADR-0009 as `Proposed`.
+- No Milestone 10 Rust public API or runtime implementation changes have
+  begun.
+
+**Decisions**
+
+- User explicitly approved proceeding after the Milestone 9 review gate.
+- V10-001 is pending because this milestone decides public role traits,
+  protocol records, whether new application associated types are required, how
+  algedonic signals bridge into typed System 5 crisis handling, and how much of
+  temporal analysis becomes runtime strategy versus defaults.
+
+**Validation**
+
+Most recent full validation remains the Milestone 9 gate suite, all passing on
+2026-06-19. These Milestone 10 start edits are documentation-only.
+
+```text
+git diff --check
+passed
+```
+
+**Next task**
+
+Wait for the user to choose V10-001. If Option A is approved, accept ADR-0009,
+implement the typed variety/algedonic/temporal migration slice, and stop at the
+Milestone 10 review gate.
+
+#### 2026-06-19 — Milestone 10 Complete
+
+**Objective**
+
+Implement ADR-0009 Option A: typed framework-owned variety, algedonic, and
+temporal lifecycle records and role traits over the existing `ViableSystem`
+family, bridge algedonic inputs into typed System 5 crisis handling, remove
+process-global alert history, update docs/tests, and stop at the Milestone 10
+review gate.
+
+**Changes**
+
+- Added typed variety lifecycle protocols in `src/protocol/variety.rs` for
+  estimates, uncertainty, observations, interventions, outcomes, cycles, and
+  snapshots.
+- Added typed algedonic lifecycle protocols in `src/protocol/algedonic.rs` for
+  signal kinds/severity/status, acknowledgements, escalations, alerts, cycles,
+  and snapshots.
+- Added typed temporal protocols in `src/protocol/temporal.rs` for samples,
+  aggregates, patterns, forecasts, causal hypotheses, analyses, and snapshots.
+- Added `src/roles/variety.rs` with `VarietyEngineeringPolicy`,
+  `AlgedonicLifecyclePolicy`, `TemporalAnalysisPolicy`, shared role aliases,
+  a static role catalog trait, and minimal defaults.
+- Added private `src/kernel/variety.rs` actor adapter and public runtime APIs:
+  `VarietyRuntimeRoles`, `VarietyHandle`, `VsmRuntime::variety()`, and builder
+  setters for the three strategy roles.
+- Added typed bus/event/report variants for variety, algedonic, and temporal
+  lifecycle records.
+- Bridged typed algedonic signals, supplied legacy broker `VsmMessage`
+  algedonic payloads, and advanced algedonic actor signals through
+  `VarietyHandle`; high-priority records dispatch to the typed System 5 crisis
+  policy path.
+- Moved legacy advanced algedonic alert history from process-global static
+  storage into actor-owned state and exposed `channels::algedonic::get_alert_history`.
+- Updated crate exports, README, architecture, usage, developer docs, ADR index,
+  and ADR-0009 status.
+- Added `tests/variety_algedonic_temporal_runtime.rs` covering variety
+  interventions/outcomes, algedonic System 5 dispatch and alert sink delivery,
+  legacy/advanced algedonic bridges, temporal strategy analysis, and
+  acknowledgement-expiry escalation.
+
+**Public APIs changed**
+
+- Added public modules: `protocol::variety`, `protocol::algedonic`,
+  `protocol::temporal`, and `roles::variety`.
+- Added public role traits: `VarietyEngineeringPolicy`,
+  `AlgedonicLifecyclePolicy`, `TemporalAnalysisPolicy`, and
+  `VarietyAlgedonicTemporalRoles`.
+- Added builder methods: `variety_engineering_policy(_arc)`,
+  `algedonic_lifecycle_policy(_arc)`, and `temporal_analysis_policy(_arc)`.
+- Added runtime APIs: `VsmRuntime::variety()`, `VarietyHandle`, and
+  `VarietyRuntimeRoles`.
+- Changed `TemporalControlMessage::Sample` to carry `Box<TemporalSample>` to
+  keep the control enum compact.
+- Changed advanced algedonic alert history access from
+  `channels::algedonic::alerting::get_alert_history(&Value)` to async actor
+  API `channels::algedonic::get_alert_history(Value)`.
+
+**Decisions**
+
+- ADR-0009 accepted as Option A after explicit user approval. No new
+  `ViableSystem` associated types were added.
+- Variety/algedonic/temporal application meaning remains in role traits; the
+  framework owns generic lifecycle records, deadlines, priority dispatch,
+  escalation records, event/report emission, and alert-sink delivery.
+
+**Validation**
+
+```text
+cargo fmt --all -- --check
+cargo check --all-targets --all-features --locked
+cargo test --all-targets --all-features --locked
+cargo clippy --all-targets --all-features --locked -- -D warnings
+cargo doc --all-features --no-deps --locked
+cargo test --doc --all-features --locked
+cargo run --example typed_runtime_builder --locked
+cargo run --example basic_usage --locked
+git diff --check
+```
+
+All passed on 2026-06-19. The full test suite now includes 66 integration tests.
+
+**Risks and deferred work**
+
+- Typed variety/algedonic/temporal state remains in memory and restart-volatile.
+  Durable lifecycle replay belongs to the persistence milestone.
+- The legacy broker does not automatically discover a typed runtime instance;
+  callers must invoke `VarietyHandle::handle_legacy_algedonic_message` to bridge
+  a legacy algedonic message into typed lifecycle handling.
+- Detailed recursion authority and parent/child translation semantics remain
+  deferred to Milestone 11.
+- Full temporal scheduling, durable windows, and richer default analysis
+  algorithms remain deferred.
+
+**Next task**
+
+Wait for explicit user review and approval before beginning Milestone 11:
+operational recursion.
